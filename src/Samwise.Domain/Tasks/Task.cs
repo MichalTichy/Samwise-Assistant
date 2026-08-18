@@ -1,6 +1,6 @@
 namespace Samwise.Domain.Tasks;
 
-public sealed class SamwiseTask
+public sealed class Task
 {
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
@@ -14,7 +14,7 @@ public sealed class SamwiseTask
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
 
-    public static SamwiseTask CreateFromInbound(
+    public static Task CreateFromInbound(
         string description,
         string? proposedTitle,
         DateTimeOffset now)
@@ -28,7 +28,7 @@ public sealed class SamwiseTask
                 .FirstOrDefault() ?? normalized
             : proposedTitle.Trim();
 
-        return new SamwiseTask
+        return new Task
         {
             Id = Guid.NewGuid(),
             Title = normalizedTitle.Length <= 96 ? normalizedTitle : normalizedTitle[..93] + "...",

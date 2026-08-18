@@ -5,6 +5,7 @@ using Samwise.Domain.Prompts;
 using Samwise.Domain.Tasks;
 using Samwise.Infrastructure.Persistence.Marten.Inbox;
 using Shared.Infrastructure.Persistence.Marten.StorageConfiguration;
+using DomainTask = Samwise.Domain.Tasks.Task;
 
 namespace Samwise.Infrastructure.Persistence.Marten.Storage;
 
@@ -14,7 +15,9 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
     {
         options.DatabaseSchemaName = "samwise";
 
-        options.Schema.For<SamwiseTask>()
+        // Keep the pre-rename document identity so existing databases need no table migration.
+        options.Schema.For<DomainTask>()
+            .DocumentAlias("samwisetask")
             .UseOptimisticConcurrency(true)
             .Index(task => task.Status);
         options.Schema.For<TaskPlan>().Index(plan => plan.TaskId);

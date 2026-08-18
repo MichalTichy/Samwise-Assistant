@@ -5,6 +5,8 @@ using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Tasks;
 using Samwise.Infrastructure.Persistence.Marten.Specifications;
+using DomainTask = Samwise.Domain.Tasks.Task;
+using Task = System.Threading.Tasks.Task;
 
 namespace Samwise.Infrastructure.Persistence.Marten.Tasks;
 
@@ -16,7 +18,7 @@ internal sealed class MartenTaskStore(IDocumentStore store, IClock clock) : ITas
     {
         await using var session = store.LightweightSession();
         var tasks = await new BoardTasksSpecification(includeArchived)
-            .ApplyAsync(session.Query<SamwiseTask>(), cancellationToken);
+            .ApplyAsync(session.Query<DomainTask>(), cancellationToken);
 
         var result = new List<TaskCard>(tasks.Count);
         foreach (var task in tasks)
@@ -43,7 +45,7 @@ internal sealed class MartenTaskStore(IDocumentStore store, IClock clock) : ITas
     public async Task<TaskDetails?> GetTaskAsync(Guid taskId, CancellationToken cancellationToken = default)
     {
         await using var session = store.LightweightSession();
-        var task = await session.LoadAsync<SamwiseTask>(taskId, cancellationToken);
+        var task = await session.LoadAsync<DomainTask>(taskId, cancellationToken);
         if (task is null)
         {
             return null;
@@ -216,11 +218,11 @@ internal sealed class MartenTaskStore(IDocumentStore store, IClock clock) : ITas
         }
     }
 
-    private static async Task<SamwiseTask> LoadRequiredTaskAsync(
+    private static async Task<DomainTask> LoadRequiredTaskAsync(
         IQuerySession session,
         Guid taskId,
         CancellationToken cancellationToken) =>
-        await session.LoadAsync<SamwiseTask>(taskId, cancellationToken)
+        await session.LoadAsync<DomainTask>(taskId, cancellationToken)
         ?? throw new KeyNotFoundException($"Task '{taskId}' was not found.");
 
     private static async Task<TaskPlan> LoadRequiredPlanAsync(
@@ -238,7 +240,7 @@ internal sealed class MartenTaskStore(IDocumentStore store, IClock clock) : ITas
 
     private static AgentWorkItem CreateWorkItem(
         AgentWorkKind kind,
-        SamwiseTask task,
+        DomainTask task,
         DateTimeOffset now,
         Guid? planId = null) =>
         new()

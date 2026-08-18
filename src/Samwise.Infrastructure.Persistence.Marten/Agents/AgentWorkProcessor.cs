@@ -9,6 +9,8 @@ using Samwise.Domain.Inbox;
 using Samwise.Domain.Prompts;
 using Samwise.Domain.Tasks;
 using Samwise.Infrastructure.Persistence.Marten.Specifications;
+using DomainTask = Samwise.Domain.Tasks.Task;
+using Task = System.Threading.Tasks.Task;
 
 namespace Samwise.Infrastructure.Persistence.Marten.Agents;
 
@@ -38,10 +40,10 @@ internal sealed class AgentWorkProcessor(
         var now = clock.UtcNow;
         foreach (var workItem in abandoned)
         {
-            SamwiseTask? task = null;
+            DomainTask? task = null;
             if (workItem.TaskId is { } taskId)
             {
-                task = await session.LoadAsync<SamwiseTask>(taskId, cancellationToken);
+                task = await session.LoadAsync<DomainTask>(taskId, cancellationToken);
             }
 
             var executionMayHaveStarted =
@@ -182,7 +184,7 @@ internal sealed class AgentWorkProcessor(
             var template = await session.LoadAsync<PromptTemplate>("intake", cancellationToken)
                 ?? throw new InvalidOperationException("The intake prompt is missing.");
             var candidates = await new ActiveTaskCandidatesSpecification()
-                .ApplyAsync(session.Query<SamwiseTask>(), cancellationToken);
+                .ApplyAsync(session.Query<DomainTask>(), cancellationToken);
             data = new IntakeData(inboundEvent, template, candidates);
         }
 
@@ -299,7 +301,7 @@ internal sealed class AgentWorkProcessor(
                         break;
                     }
 
-                    var task = await session.LoadAsync<SamwiseTask>(existingTaskId, cancellationToken);
+                    var task = await session.LoadAsync<DomainTask>(existingTaskId, cancellationToken);
                     if (task is null || task.Status is SamwiseTaskStatus.Completed or SamwiseTaskStatus.Discarded)
                     {
                         MarkForReview(inboundEvent, "The classifier selected a task that is missing or no longer active.");
@@ -346,7 +348,7 @@ internal sealed class AgentWorkProcessor(
         PlanningData data;
         await using (var session = store.LightweightSession())
         {
-            var task = await session.LoadAsync<SamwiseTask>(taskId, cancellationToken)
+            var task = await session.LoadAsync<DomainTask>(taskId, cancellationToken)
                 ?? throw new InvalidOperationException("The task no longer exists.");
             if (task.Revision != workItem.TaskRevision || task.Status == SamwiseTaskStatus.Discarded)
             {
@@ -405,7 +407,7 @@ internal sealed class AgentWorkProcessor(
         }
 
         await using var finalize = store.LightweightSession();
-        var currentTask = await finalize.LoadAsync<SamwiseTask>(taskId, cancellationToken)
+        var currentTask = await finalize.LoadAsync<DomainTask>(taskId, cancellationToken)
             ?? throw new InvalidOperationException("The task no longer exists.");
         var currentWork = await finalize.LoadAsync<AgentWorkItem>(workItem.Id, cancellationToken)
             ?? throw new InvalidOperationException("The work item no longer exists.");
@@ -467,7 +469,7 @@ internal sealed class AgentWorkProcessor(
         ExecutionData data;
         await using (var session = store.LightweightSession())
         {
-            var task = await session.LoadAsync<SamwiseTask>(taskId, cancellationToken)
+            var task = await session.LoadAsync<DomainTask>(taskId, cancellationToken)
                 ?? throw new InvalidOperationException("The task no longer exists.");
             if (task.Revision != workItem.TaskRevision ||
                 task.Status != SamwiseTaskStatus.Approved ||
@@ -512,7 +514,7 @@ internal sealed class AgentWorkProcessor(
 
         await using (var start = store.LightweightSession())
         {
-            var currentTask = await start.LoadAsync<SamwiseTask>(taskId, cancellationToken)
+            var currentTask = await start.LoadAsync<DomainTask>(taskId, cancellationToken)
                 ?? throw new InvalidOperationException("The task no longer exists.");
             currentTask.StartExecution(data.Plan.Id, workItem.TaskRevision, clock.UtcNow);
             start.Store(currentTask);
@@ -538,7 +540,7 @@ internal sealed class AgentWorkProcessor(
         }
 
         await using var finalize = store.LightweightSession();
-        var taskToFinish = await finalize.LoadAsync<SamwiseTask>(taskId, cancellationToken)
+        var taskToFinish = await finalize.LoadAsync<DomainTask>(taskId, cancellationToken)
             ?? throw new InvalidOperationException("The task no longer exists.");
         var workToFinish = await finalize.LoadAsync<AgentWorkItem>(workItem.Id, cancellationToken)
             ?? throw new InvalidOperationException("The work item no longer exists.");
@@ -642,10 +644,10 @@ internal sealed class AgentWorkProcessor(
     {
         await using var session = store.LightweightSession();
         var currentWork = await session.LoadAsync<AgentWorkItem>(workItem.Id, cancellationToken);
-        SamwiseTask? task = null;
+        DomainTask? task = null;
         if (workItem.TaskId is { } taskId)
         {
-            task = await session.LoadAsync<SamwiseTask>(taskId, cancellationToken);
+            task = await session.LoadAsync<DomainTask>(taskId, cancellationToken);
         }
         if (currentWork is null)
         {
@@ -779,11 +781,11 @@ internal sealed class AgentWorkProcessor(
         ? string.Empty
         : string.Join(Environment.NewLine, comments.Select(comment => $"- [{comment.AuthorKind}] {comment.Body}"));
 
-    internal static SamwiseTask CreateTaskFromIntake(
+    internal static DomainTask CreateTaskFromIntake(
         InboundEvent inboundEvent,
         IntakeResult result,
         DateTimeOffset now) =>
-        SamwiseTask.CreateFromInbound(
+        DomainTask.CreateFromInbound(
             inboundEvent.Text,
             result.ProposedTitle,
             now);
@@ -842,7 +844,7 @@ internal sealed class AgentWorkProcessor(
 
     private static AgentWorkItem CreateTaskWorkItem(
         AgentWorkKind kind,
-        SamwiseTask task,
+        DomainTask task,
         DateTimeOffset now,
         Guid? planId = null) =>
         new()
@@ -860,17 +862,17 @@ internal sealed class AgentWorkProcessor(
     private sealed record IntakeData(
         InboundEvent InboundEvent,
         PromptTemplate Template,
-        IReadOnlyList<SamwiseTask> Candidates);
+        IReadOnlyList<DomainTask> Candidates);
 
     private sealed record PlanningData(
-        SamwiseTask Task,
+        DomainTask Task,
         PromptTemplate Template,
         IReadOnlyList<TaskComment> Comments,
         TaskPlan? PreviousPlan,
         int PlanNumber);
 
     private sealed record ExecutionData(
-        SamwiseTask Task,
+        DomainTask Task,
         TaskPlan Plan,
         PromptTemplate Template,
         IReadOnlyList<TaskComment> Comments);

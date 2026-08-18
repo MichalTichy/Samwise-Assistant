@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Samwise.Domain.Tasks;
 using Samwise.Logic.Tasks.Usecases;
 using TaskDetailsModel = Samwise.Logic.Tasks.TaskDetails;
+using Task = System.Threading.Tasks.Task;
 
 namespace Samwise.Web.Components.Pages;
 

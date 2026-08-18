@@ -1,6 +1,7 @@
 using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Tasks;
+using DomainTask = Samwise.Domain.Tasks.Task;
 
 namespace Samwise.Logic.Tasks;
 
@@ -14,7 +15,7 @@ public sealed record TaskCard(
     int? PlanNumber);
 
 public sealed record TaskDetails(
-    SamwiseTask Task,
+    DomainTask Task,
     TaskPlan? CurrentPlan,
     IReadOnlyList<TaskComment> Comments,
     IReadOnlyList<PlanDecision> Decisions,

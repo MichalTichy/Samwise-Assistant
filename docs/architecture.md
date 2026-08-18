@@ -90,7 +90,7 @@ Every invocation stores its fully rendered prompt, so changing the current templ
 - **Input events** — chronological source text, pending/final handling decision, classifier explanation, linked task, and retry for events needing review.
 - **Task detail** — current plan, steps, tools, assumptions, risks, approve/reject/discard controls, comments, decisions, and recent agent activity.
 - **Prompts** — simple current-template editor and placeholder legend.
-- **Account** — ASP.NET Core Identity login and owner settings. Public registration is not exposed.
+- **Account** — ASP.NET Core Identity login and owner settings. Public registration is not exposed. V1 has no email sender or self-service recovery flow; while the owner has no password, the login page displays a one-time password-setting link.
 
 Task comments are first-class now. This supports ordinary context and rejection feedback immediately, and lets a future Todoist projection treat comments as another command surface without changing the task model.
 
@@ -116,6 +116,7 @@ The solution follows the useful Edifio conventions while retaining the single-pr
 - feature operations are explicit MediatR `*Usecase` request/handler pairs in `Samwise.Logic`;
 - reusable Marten queries are named `*Specification` classes in `Samwise.Infrastructure.Persistence.Marten`;
 - each infrastructure concern has its own project and `IInstaller` implementation;
+- the Codex Gateway transport and selectable agent-runtime implementations are separate infrastructure projects;
 - EF migration/owner creation and prompt seeding are `InitializerBase` startup initializers;
 - custom Blazor pages keep markup in `Page.razor` and behavior in `Page.razor.cs`;
 - `Program.cs` is only the composition/pipeline entry point and discovers installers and initializers;

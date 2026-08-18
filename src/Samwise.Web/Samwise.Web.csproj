@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Samwise.Logic\Samwise.Logic.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.AgentGateway\Samwise.Infrastructure.AgentGateway.csproj" />
+    <ProjectReference Include="..\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Persistence.Identity\Samwise.Infrastructure.Persistence.Identity.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Persistence.Marten\Samwise.Infrastructure.Persistence.Marten.csproj" />
     <ProjectReference Include="..\Samwise.ServiceDefaults\Samwise.ServiceDefaults.csproj" />

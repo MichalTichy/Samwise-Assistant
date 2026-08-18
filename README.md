@@ -39,7 +39,8 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - `Samwise.Domain` — task, plan, inbound-event, comment, decision, and agent-work state
 - `Samwise.Logic` — MediatR use cases, application ports, prompt rendering, and UI-facing models
 - `Samwise.Infrastructure.Persistence.Marten` — Marten storage, named specifications, durable agent work, and the hosted worker
-- `Samwise.Infrastructure.AgentGateway` — Microsoft Agent Framework and Codex Gateway adapter
+- `Samwise.Infrastructure.AgentGateway` — Microsoft Agent Framework/OpenAI transport for the Codex Gateway
+- `Samwise.Infrastructure.AgentRuntimes` — selectable Gateway and deterministic demo implementations of `IAgentRuntime`
 - `Samwise.Infrastructure.Persistence.Identity` — ASP.NET Core Identity storage, migration, and owner initializer
 - `Samwise.Web` — authenticated Blazor composition root and presentation
 - `Samwise.AppHost` — local PostgreSQL and web orchestration
@@ -53,11 +54,10 @@ See [architecture.md](docs/architecture.md) for the detailed design and [gateway
 
 Prerequisites: .NET SDK 10.0.301 or compatible and Docker Desktop.
 
-Configure the first and only owner account with ASP.NET user secrets:
+Configure the first and only owner email with ASP.NET user secrets:
 
 ```powershell
 dotnet user-secrets set "OwnerAccount:Email" "you@example.com" --project src/Samwise.Web
-dotnet user-secrets set "OwnerAccount:Password" "choose-a-long-unique-password" --project src/Samwise.Web
 ```
 
 Start the Aspire host:
@@ -65,6 +65,10 @@ Start the Aspire host:
 ```powershell
 dotnet run --project src/Samwise.AppHost
 ```
+
+On first launch, open the login page and follow its **Set the password** link. V1 does not send email
+or expose a self-service password-reset flow. Complete this first-run setup before exposing Samwise
+outside your local machine.
 
 Development defaults to the deterministic demo runtime, so the intake/plan/approval UI can be exercised without a running Gateway.
 

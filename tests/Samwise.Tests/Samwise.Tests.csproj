@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\Samwise.Logic\Samwise.Logic.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Domain\Samwise.Domain.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.AgentGateway\Samwise.Infrastructure.AgentGateway.csproj" />
+    <ProjectReference Include="..\..\src\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Persistence.Marten\Samwise.Infrastructure.Persistence.Marten.csproj" />
   </ItemGroup>
 

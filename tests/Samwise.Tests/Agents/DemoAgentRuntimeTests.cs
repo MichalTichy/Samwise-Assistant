@@ -1,5 +1,5 @@
 using Samwise.Logic.Agents;
-using Samwise.Infrastructure.AgentGateway.Agents;
+using Samwise.Infrastructure.AgentRuntimes.Agents;
 
 namespace Samwise.Tests.Agents;
 

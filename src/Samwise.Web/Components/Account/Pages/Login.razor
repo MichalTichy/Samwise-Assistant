@@ -3,13 +3,17 @@
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 
 @using System.ComponentModel.DataAnnotations
+@using System.Text
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.EntityFrameworkCore
 @using Samwise.Infrastructure.Persistence.Identity
 
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject ILogger<Login> Logger
+@inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
 <PageTitle>Log in</PageTitle>
@@ -43,6 +47,12 @@
                 <div>
                     <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
                 </div>
+                @if (passwordSetupLink is not null)
+                {
+                    <div class="alert alert-info mt-3" role="status">
+                        This owner has no password yet. <a href="@passwordSetupLink">Set the password</a>.
+                    </div>
+                }
                 <hr />
                 <div class="d-flex flex-column">
                     <span class="text-secondary mx-auto mt-2">OR</span>
@@ -55,6 +65,7 @@
 
 @code {
     private string? errorMessage;
+    private string? passwordSetupLink;
     private EditContext editContext = default!;
 
     [CascadingParameter]
@@ -76,6 +87,24 @@
         {
             // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+
+            var owners = await UserManager.Users
+                .OrderBy(user => user.Id)
+                .Take(2)
+                .ToListAsync();
+            if (owners.Count == 1 && !await UserManager.HasPasswordAsync(owners[0]))
+            {
+                Input.Email = owners[0].Email ?? string.Empty;
+                var code = await UserManager.GeneratePasswordResetTokenAsync(owners[0]);
+                code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+                passwordSetupLink = NavigationManager.GetUriWithQueryParameters(
+                    NavigationManager.ToAbsoluteUri("Account/ResetPassword").AbsoluteUri,
+                    new Dictionary<string, object?>
+                    {
+                        ["code"] = code,
+                        ["email"] = owners[0].Email
+                    });
+            }
         }
     }
 

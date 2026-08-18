@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Samwise.Logic.Agents;
 using Samwise.Infrastructure.AgentGateway.Agents;
+using Samwise.Infrastructure.AgentRuntimes.Agents;
 
 namespace Samwise.Tests.Agents;
 
@@ -28,7 +29,8 @@ public sealed class GatewayAgentRuntimeTests
             Execution = profile,
             RequestTimeout = TimeSpan.FromSeconds(10)
         });
-        using var runtime = new GatewayAgentRuntime(options, new UnusedHttpClientFactory());
+        using var gateway = new CodexGatewayClient(options, new UnusedHttpClientFactory());
+        var runtime = new GatewayAgentRuntime(gateway);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var responseBody = JsonSerializer.Serialize(new
         {

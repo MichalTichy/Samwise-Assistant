@@ -75,7 +75,5 @@ public sealed class IdentityInstaller : IInstaller
         services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
             .SetApplicationName("Samwise");
-
-        services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
     }
 }

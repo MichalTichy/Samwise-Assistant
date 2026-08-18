@@ -13,6 +13,7 @@
     <Project Path="src/Samwise.Logic/Samwise.Logic.csproj" />
     <Project Path="src/Samwise.Domain/Samwise.Domain.csproj" />
     <Project Path="src/Samwise.Infrastructure.AgentGateway/Samwise.Infrastructure.AgentGateway.csproj" />
+    <Project Path="src/Samwise.Infrastructure.AgentRuntimes/Samwise.Infrastructure.AgentRuntimes.csproj" />
     <Project Path="src/Samwise.Infrastructure.Persistence.Identity/Samwise.Infrastructure.Persistence.Identity.csproj" />
     <Project Path="src/Samwise.Infrastructure.Persistence.Marten/Samwise.Infrastructure.Persistence.Marten.csproj" />
     <Project Path="src/Samwise.ServiceDefaults/Samwise.ServiceDefaults.csproj" />

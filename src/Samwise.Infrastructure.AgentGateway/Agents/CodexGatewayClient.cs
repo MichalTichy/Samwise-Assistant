@@ -2,26 +2,18 @@ using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using OpenAI;
-using Samwise.Logic.Agents;
 
 namespace Samwise.Infrastructure.AgentGateway.Agents;
 
-internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
+internal sealed class CodexGatewayClient : ICodexGatewayClient, IDisposable
 {
     internal const string IntakeHttpClientName = "Samwise.Gateway.Intake";
     internal const string PlanningHttpClientName = "Samwise.Gateway.Planning";
     internal const string ExecutionHttpClientName = "Samwise.Gateway.Execution";
-
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
-    };
 
     private readonly GatewayProfileOptions intakeProfile;
     private readonly GatewayProfileOptions planningProfile;
@@ -34,7 +26,7 @@ internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
     private readonly ChatClientAgent planningAgent;
     private readonly ChatClientAgent executionAgent;
 
-    public GatewayAgentRuntime(
+    public CodexGatewayClient(
         IOptions<CodexGatewayOptions> options,
         IHttpClientFactory httpClientFactory)
     {
@@ -53,107 +45,47 @@ internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
         executionAgent = new ChatClientAgent(executionClient, name: "SamwiseExecutor");
     }
 
-    public async Task<IntakeResult> ClassifyAsync(
-        IntakeRequest request,
+    public async Task<GatewayStructuredResponse<TResponse>> RunStructuredAsync<TResponse>(
+        GatewayStage stage,
+        string prompt,
+        JsonSerializerOptions serializerOptions,
         CancellationToken cancellationToken = default)
     {
-        var options = CreateChatOptions<IntakeWireResult>(intakeProfile.ReasoningEffort);
-        var response = await intakeAgent.RunAsync<IntakeWireResult>(
-            request.RenderedPrompt,
+        var (profile, agent) = stage switch
+        {
+            GatewayStage.Intake => (intakeProfile, intakeAgent),
+            GatewayStage.Planning => (planningProfile, planningAgent),
+            GatewayStage.Execution => (executionProfile, executionAgent),
+            _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
+        };
+        var options = CreateChatOptions<TResponse>(profile.ReasoningEffort, serializerOptions);
+        var response = await agent.RunAsync<TResponse>(
+            prompt,
             session: null,
-            serializerOptions: SerializerOptions,
+            serializerOptions: serializerOptions,
             options: new ChatClientAgentRunOptions(options),
             cancellationToken: cancellationToken);
-        var result = response.Result;
-        var decision = ParseIntakeDecision(result.Decision);
 
-        return new IntakeResult(
-            decision,
-            ParseExistingTaskId(result.ExistingTaskId),
-            result.ProposedTitle,
-            result.ProposedDescription,
-            result.Explanation,
-            new AgentReceipt(
-                "Codex Gateway",
-                intakeProfile.Model,
-                response.ResponseId,
-                response.Text));
+        return new GatewayStructuredResponse<TResponse>(
+            response.Result,
+            profile.Model,
+            response.ResponseId,
+            response.Text);
     }
 
-    public Task<ToolCatalogSnapshot> GetPlanningToolsAsync(CancellationToken cancellationToken = default) =>
-        GetToolsAsync(PlanningHttpClientName, cancellationToken);
-
-    public Task<ToolCatalogSnapshot> GetExecutionToolsAsync(CancellationToken cancellationToken = default) =>
-        GetToolsAsync(ExecutionHttpClientName, cancellationToken);
-
-    public async Task<PlannerResult> PlanAsync(
-        PlannerRequest request,
+    public async Task<GatewayToolCatalogSnapshot> GetToolsAsync(
+        GatewayStage stage,
         CancellationToken cancellationToken = default)
     {
-        var options = CreateChatOptions<PlannerWireResult>(planningProfile.ReasoningEffort);
-        var response = await planningAgent.RunAsync<PlannerWireResult>(
-            request.RenderedPrompt,
-            session: null,
-            serializerOptions: SerializerOptions,
-            options: new ChatClientAgentRunOptions(options),
-            cancellationToken: cancellationToken);
-        var result = response.Result;
-        var plan = new PlanDraft(
-            result.Summary,
-            result.Assumptions,
-            result.Risks,
-            result.Steps.Select(step => new PlanStepDraft(
-                step.Order,
-                step.Title,
-                step.TechnicalDescription,
-                step.ToolIds,
-                step.HasExternalSideEffects,
-                step.SuccessCriteria)).ToList());
-
-        return new PlannerResult(
-            plan,
-            new AgentReceipt(
-                "Codex Gateway",
-                planningProfile.Model,
-                response.ResponseId,
-                response.Text));
-    }
-
-    public async Task<ExecutionResult> ExecuteAsync(
-        ExecutionRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var options = CreateChatOptions<ExecutionWireResult>(executionProfile.ReasoningEffort);
-        var response = await executionAgent.RunAsync<ExecutionWireResult>(
-            request.RenderedPrompt,
-            session: null,
-            serializerOptions: SerializerOptions,
-            options: new ChatClientAgentRunOptions(options),
-            cancellationToken: cancellationToken);
-        var result = response.Result;
-
-        return new ExecutionResult(
-            result.Succeeded,
-            result.Summary,
-            result.Outputs,
-            new AgentReceipt(
-                "Codex Gateway",
-                executionProfile.Model,
-                response.ResponseId,
-                response.Text));
-    }
-
-    public void Dispose()
-    {
-        intakeClient.Dispose();
-        planningClient.Dispose();
-        executionClient.Dispose();
-    }
-
-    private async Task<ToolCatalogSnapshot> GetToolsAsync(
-        string clientName,
-        CancellationToken cancellationToken)
-    {
+        var clientName = stage switch
+        {
+            GatewayStage.Planning => PlanningHttpClientName,
+            GatewayStage.Execution => ExecutionHttpClientName,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(stage),
+                stage,
+                "Only planning and execution profiles expose tool catalogs.")
+        };
         var client = httpClientFactory.CreateClient(clientName);
         using var response = await client.GetAsync("tools?detail=full", cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -163,12 +95,12 @@ internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
         var catalogVersion = root.GetProperty("catalog_version").GetString()
             ?? throw new InvalidOperationException("The Gateway tool catalog has no version.");
 
-        var tools = new List<ToolCapability>();
+        var tools = new List<GatewayToolCapability>();
         foreach (var server in root.GetProperty("data").EnumerateArray())
         {
             foreach (var tool in server.GetProperty("tools").EnumerateArray())
             {
-                tools.Add(new ToolCapability(
+                tools.Add(new GatewayToolCapability(
                     tool.GetProperty("id").GetString() ?? throw new InvalidOperationException("A Gateway tool has no ID."),
                     tool.GetProperty("name").GetString() ?? string.Empty,
                     tool.TryGetProperty("description", out var description) && description.ValueKind == JsonValueKind.String
@@ -179,7 +111,14 @@ internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
             }
         }
 
-        return new ToolCatalogSnapshot(catalogVersion, raw, tools);
+        return new GatewayToolCatalogSnapshot(catalogVersion, raw, tools);
+    }
+
+    public void Dispose()
+    {
+        intakeClient.Dispose();
+        planningClient.Dispose();
+        executionClient.Dispose();
     }
 
     private static IChatClient CreateChatClient(
@@ -198,10 +137,11 @@ internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
         return client.GetChatClient(profile.Model).AsIChatClient();
     }
 
-    private static ChatOptions CreateChatOptions<TResponse>(string effort)
+    private static ChatOptions CreateChatOptions<TResponse>(
+        string effort,
+        JsonSerializerOptions serializerOptions)
     {
-        var responseFormat = Microsoft.Extensions.AI.ChatResponseFormat.ForJsonSchema<TResponse>(
-            SerializerOptions);
+        var responseFormat = ChatResponseFormat.ForJsonSchema<TResponse>(serializerOptions);
 
         return new ChatOptions
         {
@@ -230,30 +170,6 @@ internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
         _ => throw new InvalidOperationException($"Unsupported reasoning effort '{value}'.")
     };
 
-    private static IntakeDecision ParseIntakeDecision(string value) => value
-        .Replace("_", string.Empty, StringComparison.Ordinal)
-        .Replace("-", string.Empty, StringComparison.Ordinal)
-        .ToLowerInvariant() switch
-    {
-        "createtask" => IntakeDecision.CreateTask,
-        "appendtotask" => IntakeDecision.AppendToTask,
-        "ignore" => IntakeDecision.Ignore,
-        "needsreview" => IntakeDecision.NeedsReview,
-        _ => throw new InvalidOperationException($"Unknown intake decision '{value}'.")
-    };
-
-    private static Guid? ParseExistingTaskId(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return Guid.TryParse(value, out var id)
-            ? id
-            : throw new InvalidOperationException("The intake result contains an invalid existing task ID.");
-    }
-
     private static void ValidateProfile(GatewayProfileOptions profile, string name)
     {
         if (!Uri.TryCreate(profile.BaseAddress, UriKind.Absolute, out var baseAddress) ||
@@ -280,46 +196,5 @@ internal sealed class GatewayAgentRuntime : IAgentRuntime, IDisposable
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", profile.ApiKey);
         }
-    }
-
-    private sealed class PlannerWireResult
-    {
-        public required string Summary { get; init; }
-        public required List<string> Assumptions { get; init; }
-        public required List<string> Risks { get; init; }
-        public required List<PlanStepWireResult> Steps { get; init; }
-    }
-
-    private sealed class IntakeWireResult
-    {
-        public required string Decision { get; init; }
-
-        [JsonRequired]
-        public string? ExistingTaskId { get; init; }
-
-        [JsonRequired]
-        public string? ProposedTitle { get; init; }
-
-        [JsonRequired]
-        public string? ProposedDescription { get; init; }
-
-        public required string Explanation { get; init; }
-    }
-
-    private sealed class PlanStepWireResult
-    {
-        public required int Order { get; init; }
-        public required string Title { get; init; }
-        public required string TechnicalDescription { get; init; }
-        public required List<string> ToolIds { get; init; }
-        public required bool HasExternalSideEffects { get; init; }
-        public required string SuccessCriteria { get; init; }
-    }
-
-    private sealed class ExecutionWireResult
-    {
-        public required bool Succeeded { get; init; }
-        public required string Summary { get; init; }
-        public required List<string> Outputs { get; init; }
     }
 }

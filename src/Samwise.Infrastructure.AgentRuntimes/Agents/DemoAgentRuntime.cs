@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Samwise.Logic.Agents;
 
-namespace Samwise.Infrastructure.AgentGateway.Agents;
+namespace Samwise.Infrastructure.AgentRuntimes.Agents;
 
 internal sealed class DemoAgentRuntime : IAgentRuntime
 {

@@ -47,11 +47,11 @@ public sealed class OwnerIdentityInitializer(
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(ownerOptions.Email) || string.IsNullOrWhiteSpace(ownerOptions.Password))
+        if (string.IsNullOrWhiteSpace(ownerOptions.Email))
         {
             throw new InvalidOperationException(
-                "No Samwise owner exists. Configure OwnerAccount:Email and OwnerAccount:Password " +
-                "through user secrets or environment variables before the first startup.");
+                "No Samwise owner exists. Configure OwnerAccount:Email through user secrets or " +
+                "environment variables before the first startup.");
         }
 
         var email = ownerOptions.Email.Trim();
@@ -63,7 +63,7 @@ public sealed class OwnerIdentityInitializer(
             LockoutEnabled = true
         };
 
-        var result = await userManager.CreateAsync(owner, ownerOptions.Password);
+        var result = await userManager.CreateAsync(owner);
         if (!result.Succeeded)
         {
             var descriptions = string.Join("; ", result.Errors.Select(error => error.Description));

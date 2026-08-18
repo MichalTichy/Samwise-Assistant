@@ -1,0 +1,87 @@
+@page "/Account/ExternalLogin"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+@using Microsoft.AspNetCore.Identity
+@using Samwise.Infrastructure.Persistence.Identity
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+@inject ILogger<ExternalLogin> Logger
+
+<PageTitle>External login</PageTitle>
+
+@code {
+    public const string LoginCallbackAction = "LoginCallback";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? RemoteError { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Action { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RemoteError is not null)
+        {
+            RedirectManager.RedirectToWithStatus(
+                "Account/Login",
+                $"Error from external provider: {RemoteError}",
+                HttpContext);
+            return;
+        }
+
+        if (Action != LoginCallbackAction)
+        {
+            RedirectManager.RedirectTo("Account/Login");
+            return;
+        }
+
+        var loginInfo = await SignInManager.GetExternalLoginInfoAsync();
+        if (loginInfo is null)
+        {
+            RedirectManager.RedirectToWithStatus(
+                "Account/Login",
+                "Error loading external login information.",
+                HttpContext);
+            return;
+        }
+
+        var result = await SignInManager.ExternalLoginSignInAsync(
+            loginInfo.LoginProvider,
+            loginInfo.ProviderKey,
+            isPersistent: false,
+            bypassTwoFactor: false);
+
+        if (result.Succeeded)
+        {
+            Logger.LogInformation("Owner logged in with {LoginProvider}.", loginInfo.LoginProvider);
+            RedirectManager.RedirectTo(ReturnUrl);
+            return;
+        }
+
+        if (result.RequiresTwoFactor)
+        {
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = false });
+            return;
+        }
+
+        if (result.IsLockedOut)
+        {
+            RedirectManager.RedirectTo("Account/Lockout");
+            return;
+        }
+
+        RedirectManager.RedirectToWithStatus(
+            "Account/Login",
+            "This external login is not linked to the Samwise owner account.",
+            HttpContext);
+    }
+}

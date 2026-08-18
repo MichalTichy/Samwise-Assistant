@@ -1,0 +1,67 @@
+@page "/inbox"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Input events · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Audit trail</span>
+        <h1>Input events</h1>
+        <p>Every received input remains visible together with Samwise’s handling decision.</p>
+    </div>
+    <button class="button button-secondary" @onclick="LoadAsync" disabled="@loading">Refresh</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(actionError))
+{
+    <div class="inline-alert detail-alert">@actionError</div>
+}
+
+<section class="event-list">
+    @if (loading && events.Count == 0)
+    {
+        <div class="empty-state">Loading input events…</div>
+    }
+
+    @foreach (var item in events)
+    {
+        <article class="event-row">
+            <div class="event-source">@item.Source</div>
+            <div class="event-body">
+                <div class="event-meta">
+                    <span class="status-pill handling-@item.Handling.ToString().ToLowerInvariant()">@FormatHandling(item.Handling)</span>
+                    <time>@item.ReceivedAt.ToLocalTime().ToString("g")</time>
+                </div>
+                <p>@item.Text</p>
+                @if (!string.IsNullOrWhiteSpace(item.Explanation))
+                {
+                    <small>@item.Explanation</small>
+                }
+                else
+                {
+                    <small>Waiting for Samwise to classify this input.</small>
+                }
+            </div>
+            <div>
+                @if (item.TaskId is { } taskId)
+                {
+                    <a class="event-link" href="tasks/@taskId">Open task →</a>
+                }
+                @if (item.Handling == InboundHandlingKind.NeedsReview)
+                {
+                    <button class="button button-secondary"
+                            disabled="@(retryingEventId is not null)"
+                            @onclick="() => RetryAsync(item.Id)">
+                        @(retryingEventId == item.Id ? "Retrying…" : "Retry")
+                    </button>
+                }
+            </div>
+        </article>
+    }
+
+    @if (!loading && events.Count == 0)
+    {
+        <div class="empty-state">No input events yet. Submit a manual input to start the intake pipeline.</div>
+    }
+</section>

@@ -1,0 +1,73 @@
+@implements IDisposable
+@inject NavigationManager NavigationManager
+
+<div class="brand">
+    <div class="brand-mark">S</div>
+    <div>
+        <strong>Samwise</strong>
+        <span>AI task companion</span>
+    </div>
+</div>
+
+<nav class="primary-nav">
+    <NavLink class="nav-entry nav-entry-new" href="" Match="NavLinkMatch.All">
+        <span class="nav-icon">+</span>
+        New input
+    </NavLink>
+    <NavLink class="nav-entry" href="board">
+        <span class="nav-icon">▦</span>
+        Board
+    </NavLink>
+    <NavLink class="nav-entry" href="inbox">
+        <span class="nav-icon">↳</span>
+        Input events
+    </NavLink>
+</nav>
+
+<div class="nav-section-label">Configuration</div>
+<nav class="primary-nav">
+    <NavLink class="nav-entry" href="prompts">
+        <span class="nav-icon">&#123; &#125;</span>
+        Prompts
+    </NavLink>
+</nav>
+
+<div class="sidebar-spacer"></div>
+
+<AuthorizeView>
+    <Authorized>
+        <a class="user-entry" href="Account/Manage">
+            <span class="avatar">@GetInitial(context.User.Identity?.Name)</span>
+            <span class="user-name">@context.User.Identity?.Name</span>
+        </a>
+        <form action="Account/Logout" method="post" class="logout-form">
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+            <button type="submit" class="logout-button">Log out</button>
+        </form>
+    </Authorized>
+    <NotAuthorized>
+        <a class="user-entry" href="Account/Login">Log in</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string? currentUrl;
+
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(args.Location);
+        StateHasChanged();
+    }
+
+    private static string GetInitial(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "S" : value.Trim()[0].ToString().ToUpperInvariant();
+
+    public void Dispose() => NavigationManager.LocationChanged -= OnLocationChanged;
+}

@@ -1,0 +1,45 @@
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>New input · Samwise</PageTitle>
+
+<div class="capture-page">
+    <section class="capture-intro">
+        <span class="page-kicker">Manual input</span>
+        <h1>What came in?</h1>
+        <p>Paste a request, note, or message. Samwise will send it through the same intake path as future email and Teams events.</p>
+    </section>
+
+    <section class="capture-card">
+        <EditForm Model="input" OnValidSubmit="SubmitAsync" FormName="manual-task">
+            <DataAnnotationsValidator />
+            <label for="task-text">Input</label>
+            <textarea id="task-text"
+                      class="task-textarea"
+                      @bind="input.Text"
+                      @bind:event="oninput"
+                      placeholder="For example: Review the latest proposal, check the numbers, and prepare a concise reply..."></textarea>
+            <ValidationMessage For="() => input.Text" />
+
+            @if (!string.IsNullOrWhiteSpace(error))
+            {
+                <div class="inline-alert">@error</div>
+            }
+
+            <div class="capture-footer">
+                <span>Samwise will decide whether to create, update, or ignore a task.</span>
+                <button class="button button-primary" type="submit" disabled="@submitting">
+                    @(submitting ? "Submitting…" : "Submit input")
+                </button>
+            </div>
+        </EditForm>
+    </section>
+
+    <div class="capture-flow" aria-label="What happens next">
+        <div><b>1</b><span><strong>Capture</strong>Your text is stored as an input event.</span></div>
+        <div><b>2</b><span><strong>Triage</strong>Samwise creates, updates, or ignores a task.</span></div>
+        <div><b>3</b><span><strong>Plan</strong>Actionable work gets technical steps.</span></div>
+        <div><b>4</b><span><strong>Approve</strong>Nothing executes before your decision.</span></div>
+    </div>
+</div>

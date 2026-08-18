@@ -1,0 +1,282 @@
+@page "/tasks/{TaskId:guid}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>@(details?.Task.Title ?? "Task") · Samwise</PageTitle>
+
+@if (loading)
+{
+    <div class="empty-state">Loading task…</div>
+}
+else if (details is null)
+{
+    <div class="not-found-card">
+        <span class="page-kicker">Not found</span>
+        <h1>This task does not exist.</h1>
+        <a class="button button-secondary" href="/board">Back to board</a>
+    </div>
+}
+else
+{
+    var model = details;
+    var task = model.Task;
+
+    <div class="task-detail-page">
+        <div class="task-detail-nav">
+            <a href="/board">← Board</a>
+            <div class="task-detail-nav-actions">
+                <span>Revision @task.Revision</span>
+                <button class="button button-secondary button-small" @onclick="LoadAsync" disabled="@(loading || actionBusy)">Refresh</button>
+            </div>
+        </div>
+
+        <header class="task-detail-header">
+            <div>
+                <span class="status-pill status-@task.Status.ToString().ToLowerInvariant()">@FormatStatus(task.Status)</span>
+                <h1>@task.Title</h1>
+                <p>@task.Description</p>
+            </div>
+            @if (task.Status is not (SamwiseTaskStatus.Completed or SamwiseTaskStatus.Discarded or SamwiseTaskStatus.Executing))
+            {
+                <button class="button button-danger-quiet" @onclick="DiscardAsync" disabled="@actionBusy">Discard task</button>
+            }
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(actionError))
+        {
+            <div class="inline-alert detail-alert">@actionError</div>
+        }
+
+        <div class="task-detail-grid">
+            <main class="task-detail-main">
+                @if (task.Status == SamwiseTaskStatus.OutcomeUnknown)
+                {
+                    <section class="detail-card state-card outcome-warning">
+                        <span class="state-symbol state-warning">!</span>
+                        <div>
+                            <h2>Execution outcome is unknown</h2>
+                            <p>Samwise may already have made external changes. Inspect the agent activity and the affected system before deciding what to do. This execution will not be retried automatically.</p>
+                        </div>
+                    </section>
+                }
+
+                @if (model.CurrentPlan is { } plan)
+                {
+                    <section class="detail-card plan-card">
+                        <div class="detail-card-heading">
+                            <div>
+                                <span class="page-kicker">Plan @plan.PlanNumber</span>
+                                <h2>@plan.Summary</h2>
+                            </div>
+                            <span class="revision-label">for revision @plan.TaskRevision</span>
+                        </div>
+
+                        @if (plan.Assumptions.Count > 0 || plan.Risks.Count > 0)
+                        {
+                            <div class="plan-notes-grid">
+                                @if (plan.Assumptions.Count > 0)
+                                {
+                                    <div>
+                                        <h3>Assumptions</h3>
+                                        <ul>
+                                            @foreach (var assumption in plan.Assumptions)
+                                            {
+                                                <li>@assumption</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                                @if (plan.Risks.Count > 0)
+                                {
+                                    <div>
+                                        <h3>Risks</h3>
+                                        <ul>
+                                            @foreach (var risk in plan.Risks)
+                                            {
+                                                <li>@risk</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <ol class="plan-steps">
+                            @foreach (var step in plan.Steps.OrderBy(step => step.Order))
+                            {
+                                <li>
+                                    <div class="plan-step-number">@step.Order</div>
+                                    <div class="plan-step-body">
+                                        <div class="plan-step-heading">
+                                            <h3>@step.Title</h3>
+                                            @if (step.HasExternalSideEffects)
+                                            {
+                                                <span class="side-effect-badge">External change</span>
+                                            }
+                                        </div>
+                                        <p>@step.TechnicalDescription</p>
+                                        @if (step.ToolIds.Count > 0)
+                                        {
+                                            <div class="tool-list">
+                                                @foreach (var tool in step.ToolIds)
+                                                {
+                                                    <code>@tool</code>
+                                                }
+                                            </div>
+                                        }
+                                        <small><strong>Done when:</strong> @step.SuccessCriteria</small>
+                                    </div>
+                                </li>
+                            }
+                        </ol>
+
+                        @if (task.Status == SamwiseTaskStatus.AwaitingApproval)
+                        {
+                            <div class="approval-panel">
+                                <div class="approval-copy">
+                                    <h3>Your decision</h3>
+                                    <p>Approve this exact plan, or explain what Samwise should change.</p>
+                                </div>
+                                <div class="approval-buttons">
+                                    <button class="button button-primary" @onclick="ApproveAsync" disabled="@actionBusy">Approve &amp; execute</button>
+                                </div>
+                                <textarea class="feedback-textarea"
+                                          @bind="rejectionFeedback"
+                                          @bind:event="oninput"
+                                          placeholder="Feedback for a revised plan..."></textarea>
+                                <button class="button button-secondary" @onclick="RejectAsync" disabled="@actionBusy">Reject with feedback</button>
+                            </div>
+                        }
+                        else if (task.Status == SamwiseTaskStatus.NeedsAttention)
+                        {
+                            <div class="approval-panel">
+                                <div class="approval-copy">
+                                    <h3>This plan needs to be rebuilt</h3>
+                                    <p>The last planning or pre-execution check failed. Retry to create a new plan from the current task and tool catalog.</p>
+                                </div>
+                                <div class="approval-buttons">
+                                    <button class="button button-primary" @onclick="RetryPlanningAsync" disabled="@actionBusy">Retry planning</button>
+                                </div>
+                            </div>
+                        }
+                    </section>
+                }
+                else
+                {
+                    <section class="detail-card state-card">
+                        @if (task.Status == SamwiseTaskStatus.Planning)
+                        {
+                            <span class="state-symbol state-working">⋯</span>
+                            <div><h2>Preparing the plan</h2><p>Samwise is turning the latest task revision into technical steps.</p></div>
+                        }
+                        else if (task.Status == SamwiseTaskStatus.NeedsAttention)
+                        {
+                            <span class="state-symbol state-warning">!</span>
+                            <div>
+                                <h2>Samwise needs attention</h2>
+                                <p>The last agent run did not finish cleanly. Review the activity, then retry planning.</p>
+                                <button class="button button-primary" @onclick="RetryPlanningAsync" disabled="@actionBusy">Retry planning</button>
+                            </div>
+                        }
+                        else if (task.Status == SamwiseTaskStatus.Discarded)
+                        {
+                            <span class="state-symbol">×</span>
+                            <div><h2>Task discarded</h2><p>This task will not be planned or executed.</p></div>
+                        }
+                    </section>
+                }
+
+                <section class="detail-card comments-card">
+                    <div class="detail-card-heading">
+                        <div><span class="page-kicker">Conversation</span><h2>Comments &amp; context</h2></div>
+                        <span class="column-count">@model.Comments.Count</span>
+                    </div>
+
+                    @if (task.Status is not (SamwiseTaskStatus.Completed or SamwiseTaskStatus.Discarded or SamwiseTaskStatus.Executing or SamwiseTaskStatus.OutcomeUnknown))
+                    {
+                        <div class="comment-composer">
+                            <textarea @bind="contextText" @bind:event="oninput" placeholder="Add new facts or clarify the desired outcome..."></textarea>
+                            <div>
+                                <span>New context invalidates the current plan.</span>
+                                <button class="button button-secondary" @onclick="AddContextAsync" disabled="@actionBusy">Add context</button>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="comment-list">
+                        @foreach (var comment in model.Comments.OrderByDescending(comment => comment.CreatedAt))
+                        {
+                            <article class="comment-row">
+                                <span class="comment-avatar">@AuthorInitial(comment.AuthorKind)</span>
+                                <div>
+                                    <div class="comment-meta"><strong>@FormatAuthor(comment.AuthorKind)</strong><time>@comment.CreatedAt.ToLocalTime().ToString("g")</time></div>
+                                    <p>@comment.Body</p>
+                                </div>
+                            </article>
+                        }
+                        @if (model.Comments.Count == 0)
+                        {
+                            <div class="empty-inline">No comments yet.</div>
+                        }
+                    </div>
+                </section>
+            </main>
+
+            <aside class="task-detail-side">
+                <section class="detail-card metadata-card">
+                    <h2>Task details</h2>
+                    <dl>
+                        <div><dt>Status</dt><dd>@FormatStatus(task.Status)</dd></div>
+                        <div><dt>Revision</dt><dd>@task.Revision</dd></div>
+                        <div><dt>Created</dt><dd>@task.CreatedAt.ToLocalTime().ToString("g")</dd></div>
+                        <div><dt>Updated</dt><dd>@task.UpdatedAt.ToLocalTime().ToString("g")</dd></div>
+                    </dl>
+                </section>
+
+                <section class="detail-card activity-card">
+                    <div class="detail-card-heading"><h2>Agent activity</h2><span class="column-count">@model.Invocations.Count</span></div>
+                    <div class="activity-list">
+                        @foreach (var invocation in model.Invocations)
+                        {
+                            <article>
+                                <span class="activity-dot activity-@invocation.Status.ToString().ToLowerInvariant()"></span>
+                                <div>
+                                    <strong>@invocation.Profile</strong>
+                                    <span>@invocation.Status · @invocation.StartedAt.ToLocalTime().ToString("g")</span>
+                                    @if (!string.IsNullOrWhiteSpace(invocation.Error))
+                                    {
+                                        <small>@invocation.Error</small>
+                                    }
+                                </div>
+                            </article>
+                        }
+                        @if (model.Invocations.Count == 0)
+                        {
+                            <div class="empty-inline">No agent runs yet.</div>
+                        }
+                    </div>
+                </section>
+
+                @if (model.Decisions.Count > 0)
+                {
+                    <section class="detail-card activity-card">
+                        <h2>Decisions</h2>
+                        <div class="decision-list">
+                            @foreach (var decision in model.Decisions)
+                            {
+                                <article>
+                                    <strong>@decision.Decision</strong>
+                                    <time>@decision.DecidedAt.ToLocalTime().ToString("g")</time>
+                                    @if (!string.IsNullOrWhiteSpace(decision.Feedback))
+                                    {
+                                        <p>@decision.Feedback</p>
+                                    }
+                                </article>
+                            }
+                        </div>
+                    </section>
+                }
+            </aside>
+        </div>
+    </div>
+}

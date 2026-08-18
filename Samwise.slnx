@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/SharedInfrastructure/">
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.CurrentTenancyProvider/Shared.Infrastructure.CurrentTenancyProvider.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.Initializer/Shared.Infrastructure.Initializer.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.IoC/Shared.Infrastructure.IoC.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.LeaderElection/Shared.Infrastructure.LeaderElection.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.Persistence/Shared.Infrastructure.Persistence.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.Persistence.Marten/Shared.Infrastructure.Persistence.Marten.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.UnitOfWork/Shared.Infrastructure.UnitOfWork.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Samwise.AppHost/Samwise.AppHost.csproj" />
+    <Project Path="src/Samwise.Logic/Samwise.Logic.csproj" />
+    <Project Path="src/Samwise.Domain/Samwise.Domain.csproj" />
+    <Project Path="src/Samwise.Infrastructure.AgentGateway/Samwise.Infrastructure.AgentGateway.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Persistence.Identity/Samwise.Infrastructure.Persistence.Identity.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Persistence.Marten/Samwise.Infrastructure.Persistence.Marten.csproj" />
+    <Project Path="src/Samwise.ServiceDefaults/Samwise.ServiceDefaults.csproj" />
+    <Project Path="src/Samwise.Web/Samwise.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Samwise.Tests/Samwise.Tests.csproj" />
+  </Folder>
+</Solution>

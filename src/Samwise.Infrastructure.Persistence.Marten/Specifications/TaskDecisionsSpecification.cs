@@ -1,6 +1,7 @@
 using Marten;
 using Samwise.Domain.Tasks;
 using Shared.Infrastructure.Persistence.Specifications;
+using Task = System.Threading.Tasks.Task;
 
 namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
 

@@ -1,13 +1,15 @@
 using Marten;
 using Samwise.Domain.Tasks;
 using Shared.Infrastructure.Persistence.Specifications;
+using DomainTask = Samwise.Domain.Tasks.Task;
+using Task = System.Threading.Tasks.Task;
 
 namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
 
-internal sealed class BoardTasksSpecification(bool includeArchived) : IListSpecification<SamwiseTask>
+internal sealed class BoardTasksSpecification(bool includeArchived) : IListSpecification<DomainTask>
 {
-    public async Task<IReadOnlyList<SamwiseTask>> ApplyAsync(
-        IQueryable<SamwiseTask> queryable,
+    public async Task<IReadOnlyList<DomainTask>> ApplyAsync(
+        IQueryable<DomainTask> queryable,
         CancellationToken cancellationToken = default)
     {
         if (!includeArchived)

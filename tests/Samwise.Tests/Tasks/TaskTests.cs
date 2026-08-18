@@ -1,15 +1,16 @@
 using Samwise.Domain.Tasks;
+using DomainTask = Samwise.Domain.Tasks.Task;
 
 namespace Samwise.Tests.Tasks;
 
-public sealed class SamwiseTaskTests
+public sealed class TaskTests
 {
     private static readonly DateTimeOffset InitialTime = new(2026, 8, 17, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void CurrentPlanCanBeApprovedOnlyForItsExactTaskRevision()
     {
-        var task = SamwiseTask.CreateFromInbound("Prepare the revised offer.", "Revised offer", InitialTime);
+        var task = DomainTask.CreateFromInbound("Prepare the revised offer.", "Revised offer", InitialTime);
         var plan = CreatePlan(task, task.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
 
         task.ApplyPlan(plan, InitialTime.AddMinutes(3));
@@ -30,7 +31,7 @@ public sealed class SamwiseTaskTests
     [Fact]
     public void NewContextInvalidatesTheCurrentPlan()
     {
-        var task = SamwiseTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
+        var task = DomainTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
         var plan = CreatePlan(task, task.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
         task.ApplyPlan(plan, InitialTime.AddMinutes(3));
 
@@ -47,7 +48,7 @@ public sealed class SamwiseTaskTests
     [Fact]
     public void RejectingAPlanRecordsFeedbackAndStartsANewRevision()
     {
-        var task = SamwiseTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
+        var task = DomainTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
         var plan = CreatePlan(task, task.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
         task.ApplyPlan(plan, InitialTime.AddMinutes(3));
 
@@ -67,7 +68,7 @@ public sealed class SamwiseTaskTests
     [Fact]
     public void ApplyingAPlanFromAnotherRevisionIsRejected()
     {
-        var task = SamwiseTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
+        var task = DomainTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
         var stalePlan = CreatePlan(task, task.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
         task.AddContext("Use the new price list.", InitialTime.AddMinutes(3));
 
@@ -79,7 +80,7 @@ public sealed class SamwiseTaskTests
     [Fact]
     public void ExecutingTaskCannotBeChangedOrDiscarded()
     {
-        var task = SamwiseTask.CreateFromInbound("Send the revised offer.", null, InitialTime);
+        var task = DomainTask.CreateFromInbound("Send the revised offer.", null, InitialTime);
         var plan = CreatePlan(task, task.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
         task.ApplyPlan(plan, InitialTime.AddMinutes(3));
         task.Approve(plan.Id, task.Revision, InitialTime.AddMinutes(4));
@@ -92,7 +93,7 @@ public sealed class SamwiseTaskTests
     [Fact]
     public void InterruptedExecutionIsNotRetryableOrEditable()
     {
-        var task = SamwiseTask.CreateFromInbound("Send the revised offer.", null, InitialTime);
+        var task = DomainTask.CreateFromInbound("Send the revised offer.", null, InitialTime);
         var plan = CreatePlan(task, task.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
         task.ApplyPlan(plan, InitialTime.AddMinutes(3));
         task.Approve(plan.Id, task.Revision, InitialTime.AddMinutes(4));
@@ -109,7 +110,7 @@ public sealed class SamwiseTaskTests
     [Fact]
     public void PlanningFailureCanBeRetriedAndInvalidatesItsPlan()
     {
-        var task = SamwiseTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
+        var task = DomainTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
         var plan = CreatePlan(task, task.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
         task.ApplyPlan(plan, InitialTime.AddMinutes(3));
         task.Status = SamwiseTaskStatus.NeedsAttention;
@@ -120,7 +121,7 @@ public sealed class SamwiseTaskTests
         Assert.Null(task.CurrentPlanId);
     }
 
-    private static TaskPlan CreatePlan(SamwiseTask task, int planNumber, DateTimeOffset createdAt) =>
+    private static TaskPlan CreatePlan(DomainTask task, int planNumber, DateTimeOffset createdAt) =>
         new()
         {
             Id = Guid.NewGuid(),

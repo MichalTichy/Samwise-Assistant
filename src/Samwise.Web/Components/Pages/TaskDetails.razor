@@ -1,6 +1,7 @@
 @page "/tasks/{TaskId:guid}"
 @attribute [Authorize]
 @rendermode InteractiveServer
+@using TaskStatus = Samwise.Domain.Tasks.SamwiseTaskStatus
 
 <PageTitle>@(details?.Task.Title ?? "Task") · Samwise</PageTitle>
 
@@ -36,7 +37,7 @@ else
                 <h1>@task.Title</h1>
                 <p>@task.Description</p>
             </div>
-            @if (task.Status is not (SamwiseTaskStatus.Completed or SamwiseTaskStatus.Discarded or SamwiseTaskStatus.Executing))
+            @if (task.Status is not (TaskStatus.Completed or TaskStatus.Discarded or TaskStatus.Executing))
             {
                 <button class="button button-danger-quiet" @onclick="DiscardAsync" disabled="@actionBusy">Discard task</button>
             }
@@ -49,7 +50,7 @@ else
 
         <div class="task-detail-grid">
             <main class="task-detail-main">
-                @if (task.Status == SamwiseTaskStatus.OutcomeUnknown)
+                @if (task.Status == TaskStatus.OutcomeUnknown)
                 {
                     <section class="detail-card state-card outcome-warning">
                         <span class="state-symbol state-warning">!</span>
@@ -130,7 +131,7 @@ else
                             }
                         </ol>
 
-                        @if (task.Status == SamwiseTaskStatus.AwaitingApproval)
+                        @if (task.Status == TaskStatus.AwaitingApproval)
                         {
                             <div class="approval-panel">
                                 <div class="approval-copy">
@@ -147,7 +148,7 @@ else
                                 <button class="button button-secondary" @onclick="RejectAsync" disabled="@actionBusy">Reject with feedback</button>
                             </div>
                         }
-                        else if (task.Status == SamwiseTaskStatus.NeedsAttention)
+                        else if (task.Status == TaskStatus.NeedsAttention)
                         {
                             <div class="approval-panel">
                                 <div class="approval-copy">
@@ -164,12 +165,12 @@ else
                 else
                 {
                     <section class="detail-card state-card">
-                        @if (task.Status == SamwiseTaskStatus.Planning)
+                        @if (task.Status == TaskStatus.Planning)
                         {
                             <span class="state-symbol state-working">⋯</span>
                             <div><h2>Preparing the plan</h2><p>Samwise is turning the latest task revision into technical steps.</p></div>
                         }
-                        else if (task.Status == SamwiseTaskStatus.NeedsAttention)
+                        else if (task.Status == TaskStatus.NeedsAttention)
                         {
                             <span class="state-symbol state-warning">!</span>
                             <div>
@@ -178,7 +179,7 @@ else
                                 <button class="button button-primary" @onclick="RetryPlanningAsync" disabled="@actionBusy">Retry planning</button>
                             </div>
                         }
-                        else if (task.Status == SamwiseTaskStatus.Discarded)
+                        else if (task.Status == TaskStatus.Discarded)
                         {
                             <span class="state-symbol">×</span>
                             <div><h2>Task discarded</h2><p>This task will not be planned or executed.</p></div>
@@ -192,7 +193,7 @@ else
                         <span class="column-count">@model.Comments.Count</span>
                     </div>
 
-                    @if (task.Status is not (SamwiseTaskStatus.Completed or SamwiseTaskStatus.Discarded or SamwiseTaskStatus.Executing or SamwiseTaskStatus.OutcomeUnknown))
+                    @if (task.Status is not (TaskStatus.Completed or TaskStatus.Discarded or TaskStatus.Executing or TaskStatus.OutcomeUnknown))
                     {
                         <div class="comment-composer">
                             <textarea @bind="contextText" @bind:event="oninput" placeholder="Add new facts or clarify the desired outcome..."></textarea>

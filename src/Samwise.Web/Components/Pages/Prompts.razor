@@ -1,0 +1,76 @@
+@page "/prompts"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Prompts · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Configuration</span>
+        <h1>Prompts</h1>
+        <p>Edit the instructions Samwise uses. Placeholders are replaced with task data when the prompt runs.</p>
+    </div>
+</div>
+
+@if (templates.Count > 0 && selected is not null)
+{
+    <div class="prompt-layout">
+        <aside class="prompt-tabs">
+            @foreach (var template in templates)
+            {
+                <button class="prompt-tab @(template.Stage == selected.Stage ? "active" : null)"
+                        @onclick="() => Select(template)">
+                    <strong>@template.Name</strong>
+                    <span>@DescribeStage(template.Stage)</span>
+                </button>
+            }
+        </aside>
+
+        <section class="prompt-editor-card">
+            <div class="prompt-editor-heading">
+                <div>
+                    <h2>@selected.Name prompt</h2>
+                    <p>Use only placeholders from the legend.</p>
+                </div>
+                <span class="save-state">@saveMessage</span>
+            </div>
+
+            <textarea class="prompt-textarea" @bind="content" spellcheck="false"></textarea>
+
+            @if (errors.Count > 0)
+            {
+                <div class="inline-alert">
+                    @foreach (var error in errors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="prompt-actions">
+                <span>Changes apply to the next run.</span>
+                <button class="button button-primary" @onclick="SaveAsync" disabled="@saving">
+                    @(saving ? "Saving…" : "Save prompt")
+                </button>
+            </div>
+
+            <div class="placeholder-legend">
+                <h3>Placeholder legend</h3>
+                <div class="placeholder-grid">
+                    @foreach (var placeholder in selected.Placeholders)
+                    {
+                        <article>
+                            <code>@($"{{{{{placeholder.Key}}}}}")</code>
+                            <strong>@placeholder.Label</strong>
+                            <p>@placeholder.Description</p>
+                        </article>
+                    }
+                </div>
+            </div>
+        </section>
+    </div>
+}
+else
+{
+    <div class="empty-state">Loading prompt templates…</div>
+}

@@ -1,0 +1,61 @@
+@page "/board"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Board · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Tasks</span>
+        <h1>Board</h1>
+        <p>Every card represents an actionable task and its current approval state.</p>
+    </div>
+    <div class="heading-actions">
+        <button class="button button-secondary" @onclick="LoadAsync" disabled="@loading">Refresh</button>
+        <a class="button button-primary" href="/">New input</a>
+    </div>
+</div>
+
+@if (loading && tasks.Count == 0)
+{
+    <div class="empty-state">Loading tasks…</div>
+}
+else
+{
+    <div class="task-board">
+        @foreach (var column in Columns)
+        {
+            var cards = tasks.Where(task => column.Statuses.Contains(task.Status)).ToList();
+            <section class="board-column">
+                <header>
+                    <span class="column-dot @column.CssClass"></span>
+                    <h2>@column.Name</h2>
+                    <span class="column-count">@cards.Count</span>
+                </header>
+
+                <div class="column-cards">
+                    @foreach (var task in cards)
+                    {
+                        <a class="task-card" href="tasks/@task.Id">
+                            <div class="task-card-topline">
+                                <span class="status-pill status-@task.Status.ToString().ToLowerInvariant()">@FormatStatus(task.Status)</span>
+                                <span class="revision-label">r@(task.Revision)</span>
+                            </div>
+                            <h3>@task.Title</h3>
+                            <p>@task.Description</p>
+                            <footer>
+                                <span>@(task.PlanNumber is null ? "Plan pending" : $"Plan {task.PlanNumber}")</span>
+                                <time>@task.UpdatedAt.ToLocalTime().ToString("d MMM, HH:mm")</time>
+                            </footer>
+                        </a>
+                    }
+
+                    @if (cards.Count == 0)
+                    {
+                        <div class="empty-column">No tasks here</div>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}

@@ -10,7 +10,7 @@ public sealed class DemoAgentRuntimeTests
     {
         var runtime = new DemoAgentRuntime();
         var request = new IntakeRequest(
-            Guid.NewGuid(),
+            Guid.NewGuid().ToString(),
             "Manual",
             "Classify this input: Prepare the revised offer.");
 

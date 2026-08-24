@@ -1,10 +1,9 @@
 using Samwise.Logic.Agents;
 using Samwise.Domain.Inbox;
-using Samwise.Infrastructure.Persistence.Marten.Agents;
 
 namespace Samwise.Tests.Agents;
 
-public sealed class AgentWorkProcessorTests
+public sealed class AgentWorkflowSupportTests
 {
     private static readonly AgentReceipt Receipt = new(
         "Test",
@@ -18,7 +17,7 @@ public sealed class AgentWorkProcessorTests
         const string inboundText = "Prepare the revised offer.\nInclude the signed appendix and delivery dates.";
         var inboundEvent = new InboundEvent
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
             Source = "Manual",
             ExternalId = "manual:test",
             Text = inboundText
@@ -31,9 +30,9 @@ public sealed class AgentWorkProcessorTests
             "This is actionable.",
             Receipt);
 
-        var task = AgentWorkProcessor.CreateTaskFromIntake(
-            inboundEvent,
-            result,
+        var task = Samwise.Domain.Tasks.Task.CreateFromInbound(
+            inboundEvent.Text,
+            result.ProposedTitle,
             new DateTimeOffset(2026, 8, 17, 8, 0, 0, TimeSpan.Zero));
 
         Assert.Equal("Revised customer offer", task.Title);
@@ -53,7 +52,7 @@ public sealed class AgentWorkProcessorTests
             ],
             Receipt);
 
-        var body = AgentWorkProcessor.FormatExecutionResult(result);
+        var body = AgentWorkflowSupport.FormatExecutionResult(result);
 
         Assert.Equal(
             string.Join(
@@ -64,5 +63,23 @@ public sealed class AgentWorkProcessorTests
                 "Created offer.pdf\nSaved to the customer folder.",
                 "Sent confirmation to sales."),
             body);
+    }
+
+    [Fact]
+    public void PlanToolSnapshotPreservesTheExactStructuredCatalog()
+    {
+        var catalog = new ToolCatalogSnapshot(
+            "sha256:catalog",
+            "{\"catalog_version\":\"sha256:catalog\"}",
+            [new ToolCapability("documents/search", "search", "Search documents", "{\"type\":\"object\"}", true)]);
+
+        var snapshot = AgentWorkflowSupport.CreatePlanToolSnapshot(catalog);
+
+        Assert.Equal(catalog.CatalogVersion, snapshot.CatalogVersion);
+        Assert.Equal(catalog.RawJson, snapshot.RawJson);
+        var tool = Assert.Single(snapshot.Tools);
+        Assert.Equal("documents/search", tool.Id);
+        Assert.Equal("{\"type\":\"object\"}", tool.InputSchemaJson);
+        Assert.True(tool.CanInvoke);
     }
 }

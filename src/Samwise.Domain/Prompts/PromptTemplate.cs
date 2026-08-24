@@ -1,3 +1,5 @@
+using Shared.Infrastructure.Persistence;
+
 namespace Samwise.Domain.Prompts;
 
 public enum PromptStage
@@ -7,7 +9,7 @@ public enum PromptStage
     Execution
 }
 
-public sealed class PromptTemplate
+public sealed class PromptTemplate : IItemWithId
 {
     public string Id { get; set; } = string.Empty;
     public PromptStage Stage { get; set; }

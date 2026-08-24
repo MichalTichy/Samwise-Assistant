@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Shared.Infrastructure.Persistence;
 
 namespace Samwise.Domain.Inbox;
 
@@ -12,9 +13,9 @@ public enum InboundHandlingKind
     NeedsReview
 }
 
-public sealed class InboundEvent
+public sealed class InboundEvent : IItemWithId
 {
-    public Guid Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
     public string ExternalId { get; set; } = string.Empty;
     public string DedupeKey { get; set; } = string.Empty;
@@ -22,7 +23,7 @@ public sealed class InboundEvent
     public DateTimeOffset ReceivedAt { get; set; }
     public DateTimeOffset? HandledAt { get; set; }
     public InboundHandlingKind Handling { get; set; }
-    public Guid? TaskId { get; set; }
+    public string? TaskId { get; set; }
     public string Explanation { get; set; } = string.Empty;
 
     public static string CreateDedupeKey(string source, string externalId)

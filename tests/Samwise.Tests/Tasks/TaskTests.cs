@@ -17,15 +17,19 @@ public sealed class TaskTests
 
         Assert.Equal(SamwiseTaskStatus.AwaitingApproval, task.Status);
         Assert.Equal(plan.Id, task.CurrentPlanId);
+        Assert.Same(plan, Assert.Single(task.Plans));
         Assert.Throws<InvalidOperationException>(() =>
             task.Approve(plan.Id, task.Revision + 1, InitialTime.AddMinutes(4)));
         Assert.Throws<InvalidOperationException>(() =>
-            task.Approve(Guid.NewGuid(), task.Revision, InitialTime.AddMinutes(4)));
+            task.Approve(Guid.NewGuid().ToString(), task.Revision, InitialTime.AddMinutes(4)));
 
         task.Approve(plan.Id, plan.TaskRevision, InitialTime.AddMinutes(5));
 
         Assert.Equal(SamwiseTaskStatus.Approved, task.Status);
         Assert.Equal(InitialTime.AddMinutes(5), task.UpdatedAt);
+        var decision = Assert.Single(task.Decisions);
+        Assert.Equal(PlanDecisionKind.Approved, decision.Decision);
+        Assert.Equal(plan.Id, decision.PlanId);
     }
 
     [Fact]
@@ -41,6 +45,9 @@ public sealed class TaskTests
         Assert.Equal(SamwiseTaskStatus.Planning, task.Status);
         Assert.Null(task.CurrentPlanId);
         Assert.Equal("Use the newly approved price list.", task.LatestPlanningFeedback);
+        var comment = Assert.Single(task.Comments);
+        Assert.Equal("Use the newly approved price list.", comment.Body);
+        Assert.Equal(TaskCommentKind.Context, comment.Kind);
         Assert.Throws<InvalidOperationException>(() =>
             task.Approve(plan.Id, plan.TaskRevision, InitialTime.AddMinutes(5)));
     }
@@ -63,6 +70,8 @@ public sealed class TaskTests
         Assert.Null(task.CurrentPlanId);
         Assert.Equal("Include delivery dates in the plan.", task.LatestPlanningFeedback);
         Assert.Equal(InitialTime.AddMinutes(4), task.UpdatedAt);
+        Assert.Equal(PlanDecisionKind.Rejected, Assert.Single(task.Decisions).Decision);
+        Assert.Equal(TaskCommentKind.PlanningFeedback, Assert.Single(task.Comments).Kind);
     }
 
     [Fact]
@@ -121,10 +130,34 @@ public sealed class TaskTests
         Assert.Null(task.CurrentPlanId);
     }
 
+    [Fact]
+    public void DiscardAndExecutionUpdatesAreRecordedInsideTheTaskDocument()
+    {
+        var discarded = DomainTask.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
+        discarded.Discard(InitialTime.AddMinutes(1));
+
+        Assert.Equal(PlanDecisionKind.Discarded, Assert.Single(discarded.Decisions).Decision);
+
+        var executed = DomainTask.CreateFromInbound("Send the revised offer.", null, InitialTime);
+        var plan = CreatePlan(
+            executed,
+            executed.ReservePlanNumber(InitialTime.AddMinutes(1)),
+            InitialTime.AddMinutes(2));
+        executed.ApplyPlan(plan, InitialTime.AddMinutes(3));
+        executed.Approve(plan.Id, executed.Revision, InitialTime.AddMinutes(4));
+        executed.StartExecution(plan.Id, executed.Revision, InitialTime.AddMinutes(5));
+        executed.CompleteExecution(InitialTime.AddMinutes(6));
+        executed.AddExecutionUpdate("Created and sent the revised offer.", InitialTime.AddMinutes(6));
+
+        var update = Assert.Single(executed.Comments);
+        Assert.Equal(TaskCommentKind.ExecutionUpdate, update.Kind);
+        Assert.Equal("Created and sent the revised offer.", update.Body);
+    }
+
     private static TaskPlan CreatePlan(DomainTask task, int planNumber, DateTimeOffset createdAt) =>
         new()
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
             TaskId = task.Id,
             TaskRevision = task.Revision,
             PlanNumber = planNumber,

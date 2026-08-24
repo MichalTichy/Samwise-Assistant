@@ -9,9 +9,8 @@ public enum PlanDecisionKind
 
 public sealed class PlanDecision
 {
-    public Guid Id { get; set; }
-    public Guid TaskId { get; set; }
-    public Guid? PlanId { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string? PlanId { get; set; }
     public int TaskRevision { get; set; }
     public PlanDecisionKind Decision { get; set; }
     public string? Feedback { get; set; }

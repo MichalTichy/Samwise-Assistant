@@ -108,16 +108,14 @@ internal sealed class GatewayAgentRuntime(ICodexGatewayClient gateway) : IAgentR
         _ => throw new InvalidOperationException($"Unknown intake decision '{value}'.")
     };
 
-    private static Guid? ParseExistingTaskId(string? value)
+    private static string? ParseExistingTaskId(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             return null;
         }
 
-        return Guid.TryParse(value, out var id)
-            ? id
-            : throw new InvalidOperationException("The intake result contains an invalid existing task ID.");
+        return value.Trim();
     }
 
     private sealed class PlannerWireResult

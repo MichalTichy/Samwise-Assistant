@@ -17,8 +17,7 @@ public enum TaskCommentKind
 
 public sealed class TaskComment
 {
-    public Guid Id { get; set; }
-    public Guid TaskId { get; set; }
+    public string Id { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;
     public CommentAuthorKind AuthorKind { get; set; }
     public TaskCommentKind Kind { get; set; }

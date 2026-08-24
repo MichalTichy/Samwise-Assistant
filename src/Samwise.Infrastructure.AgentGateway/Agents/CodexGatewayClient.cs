@@ -87,7 +87,7 @@ internal sealed class CodexGatewayClient : ICodexGatewayClient, IDisposable
                 "Only planning and execution profiles expose tool catalogs.")
         };
         var client = httpClientFactory.CreateClient(clientName);
-        using var response = await client.GetAsync("tools?detail=full", cancellationToken);
+        using var response = await client.GetAsync("tools", cancellationToken);
         response.EnsureSuccessStatusCode();
         var raw = await response.Content.ReadAsStringAsync(cancellationToken);
         using var document = JsonDocument.Parse(raw);
@@ -107,7 +107,7 @@ internal sealed class CodexGatewayClient : ICodexGatewayClient, IDisposable
                         ? description.GetString()
                         : null,
                     tool.GetProperty("input_schema").GetRawText(),
-                    tool.GetProperty("can_invoke").GetBoolean()));
+                    true));
             }
         }
 

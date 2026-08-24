@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-Samwise is a personal, single-owner assistant—not a multi-tenant SaaS. V1 deliberately uses one deployable web process, one background worker hosted in that process, and one PostgreSQL database. The boundaries are kept in separate projects so connectors or the worker can be extracted later only if a real need appears.
+Samwise is a personal, single-owner assistant—not a multi-tenant SaaS. V1 deliberately uses one deployable web process and one PostgreSQL database. MediatR use cases execute the short workflow directly; there is no background worker, work-item queue, or separate processor.
 
 The web browser never calls the Codex CLI API Gateway. All Gateway credentials and calls remain server-side.
 
@@ -14,14 +14,11 @@ Every source sends the same `CaptureInboundEventUsecase` through MediatR:
 InboundEventCapture(Source, ExternalId, Text)
 ```
 
-`Source + ExternalId` provides connector-level deduplication. A deterministic key has a database unique constraint, so concurrent webhook redeliveries still produce one event. The capture operation stores:
-
-1. an `InboundEvent` in `Pending` state;
-2. a queued `ClassifyInput` work item.
+`Source + ExternalId` provides connector-level deduplication. A deterministic key has a database unique constraint. The capture use case stores an `InboundEvent` in `Pending` state and invokes the classification use case.
 
 Manual web text uses `Source = "Web"`. A future email adapter will normalize an email into the same capture contract and use the provider message ID as `ExternalId`. Teams and Todoist follow the same rule. Connectors do not create or modify tasks themselves.
 
-The use-case handler delegates to `IInboundEventStore`; its Marten implementation owns the short database session and atomic event/work-item write. Blazor pages and future connector adapters depend on use cases, never directly on Marten.
+Use-case handlers use the copied shared-infrastructure `IRepository<T>` and `IReadOnlyRepository<T>` abstractions. Named specifications live beside their consuming feature in `Samwise.Logic`. Blazor pages and future connector adapters send use cases and never depend on Marten.
 
 The intake prompt receives the untrusted input and a compact list of active task candidates. Its strict structured result is one of:
 
@@ -42,7 +39,7 @@ stateDiagram-v2
     AwaitingApproval --> Approved: approve exact plan + task revision
     AwaitingApproval --> Planning: reject with feedback
     AwaitingApproval --> Planning: new context
-    Approved --> Executing: worker starts
+    Approved --> Executing: execution use case starts
     Approved --> NeedsAttention: pre-execution validation failed
     Executing --> Completed: confirmed success
     Executing --> OutcomeUnknown: interrupted / uncertain outcome
@@ -69,9 +66,14 @@ The production adapter creates three immutable Gateway profiles:
 
 | Profile | Credential | Purpose |
 |---|---|---|
-| Intake | planning key | projectless classification; no execution tools |
-| Planning | planning key | plan using visible execution capabilities; only safe read tools may be enabled |
-| Execution | execution key | invoke the configured execution MCP allowlist after approval |
+| Intake | planning key | projectless classification; no MCP tools |
+| Planning | planning key | planning project; normally no tools or only tools safe for the planner to invoke |
+| Execution | execution key | execution project; exact MCP tools allowed after approval |
+
+The finalized Gateway catalog contains only tools enabled for the authenticated key/project; it
+does not expose a separate visible-only set. Samwise therefore fetches the execution catalog with
+the execution profile and inserts that catalog into the planning prompt. The planner can describe
+those future capabilities without receiving the execution credential.
 
 Each call uses a stateless Microsoft Agent Framework `ChatClientAgent` over the official OpenAI Chat Completions connector. No Agent Framework or native Codex session is persisted in V1. This avoids two competing sources of truth: all continuation context is assembled from Samwise’s stored task, comments, prior plan, feedback, and tool catalog.
 
@@ -102,24 +104,25 @@ Ordinary Todoist comments become task context and invalidate the current plan. T
 
 ## Persistence
 
-- Marten schema `samwise`: tasks, plans, comments, decisions, inbound events, work items, invocations, and prompt templates.
+- Marten schema `samwise`: tasks, plans, comments, decisions, inbound events, invocations, and prompt templates.
 - EF Core schema `identity`: the single ASP.NET Identity owner.
 - Durable Data Protection keys: login cookies survive restarts.
 - EF migrations initialize Identity; Marten creates or updates its document schema at startup. This is an intentional single-user V1 simplicity tradeoff.
 
-The worker and the UI use short Marten sessions. Task documents use optimistic concurrency, and each invocation/result is recorded. On startup, safe abandoned intake/planning work is requeued; an abandoned execution that may have started becomes `OutcomeUnknown`. V1 assumes one Samwise process; distributed worker leasing is intentionally deferred.
+The shared repository opens short Marten sessions and each invocation/result is recorded. V1 assumes a single user and a single web process, so it does not add a second custom persistence layer for cross-process workflow concurrency. It intentionally has no durable workflow queue: an HTTP request runs classification/planning/execution to completion. If background delivery or crash recovery becomes necessary later, it can be added around the same use cases without moving workflow rules into persistence.
 
 ## Code organization
 
 The solution follows the useful Edifio conventions while retaining the single-process V1 deployment:
 
 - feature operations are explicit MediatR `*Usecase` request/handler pairs in `Samwise.Logic`;
-- reusable Marten queries are named `*Specification` classes in `Samwise.Infrastructure.Persistence.Marten`;
+- use-case handlers use the copied shared `IRepository<T>`/`IReadOnlyRepository<T>` contracts;
+- reusable queries are named `*Specification` classes beside their feature in `Samwise.Logic`;
 - each infrastructure concern has its own project and `IInstaller` implementation;
 - the Codex Gateway transport and selectable agent-runtime implementations are separate infrastructure projects;
-- EF migration/owner creation and prompt seeding are `InitializerBase` startup initializers;
+- EF migration/owner creation and prompt seeding are `InitializerBase` startup initializers; prompt defaults and initialization belong to `Samwise.Logic`, not the Marten adapter;
 - custom Blazor pages keep markup in `Page.razor` and behavior in `Page.razor.cs`;
 - `Program.cs` is only the composition/pipeline entry point and discovers installers and initializers;
 - required Edifio shared-infrastructure projects are copied under `SharedInfrastructure` and referenced only by repository-local project paths.
 
-Samwise uses the copied Marten storage-configuration abstraction, but intentionally keeps workflow writes on explicit short-lived sessions. The copied generic repository and ambient unit-of-work helpers are not used for task transitions because this workflow needs visible optimistic-concurrency and idempotency boundaries.
+`Samwise.Infrastructure.Persistence.Marten` now contains only its installer and document mappings. It registers the copied shared Marten repository implementation; it contains no use cases, prompt behavior, worker, or domain workflow orchestration.

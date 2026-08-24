@@ -2,9 +2,9 @@ using Marten;
 using Samwise.Domain.Agents;
 using Shared.Infrastructure.Persistence.Specifications;
 
-namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
+namespace Samwise.Logic.Tasks.Specifications;
 
-internal sealed class TaskInvocationsSpecification(Guid taskId, int limit = 10)
+internal sealed class TaskInvocationsSpecification(string taskId, int limit = 10)
     : IListSpecification<AgentInvocation>
 {
     public async Task<IReadOnlyList<AgentInvocation>> ApplyAsync(

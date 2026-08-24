@@ -2,7 +2,7 @@ using Marten;
 using Samwise.Domain.Prompts;
 using Shared.Infrastructure.Persistence.Specifications;
 
-namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
+namespace Samwise.Logic.Prompts.Specifications;
 
 internal sealed class PromptTemplatesSpecification : IListSpecification<PromptTemplate>
 {

@@ -1,9 +1,11 @@
+using Shared.Infrastructure.Persistence;
+
 namespace Samwise.Domain.Tasks;
 
-public sealed class TaskPlan
+public sealed class TaskPlan : IItemWithId
 {
-    public Guid Id { get; set; }
-    public Guid TaskId { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string TaskId { get; set; } = string.Empty;
     public int TaskRevision { get; set; }
     public int PlanNumber { get; set; }
     public string Summary { get; set; } = string.Empty;

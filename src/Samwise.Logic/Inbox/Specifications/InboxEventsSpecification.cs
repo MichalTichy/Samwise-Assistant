@@ -2,7 +2,7 @@ using Marten;
 using Samwise.Domain.Inbox;
 using Shared.Infrastructure.Persistence.Specifications;
 
-namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
+namespace Samwise.Logic.Inbox.Specifications;
 
 internal sealed class InboxEventsSpecification : IListSpecification<InboundEvent>
 {

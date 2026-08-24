@@ -9,13 +9,13 @@ public enum IntakeDecision
 }
 
 public sealed record IntakeRequest(
-    Guid InboundEventId,
+    string InboundEventId,
     string Source,
     string RenderedPrompt);
 
 public sealed record IntakeResult(
     IntakeDecision Decision,
-    Guid? ExistingTaskId,
+    string? ExistingTaskId,
     string? ProposedTitle,
     string? ProposedDescription,
     string Explanation,
@@ -34,7 +34,7 @@ public sealed record ToolCapability(
     bool CanInvoke);
 
 public sealed record PlannerRequest(
-    Guid TaskId,
+    string TaskId,
     int TaskRevision,
     int PlanNumber,
     string RenderedPrompt,
@@ -60,9 +60,9 @@ public sealed record PlannerResult(
     AgentReceipt Receipt);
 
 public sealed record ExecutionRequest(
-    Guid TaskId,
+    string TaskId,
     int TaskRevision,
-    Guid PlanId,
+    string PlanId,
     string RenderedPrompt,
     ToolCatalogSnapshot ExecutionCatalog);
 

@@ -69,7 +69,7 @@ public sealed class GatewayAgentRuntimeTests
 
         var result = await runtime.ClassifyAsync(
             new IntakeRequest(
-                Guid.Parse("7cf225dd-347a-4ee9-9763-185fdc30daef"),
+                "7cf225dd-347a-4ee9-9763-185fdc30daef",
                 "Manual",
                 "Classify this input: Prepare the revised offer."),
             timeout.Token);

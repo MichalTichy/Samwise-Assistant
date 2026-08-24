@@ -1,6 +1,6 @@
 using Samwise.Domain.Prompts;
 
-namespace Samwise.Infrastructure.Persistence.Marten.Initialization;
+namespace Samwise.Logic.Prompts.Initialization;
 
 internal static class DefaultPromptTemplates
 {

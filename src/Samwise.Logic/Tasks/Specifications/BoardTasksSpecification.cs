@@ -4,7 +4,7 @@ using Shared.Infrastructure.Persistence.Specifications;
 using DomainTask = Samwise.Domain.Tasks.Task;
 using Task = System.Threading.Tasks.Task;
 
-namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
+namespace Samwise.Logic.Tasks.Specifications;
 
 internal sealed class BoardTasksSpecification(bool includeArchived) : IListSpecification<DomainTask>
 {

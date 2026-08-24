@@ -20,7 +20,7 @@ public partial class TaskDetails
     private ISender Sender { get; set; } = default!;
 
     [Parameter]
-    public Guid TaskId { get; set; }
+    public string TaskId { get; set; } = string.Empty;
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 

@@ -11,7 +11,7 @@ public partial class Inbox
 {
     private IReadOnlyList<InboxEventItem> events = [];
     private bool loading;
-    private Guid? retryingEventId;
+    private string? retryingEventId;
     private string? actionError;
 
     [Inject]
@@ -32,7 +32,7 @@ public partial class Inbox
         }
     }
 
-    private async Task RetryAsync(Guid inboundEventId)
+    private async Task RetryAsync(string inboundEventId)
     {
         retryingEventId = inboundEventId;
         actionError = null;

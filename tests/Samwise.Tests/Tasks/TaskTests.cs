@@ -20,7 +20,7 @@ public sealed class TaskTests
         Assert.Throws<InvalidOperationException>(() =>
             task.Approve(plan.Id, task.Revision + 1, InitialTime.AddMinutes(4)));
         Assert.Throws<InvalidOperationException>(() =>
-            task.Approve(Guid.NewGuid(), task.Revision, InitialTime.AddMinutes(4)));
+            task.Approve(Guid.NewGuid().ToString(), task.Revision, InitialTime.AddMinutes(4)));
 
         task.Approve(plan.Id, plan.TaskRevision, InitialTime.AddMinutes(5));
 
@@ -124,7 +124,7 @@ public sealed class TaskTests
     private static TaskPlan CreatePlan(DomainTask task, int planNumber, DateTimeOffset createdAt) =>
         new()
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
             TaskId = task.Id,
             TaskRevision = task.Revision,
             PlanNumber = planNumber,

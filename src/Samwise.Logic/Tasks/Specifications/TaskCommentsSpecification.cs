@@ -3,9 +3,9 @@ using Samwise.Domain.Tasks;
 using Shared.Infrastructure.Persistence.Specifications;
 using Task = System.Threading.Tasks.Task;
 
-namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
+namespace Samwise.Logic.Tasks.Specifications;
 
-internal sealed class TaskCommentsSpecification(Guid taskId) : IListSpecification<TaskComment>
+internal sealed class TaskCommentsSpecification(string taskId) : IListSpecification<TaskComment>
 {
     public async Task<IReadOnlyList<TaskComment>> ApplyAsync(
         IQueryable<TaskComment> queryable,

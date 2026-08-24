@@ -1,3 +1,5 @@
+using Shared.Infrastructure.Persistence;
+
 namespace Samwise.Domain.Tasks;
 
 public enum PlanDecisionKind
@@ -7,11 +9,11 @@ public enum PlanDecisionKind
     Discarded
 }
 
-public sealed class PlanDecision
+public sealed class PlanDecision : IItemWithId
 {
-    public Guid Id { get; set; }
-    public Guid TaskId { get; set; }
-    public Guid? PlanId { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string TaskId { get; set; } = string.Empty;
+    public string? PlanId { get; set; }
     public int TaskRevision { get; set; }
     public PlanDecisionKind Decision { get; set; }
     public string? Feedback { get; set; }

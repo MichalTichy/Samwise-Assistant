@@ -8,4 +8,8 @@
     <Project Path="SharedInfrastructure/Shared.Infrastructure.Persistence.Marten/Shared.Infrastructure.Persistence.Marten.csproj" />
     <Project Path="SharedInfrastructure/Shared.Infrastructure.UnitOfWork/Shared.Infrastructure.UnitOfWork.csproj" />
   </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Samwise.Logic/Samwise.Logic.csproj" />
+    <Project Path="src/Samwise.Domain/Samwise.Domain.csproj" />
+  </Folder>
 </Solution>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/SharedInfrastructure/">
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.CurrentTenancyProvider/Shared.Infrastructure.CurrentTenancyProvider.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.Initializer/Shared.Infrastructure.Initializer.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.IoC/Shared.Infrastructure.IoC.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.LeaderElection/Shared.Infrastructure.LeaderElection.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.Persistence/Shared.Infrastructure.Persistence.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.Persistence.Marten/Shared.Infrastructure.Persistence.Marten.csproj" />
+    <Project Path="SharedInfrastructure/Shared.Infrastructure.UnitOfWork/Shared.Infrastructure.UnitOfWork.csproj" />
+  </Folder>
+</Solution>

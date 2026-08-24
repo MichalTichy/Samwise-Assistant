@@ -6,7 +6,7 @@ using DomainTask = Samwise.Domain.Tasks.Task;
 namespace Samwise.Logic.Tasks;
 
 public sealed record TaskCard(
-    Guid Id,
+    string Id,
     string Title,
     string Description,
     SamwiseTaskStatus Status,
@@ -22,10 +22,10 @@ public sealed record TaskDetails(
     IReadOnlyList<AgentInvocation> Invocations);
 
 public sealed record InboxEventItem(
-    Guid Id,
+    string Id,
     string Source,
     string Text,
     DateTimeOffset ReceivedAt,
     InboundHandlingKind Handling,
-    Guid? TaskId,
+    string? TaskId,
     string Explanation);

@@ -12,6 +12,66 @@ namespace Samwise.Tests.Agents;
 public sealed class GatewayAgentRuntimeTests
 {
     [Fact]
+    public async Task ToolCatalogUsesFinalGatewayShapeWhereEveryReturnedToolIsEnabled()
+    {
+        const string catalog = """
+            {
+              "object": "list",
+              "catalog_version": "sha256:catalog-test",
+              "data": [
+                {
+                  "id": "documents",
+                  "name": "Documents",
+                  "version": "1.0.0",
+                  "required": false,
+                  "title": "Documents",
+                  "description": "Document tools",
+                  "website_url": null,
+                  "icons": null,
+                  "tools": [
+                    {
+                      "id": "documents/search",
+                      "name": "search",
+                      "title": "Search",
+                      "description": "Search documents",
+                      "input_schema": { "type": "object" },
+                      "output_schema": null,
+                      "annotations": null,
+                      "icons": null,
+                      "_meta": null
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+        var profile = new GatewayProfileOptions
+        {
+            BaseAddress = "http://gateway.test/p/samwise-planning/v1/",
+            ApiKey = "planning-test-key",
+            Model = "planning-test-model",
+            ReasoningEffort = "high"
+        };
+        var options = Options.Create(new CodexGatewayOptions
+        {
+            Intake = profile,
+            Planning = profile,
+            Execution = profile
+        });
+        var factory = new CatalogHttpClientFactory(profile.BaseAddress, catalog);
+        using var gateway = new CodexGatewayClient(options, factory);
+
+        var result = await gateway.GetToolsAsync(GatewayStage.Planning);
+
+        Assert.Equal("sha256:catalog-test", result.Version);
+        var tool = Assert.Single(result.Tools);
+        Assert.Equal("documents/search", tool.Id);
+        Assert.Equal("search", tool.Name);
+        Assert.True(tool.CanInvoke);
+        Assert.Equal("/p/samwise-planning/v1/tools", factory.RequestUri?.AbsolutePath);
+    }
+
+    [Fact]
     public async Task ClassifyAsyncUsesStrictJsonSchemaAndParsesStructuredResponse()
     {
         await using var server = new LoopbackServer();
@@ -69,7 +129,7 @@ public sealed class GatewayAgentRuntimeTests
 
         var result = await runtime.ClassifyAsync(
             new IntakeRequest(
-                Guid.Parse("7cf225dd-347a-4ee9-9763-185fdc30daef"),
+                "7cf225dd-347a-4ee9-9763-185fdc30daef",
                 "Manual",
                 "Classify this input: Prepare the revised offer."),
             timeout.Token);
@@ -126,6 +186,30 @@ public sealed class GatewayAgentRuntimeTests
     {
         public HttpClient CreateClient(string name) =>
             throw new InvalidOperationException($"The intake classification call should not request named client '{name}'.");
+    }
+
+    private sealed class CatalogHttpClientFactory(string baseAddress, string responseBody) : IHttpClientFactory
+    {
+        public Uri? RequestUri { get; private set; }
+
+        public HttpClient CreateClient(string name) => new(new Handler(this, responseBody))
+        {
+            BaseAddress = new Uri(baseAddress, UriKind.Absolute)
+        };
+
+        private sealed class Handler(CatalogHttpClientFactory owner, string body) : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken)
+            {
+                owner.RequestUri = request.RequestUri;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json")
+                });
+            }
+        }
     }
 
     private sealed class LoopbackServer : IAsyncDisposable

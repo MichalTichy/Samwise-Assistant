@@ -3,9 +3,9 @@ using Samwise.Domain.Tasks;
 using Shared.Infrastructure.Persistence.Specifications;
 using Task = System.Threading.Tasks.Task;
 
-namespace Samwise.Infrastructure.Persistence.Marten.Specifications;
+namespace Samwise.Logic.Tasks.Specifications;
 
-internal sealed class TaskDecisionsSpecification(Guid taskId) : IListSpecification<PlanDecision>
+internal sealed class TaskDecisionsSpecification(string taskId) : IListSpecification<PlanDecision>
 {
     public async Task<IReadOnlyList<PlanDecision>> ApplyAsync(
         IQueryable<PlanDecision> queryable,

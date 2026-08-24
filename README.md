@@ -36,9 +36,9 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 
 ## Projects
 
-- `Samwise.Domain` — task, plan, inbound-event, comment, decision, and agent-work state
-- `Samwise.Logic` — MediatR use cases, application ports, prompt rendering, and UI-facing models
-- `Samwise.Infrastructure.Persistence.Marten` — Marten storage, named specifications, durable agent work, and the hosted worker
+- `Samwise.Domain` — task, plan, inbound-event, comment, decision, and agent-invocation state
+- `Samwise.Logic` — MediatR workflow use cases, shared-repository specifications, prompt defaults/rendering, and UI-facing models
+- `Samwise.Infrastructure.Persistence.Marten` — only Marten registration and Samwise document mappings
 - `Samwise.Infrastructure.AgentGateway` — Microsoft Agent Framework/OpenAI transport for the Codex Gateway
 - `Samwise.Infrastructure.AgentRuntimes` — selectable Gateway and deterministic demo implementations of `IAgentRuntime`
 - `Samwise.Infrastructure.Persistence.Identity` — ASP.NET Core Identity storage, migration, and owner initializer
@@ -73,6 +73,11 @@ outside your local machine.
 Development defaults to the deterministic demo runtime, so the intake/plan/approval UI can be exercised without a running Gateway.
 
 To use the Gateway, configure its three profiles through user secrets or environment variables. Intake and planning may share the planning key; execution must use its separate key.
+
+In the Gateway admin UI, create `samwise-planning` and `samwise-execution` projects and grant the
+corresponding keys. The planning project should have no MCP tools, or only read-only tools that are
+safe during planning. The execution project owns the exact approved execution allowlist. Samwise
+retrieves that execution catalog separately and gives its metadata to the planner.
 
 ```powershell
 dotnet user-secrets set "AgentRuntime:Provider" "Gateway" --project src/Samwise.Web

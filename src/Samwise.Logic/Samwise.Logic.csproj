@@ -9,7 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Samwise.Domain\Samwise.Domain.csproj" />
     <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.IoC\Shared.Infrastructure.IoC.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Initializer\Shared.Infrastructure.Initializer.csproj" />
     <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Persistence\Shared.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Persistence.Marten\Shared.Infrastructure.Persistence.Marten.csproj" />
   </ItemGroup>
 
   <ItemGroup>

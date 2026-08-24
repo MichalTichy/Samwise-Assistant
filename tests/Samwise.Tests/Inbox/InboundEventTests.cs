@@ -30,7 +30,7 @@ public sealed class InboundEventTests
         {
             Handling = InboundHandlingKind.NeedsReview,
             HandledAt = DateTimeOffset.UtcNow,
-            TaskId = Guid.NewGuid(),
+            TaskId = Guid.NewGuid().ToString(),
             Explanation = "Planner could not select a task."
         };
 

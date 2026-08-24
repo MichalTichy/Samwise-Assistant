@@ -1,3 +1,5 @@
+using Shared.Infrastructure.Persistence;
+
 namespace Samwise.Domain.Agents;
 
 public enum AgentInvocationStatus
@@ -8,13 +10,12 @@ public enum AgentInvocationStatus
     OutcomeUnknown
 }
 
-public sealed class AgentInvocation
+public sealed class AgentInvocation : IItemWithId
 {
-    public Guid Id { get; set; }
-    public Guid? InboundEventId { get; set; }
-    public Guid? TaskId { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string? InboundEventId { get; set; }
+    public string? TaskId { get; set; }
     public int TaskRevision { get; set; }
-    public Guid WorkItemId { get; set; }
     public string Profile { get; set; } = string.Empty;
     public string Provider { get; set; } = string.Empty;
     public string? Model { get; set; }

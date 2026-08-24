@@ -1,14 +1,16 @@
+using Shared.Infrastructure.Persistence;
+
 namespace Samwise.Domain.Tasks;
 
-public sealed class Task
+public sealed class Task : IItemWithId
 {
-    public Guid Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public SamwiseTaskStatus Status { get; set; }
     public int Revision { get; set; }
     public int NextPlanNumber { get; set; }
-    public Guid? CurrentPlanId { get; set; }
+    public string? CurrentPlanId { get; set; }
     public string? LatestPlanningFeedback { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
@@ -30,7 +32,7 @@ public sealed class Task
 
         return new Task
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
             Title = normalizedTitle.Length <= 96 ? normalizedTitle : normalizedTitle[..93] + "...",
             Description = normalized,
             Status = SamwiseTaskStatus.Planning,
@@ -66,7 +68,7 @@ public sealed class Task
         UpdatedAt = now;
     }
 
-    public void Approve(Guid planId, int taskRevision, DateTimeOffset now)
+    public void Approve(string planId, int taskRevision, DateTimeOffset now)
     {
         if (Status != SamwiseTaskStatus.AwaitingApproval || CurrentPlanId != planId || Revision != taskRevision)
         {
@@ -77,7 +79,7 @@ public sealed class Task
         UpdatedAt = now;
     }
 
-    public void Reject(Guid planId, int taskRevision, string feedback, DateTimeOffset now)
+    public void Reject(string planId, int taskRevision, string feedback, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(feedback);
         if (Status != SamwiseTaskStatus.AwaitingApproval || CurrentPlanId != planId || Revision != taskRevision)
@@ -124,7 +126,7 @@ public sealed class Task
         UpdatedAt = now;
     }
 
-    public void StartExecution(Guid planId, int taskRevision, DateTimeOffset now)
+    public void StartExecution(string planId, int taskRevision, DateTimeOffset now)
     {
         if (Status != SamwiseTaskStatus.Approved || CurrentPlanId != planId || Revision != taskRevision)
         {
@@ -152,6 +154,15 @@ public sealed class Task
         if (Status == SamwiseTaskStatus.Executing)
         {
             Status = SamwiseTaskStatus.OutcomeUnknown;
+            UpdatedAt = now;
+        }
+    }
+
+    public void MarkApprovedExecutionFailed(DateTimeOffset now)
+    {
+        if (Status == SamwiseTaskStatus.Approved)
+        {
+            Status = SamwiseTaskStatus.NeedsAttention;
             UpdatedAt = now;
         }
     }

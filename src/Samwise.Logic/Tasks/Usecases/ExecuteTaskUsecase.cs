@@ -16,9 +16,6 @@ internal sealed record ExecuteTaskUsecase(string TaskId, string PlanId, int Task
 
 internal sealed class ExecuteTaskUsecaseHandler(
     IRepository<DomainTask> taskRepository,
-    IReadOnlyRepository<TaskPlan> planRepository,
-    IReadOnlyRepository<TaskComment> commentReader,
-    IRepository<TaskComment> commentWriter,
     IReadOnlyRepository<PromptTemplate> promptRepository,
     IAgentRuntime runtime,
     IPromptRenderer promptRenderer,
@@ -40,11 +37,12 @@ internal sealed class ExecuteTaskUsecaseHandler(
         var executionStarted = false;
         try
         {
-            var plan = await planRepository.GetRequiredByIdAsync(request.PlanId, cancellationToken);
+            var plan = task.FindCurrentPlan()
+                ?? throw new InvalidOperationException("The approved plan is missing from the task document.");
             var template = await promptRepository.GetRequiredByIdAsync("execution", cancellationToken);
-            var comments = await commentReader.ListAsync(new TaskCommentsSpecification(task.Id), cancellationToken);
+            var comments = task.Comments;
             var catalog = await runtime.GetExecutionToolsAsync(cancellationToken);
-            if (!string.Equals(plan.ExecutionToolCatalogVersion, catalog.CatalogVersion, StringComparison.Ordinal))
+            if (!string.Equals(plan.ExecutionTools.CatalogVersion, catalog.CatalogVersion, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
                     "The execution tool catalog changed after approval. Replanning is required.");
@@ -79,16 +77,10 @@ internal sealed class ExecuteTaskUsecaseHandler(
                 currentTask.MarkExecutionUncertain(timeProvider.GetUtcNow());
             }
 
+            currentTask.AddExecutionUpdate(
+                AgentWorkflowSupport.FormatExecutionResult(result),
+                timeProvider.GetUtcNow());
             await taskRepository.UpdateAsync(currentTask, cancellationToken);
-            await commentWriter.AddAsync(new TaskComment
-            {
-                Id = Guid.NewGuid().ToString(),
-                TaskId = currentTask.Id,
-                AuthorKind = CommentAuthorKind.Samwise,
-                Kind = TaskCommentKind.ExecutionUpdate,
-                Body = AgentWorkflowSupport.FormatExecutionResult(result),
-                CreatedAt = timeProvider.GetUtcNow()
-            }, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

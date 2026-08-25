@@ -11,9 +11,6 @@ public sealed record GetTaskDetailsUsecase(string TaskId) : IRequest<TaskDetails
 
 internal sealed class GetTaskDetailsUsecaseHandler(
     IReadOnlyRepository<DomainTask> taskRepository,
-    IReadOnlyRepository<TaskPlan> planRepository,
-    IReadOnlyRepository<TaskComment> commentRepository,
-    IReadOnlyRepository<PlanDecision> decisionRepository,
     IReadOnlyRepository<AgentInvocation> invocationRepository)
     : IRequestHandler<GetTaskDetailsUsecase, TaskDetails?>
 {
@@ -27,19 +24,15 @@ internal sealed class GetTaskDetailsUsecaseHandler(
             return null;
         }
 
-        var plan = task.CurrentPlanId is { } planId
-            ? await planRepository.GetByIdAsync(planId, cancellationToken)
-            : null;
-        var comments = await commentRepository.ListAsync(
-            new TaskCommentsSpecification(task.Id),
-            cancellationToken);
-        var decisions = await decisionRepository.ListAsync(
-            new TaskDecisionsSpecification(task.Id),
-            cancellationToken);
         var invocations = await invocationRepository.ListAsync(
             new TaskInvocationsSpecification(task.Id),
             cancellationToken);
 
-        return new TaskDetails(task, plan, comments, decisions, invocations);
+        return new TaskDetails(
+            task,
+            task.FindCurrentPlan(),
+            task.Comments,
+            task.Decisions.OrderByDescending(decision => decision.DecidedAt).ToList(),
+            invocations);
     }
 }

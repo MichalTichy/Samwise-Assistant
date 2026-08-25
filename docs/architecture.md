@@ -50,7 +50,7 @@ stateDiagram-v2
     OutcomeUnknown --> Discarded: close after manual reconciliation
 ```
 
-A `TaskPlan` is Samwise’s own serializable plan snapshot, not an opaque Agent Framework session. It contains technical steps, referenced qualified tool IDs, side-effect flags, success criteria, assumptions, risks, the exact task revision, both tool-catalog versions, and the rendered planning prompt.
+A `TaskPlan` is Samwise’s own serializable plan snapshot, not an opaque Agent Framework session. It is nested in its task document and contains technical steps, referenced qualified tool IDs, side-effect flags, success criteria, assumptions, risks, the exact task revision, structured snapshots of both tool catalogs, the prompt-template identity/version, and the planning invocation ID. The invocation document owns the full rendered prompt and raw AI response, avoiding duplicate large strings inside every plan.
 
 Approval is a compare-and-set operation against `(TaskId, PlanId, TaskRevision)`. Rejection feedback and added context increment the task revision and make the prior plan non-approvable. Before execution, Samwise fetches the execution tool catalog again; a changed catalog fails closed rather than running a stale approval.
 
@@ -94,7 +94,7 @@ Every invocation stores its fully rendered prompt, so changing the current templ
 - **Prompts** — simple current-template editor and placeholder legend.
 - **Account** — ASP.NET Core Identity login and owner settings. Public registration is not exposed. V1 has no email sender or self-service recovery flow; while the owner has no password, the login page displays a one-time password-setting link.
 
-Task comments are first-class now. This supports ordinary context and rejection feedback immediately, and lets a future Todoist projection treat comments as another command surface without changing the task model.
+Task comments are first-class owned values inside the task aggregate. This supports ordinary context and rejection feedback immediately, makes the task revision and its new context one atomic document update, and lets a future Todoist projection treat comments as another command surface without changing the task model.
 
 ## Future Todoist UI adapter
 
@@ -104,12 +104,14 @@ Ordinary Todoist comments become task context and invalidate the current plan. T
 
 ## Persistence
 
-- Marten schema `samwise`: tasks, plans, comments, decisions, inbound events, invocations, and prompt templates.
+- Marten schema `samwise`: versioned task aggregate documents (including nested plans, comments, decisions, plan steps, and tool snapshots), inbound events, agent invocations, and prompt templates.
 - EF Core schema `identity`: the single ASP.NET Identity owner.
 - Durable Data Protection keys: login cookies survive restarts.
 - EF migrations initialize Identity; Marten creates or updates its document schema at startup. This is an intentional single-user V1 simplicity tradeoff.
 
-The shared repository opens short Marten sessions and each invocation/result is recorded. V1 assumes a single user and a single web process, so it does not add a second custom persistence layer for cross-process workflow concurrency. It intentionally has no durable workflow queue: an HTTP request runs classification/planning/execution to completion. If background delivery or crash recovery becomes necessary later, it can be added around the same use cases without moving workflow rules into persistence.
+The task is the consistency boundary. It implements Marten numeric revisioning, so concurrent updates fail instead of silently replacing nested context or decisions. Each task transition—including its comment, decision, or plan—is persisted as one document update. Intake classification uses one ambient Marten transaction when it must update both an inbound event and a task. Agent invocations remain separate because they are large operational audit records whose running/final states straddle an external call.
+
+V1 assumes a single user and a single web process. It intentionally has no durable workflow queue: an HTTP request runs classification/planning/execution to completion. If background delivery or crash recovery becomes necessary later, it can be added around the same use cases without moving workflow rules into persistence.
 
 ## Code organization
 

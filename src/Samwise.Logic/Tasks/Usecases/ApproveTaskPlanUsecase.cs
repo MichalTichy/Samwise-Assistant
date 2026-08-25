@@ -10,7 +10,6 @@ public sealed record ApproveTaskPlanUsecase(string TaskId, string PlanId, int Ta
 
 internal sealed class ApproveTaskPlanUsecaseHandler(
     IRepository<DomainTask> taskRepository,
-    IRepository<PlanDecision> decisionRepository,
     ISender sender,
     TimeProvider timeProvider) : IRequestHandler<ApproveTaskPlanUsecase>
 {
@@ -19,12 +18,6 @@ internal sealed class ApproveTaskPlanUsecaseHandler(
         var task = await taskRepository.GetRequiredByIdAsync(request.TaskId, cancellationToken);
         task.Approve(request.PlanId, request.TaskRevision, timeProvider.GetUtcNow());
         await taskRepository.UpdateAsync(task, cancellationToken);
-        await decisionRepository.AddAsync(new PlanDecision
-        {
-            Id = Guid.NewGuid().ToString(), TaskId = task.Id, PlanId = request.PlanId,
-            TaskRevision = request.TaskRevision, Decision = PlanDecisionKind.Approved,
-            DecidedAt = timeProvider.GetUtcNow()
-        }, cancellationToken);
         await sender.Send(new ExecuteTaskUsecase(task.Id, request.PlanId, request.TaskRevision), cancellationToken);
     }
 }

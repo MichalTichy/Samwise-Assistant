@@ -14,8 +14,6 @@ public sealed record RejectTaskPlanUsecase(
 
 internal sealed class RejectTaskPlanUsecaseHandler(
     IRepository<DomainTask> taskRepository,
-    IRepository<PlanDecision> decisionRepository,
-    IRepository<TaskComment> commentRepository,
     ISender sender,
     TimeProvider timeProvider) : IRequestHandler<RejectTaskPlanUsecase>
 {
@@ -24,18 +22,6 @@ internal sealed class RejectTaskPlanUsecaseHandler(
         var task = await taskRepository.GetRequiredByIdAsync(request.TaskId, cancellationToken);
         task.Reject(request.PlanId, request.TaskRevision, request.Feedback, timeProvider.GetUtcNow());
         await taskRepository.UpdateAsync(task, cancellationToken);
-        await decisionRepository.AddAsync(new PlanDecision
-        {
-            Id = Guid.NewGuid().ToString(), TaskId = task.Id, PlanId = request.PlanId,
-            TaskRevision = request.TaskRevision, Decision = PlanDecisionKind.Rejected,
-            Feedback = request.Feedback.Trim(), DecidedAt = timeProvider.GetUtcNow()
-        }, cancellationToken);
-        await commentRepository.AddAsync(new TaskComment
-        {
-            Id = Guid.NewGuid().ToString(), TaskId = task.Id, Body = request.Feedback.Trim(),
-            AuthorKind = CommentAuthorKind.User, Kind = TaskCommentKind.PlanningFeedback,
-            CreatedAt = timeProvider.GetUtcNow()
-        }, cancellationToken);
         await sender.Send(new PlanTaskUsecase(task.Id), cancellationToken);
     }
 }

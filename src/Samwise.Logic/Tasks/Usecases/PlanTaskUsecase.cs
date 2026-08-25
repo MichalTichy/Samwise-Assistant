@@ -16,8 +16,6 @@ public sealed record PlanTaskUsecase(string TaskId) : IRequest;
 
 internal sealed class PlanTaskUsecaseHandler(
     IRepository<DomainTask> taskRepository,
-    IRepository<TaskPlan> planRepository,
-    IReadOnlyRepository<TaskComment> commentRepository,
     IReadOnlyRepository<PromptTemplate> promptRepository,
     IAgentRuntime runtime,
     IPromptRenderer promptRenderer,
@@ -41,12 +39,8 @@ internal sealed class PlanTaskUsecaseHandler(
         try
         {
             var template = await promptRepository.GetRequiredByIdAsync("planning", cancellationToken);
-            var comments = await commentRepository.ListAsync(
-                new TaskCommentsSpecification(task.Id),
-                cancellationToken);
-            var previousPlan = await planRepository.GetBySpecAsync(
-                new LatestTaskPlanSpecification(task.Id),
-                cancellationToken);
+            var comments = task.Comments;
+            var previousPlan = task.FindLatestPlan();
             var planningCatalog = await runtime.GetPlanningToolsAsync(cancellationToken);
             var executionCatalog = await runtime.GetExecutionToolsAsync(cancellationToken);
             var renderResult = promptRenderer.Render(
@@ -106,13 +100,13 @@ internal sealed class PlanTaskUsecaseHandler(
                     HasExternalSideEffects = step.HasExternalSideEffects,
                     SuccessCriteria = step.SuccessCriteria
                 }).ToList(),
-                PlanningToolCatalogVersion = planningCatalog.CatalogVersion,
-                ExecutionToolCatalogVersion = executionCatalog.CatalogVersion,
+                PlanningTools = AgentWorkflowSupport.CreatePlanToolSnapshot(planningCatalog),
+                ExecutionTools = AgentWorkflowSupport.CreatePlanToolSnapshot(executionCatalog),
                 PromptTemplateId = template.Id,
-                RenderedPrompt = renderResult.Text,
+                PromptTemplateUpdatedAt = template.UpdatedAt,
+                PlanningInvocationId = invocation.Id,
                 CreatedAt = timeProvider.GetUtcNow()
             };
-            await planRepository.AddAsync(plan, cancellationToken);
             currentTask.ApplyPlan(plan, timeProvider.GetUtcNow());
             await taskRepository.UpdateAsync(currentTask, cancellationToken);
         }

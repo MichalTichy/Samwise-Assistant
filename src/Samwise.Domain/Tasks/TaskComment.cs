@@ -1,5 +1,3 @@
-using Shared.Infrastructure.Persistence;
-
 namespace Samwise.Domain.Tasks;
 
 public enum CommentAuthorKind
@@ -17,10 +15,9 @@ public enum TaskCommentKind
     ExecutionUpdate
 }
 
-public sealed class TaskComment : IItemWithId
+public sealed class TaskComment
 {
     public string Id { get; set; } = string.Empty;
-    public string TaskId { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;
     public CommentAuthorKind AuthorKind { get; set; }
     public TaskCommentKind Kind { get; set; }

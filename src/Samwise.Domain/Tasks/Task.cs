@@ -1,10 +1,12 @@
+using JasperFx;
 using Shared.Infrastructure.Persistence;
 
 namespace Samwise.Domain.Tasks;
 
-public sealed class Task : IItemWithId
+public sealed class Task : IItemWithId, IRevisioned
 {
     public string Id { get; set; } = string.Empty;
+    public int Version { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public SamwiseTaskStatus Status { get; set; }
@@ -15,6 +17,9 @@ public sealed class Task : IItemWithId
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+    public List<TaskPlan> Plans { get; set; } = [];
+    public List<TaskComment> Comments { get; set; } = [];
+    public List<PlanDecision> Decisions { get; set; } = [];
 
     public static Task CreateFromInbound(
         string description,
@@ -62,13 +67,19 @@ public sealed class Task : IItemWithId
             throw new InvalidOperationException("The plan does not belong to the current task revision.");
         }
 
+        if (Plans.Any(existing => existing.Id == plan.Id))
+        {
+            throw new InvalidOperationException("The plan is already attached to this task.");
+        }
+
+        Plans.Add(plan);
         CurrentPlanId = plan.Id;
         Status = SamwiseTaskStatus.AwaitingApproval;
         LatestPlanningFeedback = null;
         UpdatedAt = now;
     }
 
-    public void Approve(string planId, int taskRevision, DateTimeOffset now)
+    public void Approve(string planId, int taskRevision, DateTimeOffset now, string source = "Web")
     {
         if (Status != SamwiseTaskStatus.AwaitingApproval || CurrentPlanId != planId || Revision != taskRevision)
         {
@@ -77,9 +88,15 @@ public sealed class Task : IItemWithId
 
         Status = SamwiseTaskStatus.Approved;
         UpdatedAt = now;
+        Decisions.Add(CreateDecision(planId, taskRevision, PlanDecisionKind.Approved, null, source, now));
     }
 
-    public void Reject(string planId, int taskRevision, string feedback, DateTimeOffset now)
+    public void Reject(
+        string planId,
+        int taskRevision,
+        string feedback,
+        DateTimeOffset now,
+        string source = "Web")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(feedback);
         if (Status != SamwiseTaskStatus.AwaitingApproval || CurrentPlanId != planId || Revision != taskRevision)
@@ -87,20 +104,38 @@ public sealed class Task : IItemWithId
             throw new InvalidOperationException("Only the current plan can be rejected.");
         }
 
+        var normalizedFeedback = feedback.Trim();
+        Decisions.Add(CreateDecision(
+            planId,
+            taskRevision,
+            PlanDecisionKind.Rejected,
+            normalizedFeedback,
+            source,
+            now));
+        Comments.Add(CreateComment(
+            normalizedFeedback,
+            CommentAuthorKind.User,
+            TaskCommentKind.PlanningFeedback,
+            now));
         Revision++;
         CurrentPlanId = null;
-        LatestPlanningFeedback = feedback.Trim();
+        LatestPlanningFeedback = normalizedFeedback;
         Status = SamwiseTaskStatus.Planning;
         UpdatedAt = now;
     }
 
-    public void AddContext(string text, DateTimeOffset now)
+    public void AddContext(
+        string text,
+        DateTimeOffset now,
+        CommentAuthorKind authorKind = CommentAuthorKind.User)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
         EnsureEditable();
+        var normalizedText = text.Trim();
+        Comments.Add(CreateComment(normalizedText, authorKind, TaskCommentKind.Context, now));
         Revision++;
         CurrentPlanId = null;
-        LatestPlanningFeedback = text.Trim();
+        LatestPlanningFeedback = normalizedText;
         Status = SamwiseTaskStatus.Planning;
         UpdatedAt = now;
     }
@@ -167,7 +202,7 @@ public sealed class Task : IItemWithId
         }
     }
 
-    public void Discard(DateTimeOffset now)
+    public void Discard(DateTimeOffset now, string source = "Web")
     {
         if (Status == SamwiseTaskStatus.Executing)
         {
@@ -179,10 +214,70 @@ public sealed class Task : IItemWithId
             return;
         }
 
+        var planId = CurrentPlanId;
+        var revision = Revision;
         Status = SamwiseTaskStatus.Discarded;
         CurrentPlanId = null;
         UpdatedAt = now;
+        Decisions.Add(CreateDecision(
+            planId,
+            revision,
+            PlanDecisionKind.Discarded,
+            null,
+            source,
+            now));
     }
+
+    public void AddExecutionUpdate(string body, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(body);
+        Comments.Add(CreateComment(
+            body.Trim(),
+            CommentAuthorKind.Samwise,
+            TaskCommentKind.ExecutionUpdate,
+            now));
+        UpdatedAt = now;
+    }
+
+    public TaskPlan? FindCurrentPlan() => CurrentPlanId is null
+        ? null
+        : Plans.SingleOrDefault(plan => plan.Id == CurrentPlanId);
+
+    public TaskPlan? FindLatestPlan() => Plans.Count == 0
+        ? null
+        : Plans.MaxBy(plan => plan.PlanNumber);
+
+    private static TaskComment CreateComment(
+        string body,
+        CommentAuthorKind authorKind,
+        TaskCommentKind kind,
+        DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.NewGuid().ToString(),
+            Body = body,
+            AuthorKind = authorKind,
+            Kind = kind,
+            CreatedAt = now
+        };
+
+    private static PlanDecision CreateDecision(
+        string? planId,
+        int taskRevision,
+        PlanDecisionKind decision,
+        string? feedback,
+        string source,
+        DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.NewGuid().ToString(),
+            PlanId = planId,
+            TaskRevision = taskRevision,
+            Decision = decision,
+            Feedback = feedback,
+            Source = source,
+            DecidedAt = now
+        };
 
     private void EnsureNotTerminal()
     {

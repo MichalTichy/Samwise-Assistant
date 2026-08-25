@@ -29,6 +29,7 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - .NET 10 and Blazor Interactive Server
 - ASP.NET Core Identity with one owner account
 - PostgreSQL with Marten for Samwise documents
+- one versioned task aggregate containing its plans, comments, decisions, and exact tool-catalog snapshots
 - PostgreSQL with EF Core migrations for Identity
 - .NET Aspire for local orchestration
 - Microsoft Agent Framework `ChatClientAgent`

@@ -8,6 +8,7 @@ using Samwise.Logic.Agents;
 using Samwise.Logic.Prompts;
 using Samwise.Logic.Tasks.Specifications;
 using Samwise.Logic.Tasks.Usecases;
+using Shared.Infrastructure.Persistence.Marten.UnitOfWorks;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainTask = Samwise.Domain.Tasks.Task;
 using Task = System.Threading.Tasks.Task;
@@ -19,7 +20,6 @@ internal sealed record ClassifyInboundEventUsecase(string InboundEventId) : IReq
 internal sealed class ClassifyInboundEventUsecaseHandler(
     IRepository<InboundEvent> inboundRepository,
     IRepository<DomainTask> taskRepository,
-    IRepository<TaskComment> commentRepository,
     IReadOnlyRepository<PromptTemplate> promptRepository,
     IAgentRuntime runtime,
     IPromptRenderer promptRenderer,
@@ -62,50 +62,46 @@ internal sealed class ClassifyInboundEventUsecaseHandler(
                 : result.Explanation.Trim();
 
             DomainTask? taskToPlan = null;
-            switch (result.Decision)
             {
-                case IntakeDecision.CreateTask:
-                    taskToPlan = DomainTask.CreateFromInbound(
-                        inboundEvent.Text, result.ProposedTitle, timeProvider.GetUtcNow());
-                    await taskRepository.AddAsync(taskToPlan, cancellationToken);
-                    inboundEvent.Handling = InboundHandlingKind.CreateTask;
-                    inboundEvent.TaskId = taskToPlan.Id;
-                    break;
-
-                case IntakeDecision.AppendToTask:
-                    taskToPlan = await FindAppendTargetAsync(result, candidates, cancellationToken);
-                    if (taskToPlan is null)
-                    {
-                        MarkForReview(inboundEvent, "The selected task is missing or is not an active candidate.");
+                await using var unitOfWork = new UnitOfWorkProvider();
+                switch (result.Decision)
+                {
+                    case IntakeDecision.CreateTask:
+                        taskToPlan = DomainTask.CreateFromInbound(
+                            inboundEvent.Text, result.ProposedTitle, timeProvider.GetUtcNow());
+                        await taskRepository.AddAsync(taskToPlan, cancellationToken);
+                        inboundEvent.Handling = InboundHandlingKind.CreateTask;
+                        inboundEvent.TaskId = taskToPlan.Id;
                         break;
-                    }
 
-                    taskToPlan.AddContext(inboundEvent.Text, timeProvider.GetUtcNow());
-                    await taskRepository.UpdateAsync(taskToPlan, cancellationToken);
-                    await commentRepository.AddAsync(new TaskComment
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        TaskId = taskToPlan.Id,
-                        Body = inboundEvent.Text,
-                        AuthorKind = CommentAuthorKind.User,
-                        Kind = TaskCommentKind.Context,
-                        CreatedAt = timeProvider.GetUtcNow()
-                    }, cancellationToken);
-                    inboundEvent.Handling = InboundHandlingKind.AppendToTask;
-                    inboundEvent.TaskId = taskToPlan.Id;
-                    break;
+                    case IntakeDecision.AppendToTask:
+                        taskToPlan = await FindAppendTargetAsync(result, candidates, cancellationToken);
+                        if (taskToPlan is null)
+                        {
+                            MarkForReview(inboundEvent, "The selected task is missing or is not an active candidate.");
+                            break;
+                        }
 
-                case IntakeDecision.Ignore:
-                    inboundEvent.Handling = InboundHandlingKind.Ignore;
-                    break;
-                case IntakeDecision.NeedsReview:
-                    inboundEvent.Handling = InboundHandlingKind.NeedsReview;
-                    break;
-                default:
-                    throw new InvalidOperationException($"Unsupported intake decision '{result.Decision}'.");
+                        taskToPlan.AddContext(inboundEvent.Text, timeProvider.GetUtcNow());
+                        await taskRepository.UpdateAsync(taskToPlan, cancellationToken);
+                        inboundEvent.Handling = InboundHandlingKind.AppendToTask;
+                        inboundEvent.TaskId = taskToPlan.Id;
+                        break;
+
+                    case IntakeDecision.Ignore:
+                        inboundEvent.Handling = InboundHandlingKind.Ignore;
+                        break;
+                    case IntakeDecision.NeedsReview:
+                        inboundEvent.Handling = InboundHandlingKind.NeedsReview;
+                        break;
+                    default:
+                        throw new InvalidOperationException($"Unsupported intake decision '{result.Decision}'.");
+                }
+
+                await inboundRepository.UpdateAsync(inboundEvent, cancellationToken);
+                await unitOfWork.CommitAsync();
             }
 
-            await inboundRepository.UpdateAsync(inboundEvent, cancellationToken);
             if (taskToPlan is not null)
             {
                 await sender.Send(new PlanTaskUsecase(taskToPlan.Id), cancellationToken);

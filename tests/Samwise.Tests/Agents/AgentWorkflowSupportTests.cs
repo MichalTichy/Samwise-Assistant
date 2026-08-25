@@ -64,4 +64,22 @@ public sealed class AgentWorkflowSupportTests
                 "Sent confirmation to sales."),
             body);
     }
+
+    [Fact]
+    public void PlanToolSnapshotPreservesTheExactStructuredCatalog()
+    {
+        var catalog = new ToolCatalogSnapshot(
+            "sha256:catalog",
+            "{\"catalog_version\":\"sha256:catalog\"}",
+            [new ToolCapability("documents/search", "search", "Search documents", "{\"type\":\"object\"}", true)]);
+
+        var snapshot = AgentWorkflowSupport.CreatePlanToolSnapshot(catalog);
+
+        Assert.Equal(catalog.CatalogVersion, snapshot.CatalogVersion);
+        Assert.Equal(catalog.RawJson, snapshot.RawJson);
+        var tool = Assert.Single(snapshot.Tools);
+        Assert.Equal("documents/search", tool.Id);
+        Assert.Equal("{\"type\":\"object\"}", tool.InputSchemaJson);
+        Assert.True(tool.CanInvoke);
+    }
 }

@@ -16,11 +16,7 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
 
         // Keep the pre-rename document identity so existing databases need no table migration.
         options.Schema.For<DomainTask>()
-            .DocumentAlias("samwisetask")
             .Index(task => task.Status);
-        options.Schema.For<TaskPlan>().Index(plan => plan.TaskId);
-        options.Schema.For<TaskComment>().Index(comment => comment.TaskId);
-        options.Schema.For<PlanDecision>().Index(decision => decision.TaskId);
         options.Schema.For<AgentInvocation>().Index(invocation => invocation.TaskId);
         options.Schema.For<InboundEvent>()
             .Index(item => item.ReceivedAt)

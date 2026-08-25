@@ -80,6 +80,21 @@ internal static class AgentWorkflowSupport
             Environment.NewLine,
             string.Join(Environment.NewLine, result.Outputs));
 
+    public static PlanToolCatalogSnapshot CreatePlanToolSnapshot(ToolCatalogSnapshot catalog) =>
+        new()
+        {
+            CatalogVersion = catalog.CatalogVersion,
+            RawJson = catalog.RawJson,
+            Tools = catalog.Tools.Select(tool => new PlanToolCapability
+            {
+                Id = tool.Id,
+                Name = tool.Name,
+                Description = tool.Description,
+                InputSchemaJson = tool.InputSchemaJson,
+                CanInvoke = tool.CanInvoke
+            }).ToList()
+        };
+
     public static void ValidatePlan(PlanDraft plan, ToolCatalogSnapshot executionCatalog)
     {
         if (string.IsNullOrWhiteSpace(plan.Summary) || plan.Steps.Count == 0)

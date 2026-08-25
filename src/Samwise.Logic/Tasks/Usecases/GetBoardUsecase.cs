@@ -8,9 +8,7 @@ namespace Samwise.Logic.Tasks.Usecases;
 
 public sealed record GetBoardUsecase(bool IncludeArchived = false) : IRequest<IReadOnlyList<TaskCard>>;
 
-internal sealed class GetBoardUsecaseHandler(
-    IReadOnlyRepository<DomainTask> taskRepository,
-    IReadOnlyRepository<TaskPlan> planRepository)
+internal sealed class GetBoardUsecaseHandler(IReadOnlyRepository<DomainTask> taskRepository)
     : IRequestHandler<GetBoardUsecase, IReadOnlyList<TaskCard>>
 {
     public async Task<IReadOnlyList<TaskCard>> Handle(
@@ -23,9 +21,7 @@ internal sealed class GetBoardUsecaseHandler(
         var result = new List<TaskCard>(tasks.Count);
         foreach (var task in tasks)
         {
-            var plan = task.CurrentPlanId is { } planId
-                ? await planRepository.GetByIdAsync(planId, cancellationToken)
-                : null;
+            var plan = task.FindCurrentPlan();
             result.Add(new TaskCard(
                 task.Id,
                 task.Title,

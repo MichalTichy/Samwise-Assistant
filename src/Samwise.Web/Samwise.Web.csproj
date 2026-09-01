@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>aspnet-Samwise_Web-681b2f61-41bb-47f2-beae-d4d1b8d4ac4a</UserSecretsId>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Samwise.Logic\Samwise.Logic.csproj" />
+    <ProjectReference Include="..\Samwise.Infrastructure.CodexGateway\Samwise.Infrastructure.CodexGateway.csproj" />
+    <ProjectReference Include="..\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
+    <ProjectReference Include="..\Samwise.Infrastructure.Persistence.Identity\Samwise.Infrastructure.Persistence.Identity.csproj" />
+    <ProjectReference Include="..\Samwise.Infrastructure.Persistence.Marten\Samwise.Infrastructure.Persistence.Marten.csproj" />
+    <ProjectReference Include="..\Samwise.ServiceDefaults\Samwise.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Initializer\Shared.Infrastructure.Initializer.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.IoC\Shared.Infrastructure.IoC.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LumexUI" Version="2.4.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" PrivateAssets="all" />
+    <PackageReference Include="MediatR" Version="12.5.0" />
+  </ItemGroup>
+
+  <Target Name="BuildFrontend" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="npm ci" Condition="!Exists('node_modules')" />
+    <Exec Command="npm run build:css" />
+  </Target>
+
+</Project>

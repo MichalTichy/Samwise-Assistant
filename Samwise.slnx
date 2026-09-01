@@ -9,10 +9,14 @@
     <Project Path="SharedInfrastructure/Shared.Infrastructure.UnitOfWork/Shared.Infrastructure.UnitOfWork.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Samwise.AppHost/Samwise.AppHost.csproj" />
     <Project Path="src/Samwise.Logic/Samwise.Logic.csproj" />
     <Project Path="src/Samwise.Domain/Samwise.Domain.csproj" />
     <Project Path="src/Samwise.Infrastructure.CodexGateway/Samwise.Infrastructure.CodexGateway.csproj" />
     <Project Path="src/Samwise.Infrastructure.AgentRuntimes/Samwise.Infrastructure.AgentRuntimes.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Persistence.Identity/Samwise.Infrastructure.Persistence.Identity.csproj" />
     <Project Path="src/Samwise.Infrastructure.Persistence.Marten/Samwise.Infrastructure.Persistence.Marten.csproj" />
+    <Project Path="src/Samwise.ServiceDefaults/Samwise.ServiceDefaults.csproj" />
+    <Project Path="src/Samwise.Web/Samwise.Web.csproj" />
   </Folder>
 </Solution>

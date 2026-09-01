@@ -1,0 +1,55 @@
+<div class="brand">
+    <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><path d="M25.6 6.9C16.8 7 10.7 11.5 8.9 20.1c4.6-5.4 8.8-7.7 13.7-8.6-5.4 2.4-9.2 5.6-11.3 10.1 4.9.7 8.8-.5 11.6-3.7 2.5-2.9 3.3-6.7 2.7-11Z" /><path d="M8.4 20.7c-1.3 1.2-2.1 2.8-2.5 4.6" /></svg>
+    </div>
+    <div>
+        <strong>Samwise</strong>
+        <span>Your steady companion</span>
+    </div>
+</div>
+
+<nav class="primary-nav">
+    <NavLink class="nav-entry nav-entry-new" href="" Match="NavLinkMatch.All">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg></span>
+        <span>New input</span>
+    </NavLink>
+    <NavLink class="nav-entry" href="board">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></svg></span>
+        <span>Board</span>
+    </NavLink>
+    <NavLink class="nav-entry" href="inbox">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v13H7l-3 3V4Z" /><path d="M8 9h8M8 13h5" /></svg></span>
+        <span>Input events</span>
+    </NavLink>
+</nav>
+
+<div class="nav-section-label">Configuration</div>
+<nav class="primary-nav">
+    <NavLink class="nav-entry" href="prompts">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M8 3H6a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-2" /></svg></span>
+        <span>Prompts</span>
+    </NavLink>
+</nav>
+
+<div class="sidebar-spacer"></div>
+
+<AuthorizeView>
+    <Authorized>
+        <a class="user-entry" href="settings/password">
+            <span class="avatar">@GetInitial(context.User.Identity?.Name)</span>
+            <span class="user-name">@context.User.Identity?.Name</span>
+        </a>
+        <form action="logout" method="post" class="logout-form">
+            <AntiforgeryToken />
+            <LumexButton Type="@ButtonType.Submit" Variant="@Variant.Light" Color="@ThemeColor.Default" Size="@Size.Small" FullWidth="true" Class="logout-button">Log out</LumexButton>
+        </form>
+    </Authorized>
+    <NotAuthorized>
+        <a class="user-entry" href="login">Log in</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private static string GetInitial(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "S" : value.Trim()[0].ToString().ToUpperInvariant();
+}

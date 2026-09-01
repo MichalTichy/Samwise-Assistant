@@ -14,12 +14,14 @@
    docker compose up -d
    ```
 
-5. Open `http://<host>:5050/admin`, sign in to the Gateway, complete Codex device authentication, and create the `samwise-planning` and `samwise-execution` projects and their keys.
+5. Open `http://<host>:5050/admin` from the local network, sign in to the Gateway, complete Codex device authentication, and create the `samwise-planning` and `samwise-execution` projects and their keys. `CODEX_GATEWAY_BIND_ADDRESS=0.0.0.0` exposes the configured Gateway port on every IPv4 interface; change it to a specific host address if desired.
 6. Put the real intake, planning, and execution keys in `.env`, then recreate Samwise with `docker compose up -d web`.
 7. Open Samwise on its configured host and port, sign in, and change the initial password.
 8. Remove `SAMWISE_OWNER_INITIAL_PASSWORD` from `.env` after the owner has a password. An empty value is valid on subsequent starts.
 
 Samwise listens on plain HTTP port `8080` inside its container and the Gateway listens on `8080` inside its container. Their default published host ports are `8080` and `5050`. The Compose default `SAMWISE_REQUIRE_HTTPS=false` allows login when Samwise is opened directly over HTTP on a trusted network. For any internet-accessible deployment, terminate HTTPS in the host reverse proxy and set `SAMWISE_REQUIRE_HTTPS=true`; `ASPNETCORE_FORWARDEDHEADERS_ENABLED` lets Samwise honor the proxy's forwarded scheme.
+
+The Gateway control plane intentionally does not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start its non-root .NET entrypoint under that option, and the control plane already requires tightly scoped Docker-socket access to create isolated runner containers. Dynamically created runner containers retain the Gateway's own runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway now keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
 
 ## Persistent state
 

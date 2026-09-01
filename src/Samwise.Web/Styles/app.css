@@ -307,13 +307,14 @@
     .plan-playbook strong { color: #80541f; }
 
     /* Authentication and settings */
-    .auth-page { min-height: calc(100vh - 160px); display: grid; grid-template-columns: minmax(320px, 1fr) minmax(340px, 460px); align-items: center; gap: clamp(3rem, 8vw, 8rem); }
-    .auth-story { padding-left: clamp(0rem, 5vw, 5rem); }
+    .auth-page { width: min(100%, 1180px); min-height: 100svh; margin: 0 auto; padding: clamp(2rem, 6vh, 4rem) clamp(1.5rem, 4vw, 3rem); display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 420px); align-items: center; gap: clamp(3rem, 6vw, 5.5rem); }
+    .auth-story { max-width: 620px; }
     .story-halo { width: 116px; height: 116px; margin-bottom: 1.6rem; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, #efb958, #d9942d); box-shadow: 0 22px 55px rgb(170 110 34 / .22); }
     .story-halo svg { width: 76px; fill: #684329; stroke: #684329; stroke-linecap: round; stroke-width: 2; }
     .auth-story > span { color: #9b6826; font-size: .72rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-    .auth-story h1 { margin: .75rem 0 1.1rem; font-size: clamp(2.8rem, 5vw, 4.8rem); }
+    .auth-story h1 { margin: .75rem 0 1.1rem; font-size: clamp(2.8rem, 4.4vw, 4.5rem); }
     .auth-story p { max-width: 430px; color: #766a5f; font-size: 1.02rem; line-height: 1.7; }
+    .auth-card { width: 100%; }
     .auth-card, .settings-card { border: 1px solid rgb(104 67 41 / .1); background: rgb(255 252 245 / .92); backdrop-filter: blur(18px); }
     .auth-card-body { padding: clamp(1.7rem, 4vw, 2.6rem) !important; }
     .auth-heading { margin-bottom: 1.75rem; }

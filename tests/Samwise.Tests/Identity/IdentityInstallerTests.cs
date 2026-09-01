@@ -11,19 +11,19 @@ namespace Samwise.Tests.Identity;
 public sealed class IdentityInstallerTests
 {
     [Fact]
-    public void ProductionCookiesRequireHttpsByDefault()
+    public void CookiesFollowTheRequestSchemeByDefault()
     {
         var options = GetCookieOptions(requireHttps: null);
 
-        Assert.Equal(CookieSecurePolicy.Always, options.Cookie.SecurePolicy);
+        Assert.Equal(CookieSecurePolicy.SameAsRequest, options.Cookie.SecurePolicy);
     }
 
     [Fact]
-    public void HttpsRequirementCanBeDisabledForDirectHttpDeployment()
+    public void HttpsCanBeRequiredExplicitly()
     {
-        var options = GetCookieOptions(requireHttps: false);
+        var options = GetCookieOptions(requireHttps: true);
 
-        Assert.Equal(CookieSecurePolicy.SameAsRequest, options.Cookie.SecurePolicy);
+        Assert.Equal(CookieSecurePolicy.Always, options.Cookie.SecurePolicy);
     }
 
     private static CookieAuthenticationOptions GetCookieOptions(bool? requireHttps)

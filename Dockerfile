@@ -35,7 +35,8 @@ RUN dotnet publish src/Samwise.Web/Samwise.Web.csproj \
     --configuration Release \
     --no-restore \
     --output /app/publish \
-    /p:UseAppHost=false
+    /p:UseAppHost=false \
+    && test -f /app/publish/wwwroot/_framework/blazor.web.js
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.9-noble AS runtime
 WORKDIR /app

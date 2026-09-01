@@ -1,0 +1,92 @@
+@page "/playbooks"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Playbooks · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Configuration</span>
+        <h1>Playbooks</h1>
+        <p>Give the planning agent reusable guidance for recurring kinds of work.</p>
+    </div>
+    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewPlaybook">New playbook</LumexButton>
+</div>
+
+<div class="prompt-layout">
+    <aside class="prompt-tabs">
+        @if (playbooks.Count == 0)
+        {
+            <div class="empty-inline">No playbooks yet.</div>
+        }
+        @foreach (var playbook in playbooks)
+        {
+            <LumexButton FullWidth="true"
+                         Variant="@Variant.Light"
+                         Color="@ThemeColor.Primary"
+                         Class="@($"prompt-tab {(playbook.Id == selectedId ? "active" : null)}")"
+                         OnClick="() => Select(playbook)">
+                <strong>@playbook.Name</strong>
+                <span>@(playbook.IsEnabled ? "Available to planning" : "Disabled")</span>
+            </LumexButton>
+        }
+    </aside>
+
+    <LumexCard Class="prompt-editor-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="prompt-editor-body">
+            <div class="prompt-editor-heading">
+                <div>
+                    <h2>@(selectedId is null ? "New playbook" : "Edit playbook")</h2>
+                    <p>The description tells the planner when and how to use this playbook.</p>
+                </div>
+                <span class="save-state">@saveMessage</span>
+            </div>
+
+            <div class="playbook-form">
+                <label>
+                    <span>Name</span>
+                    <input class="configuration-input"
+                           @bind="name"
+                           @bind:event="oninput"
+                           placeholder="Invoice processing" />
+                </label>
+
+                <label>
+                    <span>Description</span>
+                    <LumexTextarea Class="prompt-textarea"
+                                   MinRows="12"
+                                   MaxRows="24"
+                                   Behavior="@InputBehavior.OnInput"
+                                   Variant="@InputVariant.Outlined"
+                                   Placeholder="Describe when this applies and how Samwise should plan the work…"
+                                   @bind-Value="description" />
+                </label>
+
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="isEnabled" />
+                    <span>
+                        <strong>Enabled</strong>
+                        <small>Include this playbook in future planning prompts.</small>
+                    </span>
+                </label>
+            </div>
+
+            @if (errors.Count > 0)
+            {
+                <div class="inline-alert">
+                    @foreach (var error in errors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="prompt-actions">
+                <span>Existing plans keep their saved playbook snapshot.</span>
+                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@saving">
+                    @(saving ? "Saving…" : "Save playbook")
+                </LumexButton>
+            </div>
+        </LumexCardBody>
+    </LumexCard>
+</div>

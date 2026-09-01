@@ -1,0 +1,307 @@
+@page "/work-items/{WorkItemId}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus
+
+<PageTitle>@(details?.WorkItem.Title ?? "Work item") · Samwise</PageTitle>
+
+@if (loading)
+{
+    <div class="empty-state">Loading work item…</div>
+}
+else if (details is null)
+{
+    <div class="not-found-card">
+        <span class="page-kicker">Not found</span>
+        <h1>This work item does not exist.</h1>
+        <a class="button-link button-link-secondary" href="/board">Back to board</a>
+    </div>
+}
+else
+{
+    var model = details;
+    var workItem = model.WorkItem;
+
+    <div class="work-item-detail-page">
+        <div class="work-item-detail-nav">
+            <a href="/board">← Board</a>
+            <div class="work-item-detail-nav-actions">
+                <span>Revision @workItem.Revision</span>
+                <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(loading || actionBusy)">Refresh</LumexButton>
+            </div>
+        </div>
+
+        <header class="work-item-detail-header">
+            <div>
+                <LumexChip Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip status-{workItem.Status.ToString().ToLowerInvariant()}")">@FormatStatus(workItem.Status)</LumexChip>
+                <h1>@workItem.Title</h1>
+                <p>@workItem.Description</p>
+            </div>
+            @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
+            {
+                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy">Discard work item</LumexButton>
+            }
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(actionError))
+        {
+            <div class="inline-alert detail-alert">@actionError</div>
+        }
+
+        <div class="work-item-detail-grid">
+            <main class="work-item-detail-main">
+                @if (workItem.Status == WorkItemStatus.OutcomeUnknown)
+                {
+                    <section class="detail-card state-card outcome-warning">
+                        <span class="state-symbol state-warning">!</span>
+                        <div>
+                            <h2>Execution outcome is unknown</h2>
+                            <p>Samwise may already have made external changes. Inspect the agent activity and the affected system before deciding what to do. This execution will not be retried automatically.</p>
+                        </div>
+                    </section>
+                }
+
+                @if (model.CurrentPlan is { } plan)
+                {
+                    <section class="detail-card plan-card">
+                        <div class="detail-card-heading">
+                            <div>
+                                <span class="page-kicker">Plan @plan.PlanNumber</span>
+                                <h2>@plan.Summary</h2>
+                                @if (plan.Playbook is { } playbook)
+                                {
+                                    <div class="plan-playbook">Guided by <strong>@playbook.Name</strong></div>
+                                }
+                            </div>
+                            <span class="revision-label">for revision @plan.WorkItemRevision</span>
+                        </div>
+
+                        @if (plan.Assumptions.Count > 0 || plan.Risks.Count > 0)
+                        {
+                            <div class="plan-notes-grid">
+                                @if (plan.Assumptions.Count > 0)
+                                {
+                                    <div>
+                                        <h3>Assumptions</h3>
+                                        <ul>
+                                            @foreach (var assumption in plan.Assumptions)
+                                            {
+                                                <li>@assumption</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                                @if (plan.Risks.Count > 0)
+                                {
+                                    <div>
+                                        <h3>Risks</h3>
+                                        <ul>
+                                            @foreach (var risk in plan.Risks)
+                                            {
+                                                <li>@risk</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <ol class="plan-steps">
+                            @foreach (var step in plan.Steps.OrderBy(step => step.Order))
+                            {
+                                <li>
+                                    <div class="plan-step-number">@step.Order</div>
+                                    <div class="plan-step-body">
+                                        <div class="plan-step-heading">
+                                            <h3>@step.Title</h3>
+                                            @if (step.HasExternalSideEffects)
+                                            {
+                                                <span class="side-effect-badge">External change</span>
+                                            }
+                                        </div>
+                                        <p>@step.TechnicalDescription</p>
+                                        @if (step.ToolIds.Count > 0)
+                                        {
+                                            <div class="tool-list">
+                                                @foreach (var tool in step.ToolIds)
+                                                {
+                                                    <code>@tool</code>
+                                                }
+                                            </div>
+                                        }
+                                        <small><strong>Done when:</strong> @step.SuccessCriteria</small>
+                                    </div>
+                                </li>
+                            }
+                        </ol>
+
+                        @if (workItem.Status == WorkItemStatus.AwaitingApproval)
+                        {
+                            <div class="approval-panel">
+                                <div class="approval-copy">
+                                    <h3>Your decision</h3>
+                                    <p>Approve this exact plan, or explain what Samwise should change.</p>
+                                </div>
+                                <div class="approval-buttons">
+                                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ApproveAsync" Disabled="@actionBusy">Approve &amp; execute</LumexButton>
+                                </div>
+                                <LumexTextarea Class="feedback-textarea"
+                                               MinRows="3"
+                                               MaxRows="7"
+                                               Behavior="@InputBehavior.OnInput"
+                                               Variant="@InputVariant.Outlined"
+                                               Placeholder="Feedback for a revised plan…"
+                                               @bind-Value="rejectionFeedback" />
+                                <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="RejectAsync" Disabled="@actionBusy">Reject with feedback</LumexButton>
+                            </div>
+                        }
+                        else if (workItem.Status == WorkItemStatus.NeedsAttention)
+                        {
+                            <div class="approval-panel">
+                                <div class="approval-copy">
+                                    <h3>This plan needs to be rebuilt</h3>
+                                    <p>The last planning or pre-execution check failed. Retry to create a new plan from the current work item and tool catalog.</p>
+                                </div>
+                                <div class="approval-buttons">
+                                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="RetryPlanningAsync" Disabled="@actionBusy">Retry planning</LumexButton>
+                                </div>
+                            </div>
+                        }
+                    </section>
+                }
+                else
+                {
+                    <section class="detail-card state-card">
+                        @if (workItem.Status == WorkItemStatus.Planning)
+                        {
+                            <span class="state-symbol state-working">⋯</span>
+                            <div><h2>Preparing the plan</h2><p>Samwise is turning the latest work item revision into technical steps.</p></div>
+                        }
+                        else if (workItem.Status == WorkItemStatus.NeedsAttention)
+                        {
+                            <span class="state-symbol state-warning">!</span>
+                            <div>
+                                <h2>Samwise needs attention</h2>
+                                <p>The last agent run did not finish cleanly. Review the activity, then retry planning.</p>
+                                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="RetryPlanningAsync" Disabled="@actionBusy">Retry planning</LumexButton>
+                            </div>
+                        }
+                        else if (workItem.Status == WorkItemStatus.Discarded)
+                        {
+                            <span class="state-symbol">×</span>
+                            <div><h2>Work item discarded</h2><p>This work item will not be planned or executed.</p></div>
+                        }
+                    </section>
+                }
+
+                <section class="detail-card comments-card">
+                    <div class="detail-card-heading">
+                        <div><span class="page-kicker">Conversation</span><h2>Comments &amp; context</h2></div>
+                        <span class="column-count">@model.Comments.Count</span>
+                    </div>
+
+                    @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing or WorkItemStatus.OutcomeUnknown))
+                    {
+                        <div class="comment-composer">
+                            <LumexTextarea Class="context-textarea"
+                                           MinRows="3"
+                                           MaxRows="8"
+                                           Behavior="@InputBehavior.OnInput"
+                                           Variant="@InputVariant.Flat"
+                                           Placeholder="Add new facts or clarify the desired outcome…"
+                                           @bind-Value="contextText" />
+                            <div>
+                                <span>New context invalidates the current plan.</span>
+                                <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="AddContextAsync" Disabled="@actionBusy">Add context</LumexButton>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="comment-list">
+                        @foreach (var comment in model.Comments.OrderByDescending(comment => comment.CreatedAt))
+                        {
+                            <article class="comment-row">
+                                <span class="comment-avatar">@AuthorInitial(comment.AuthorKind)</span>
+                                <div>
+                                    <div class="comment-meta"><strong>@FormatAuthor(comment.AuthorKind)</strong><time>@comment.CreatedAt.ToLocalTime().ToString("g")</time></div>
+                                    <p>@comment.Body</p>
+                                </div>
+                            </article>
+                        }
+                        @if (model.Comments.Count == 0)
+                        {
+                            <div class="empty-inline">No comments yet.</div>
+                        }
+                    </div>
+                </section>
+            </main>
+
+            <aside class="work-item-detail-side">
+                <section class="detail-card metadata-card">
+                    <h2>Work item details</h2>
+                    <dl>
+                        <div><dt>Status</dt><dd>@FormatStatus(workItem.Status)</dd></div>
+                        <div><dt>Revision</dt><dd>@workItem.Revision</dd></div>
+                        <div><dt>Created</dt><dd>@workItem.CreatedAt.ToLocalTime().ToString("g")</dd></div>
+                        <div><dt>Updated</dt><dd>@workItem.UpdatedAt.ToLocalTime().ToString("g")</dd></div>
+                        @if (workItem.DiscardedAt is { } discardedAt)
+                        {
+                            <div><dt>Discarded</dt><dd>@discardedAt.ToLocalTime().ToString("g") · @workItem.DiscardedFrom</dd></div>
+                        }
+                    </dl>
+                </section>
+
+                <section class="detail-card activity-card">
+                    <div class="detail-card-heading"><h2>Agent activity</h2><span class="column-count">@model.Invocations.Count</span></div>
+                    <div class="activity-list">
+                        @foreach (var invocation in model.Invocations)
+                        {
+                            <article>
+                                <span class="activity-dot activity-@invocation.Status.ToString().ToLowerInvariant()"></span>
+                                <div>
+                                    <strong>@invocation.Profile</strong>
+                                    <span>@invocation.Status · @invocation.StartedAt.ToLocalTime().ToString("g")</span>
+                                    @if (!string.IsNullOrWhiteSpace(invocation.Model))
+                                    {
+                                        <span>@invocation.Model · @FormatEffort(invocation.ReasoningEffort)</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(invocation.Error))
+                                    {
+                                        <small>@invocation.Error</small>
+                                    }
+                                </div>
+                            </article>
+                        }
+                        @if (model.Invocations.Count == 0)
+                        {
+                            <div class="empty-inline">No agent runs yet.</div>
+                        }
+                    </div>
+                </section>
+
+                @if (model.WorkItem.Plans.Any(candidate => candidate.Review is not null))
+                {
+                    <section class="detail-card activity-card">
+                        <h2>Plan reviews</h2>
+                        <div class="review-list">
+                            @foreach (var reviewedPlan in model.WorkItem.Plans
+                                .Where(candidate => candidate.Review is not null)
+                                .OrderByDescending(candidate => candidate.Review!.ReviewedAt))
+                            {
+                                var review = reviewedPlan.Review!;
+                                <article>
+                                    <strong>Plan @reviewedPlan.PlanNumber · @review.Kind</strong>
+                                    <time>@review.ReviewedAt.ToLocalTime().ToString("g")</time>
+                                    @if (!string.IsNullOrWhiteSpace(review.Feedback))
+                                    {
+                                        <p>@review.Feedback</p>
+                                    }
+                                </article>
+                            }
+                        </div>
+                    </section>
+                }
+            </aside>
+        </div>
+    </div>
+}

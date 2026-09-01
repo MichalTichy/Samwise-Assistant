@@ -1,0 +1,50 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+
+<PageTitle>Sign in · Samwise</PageTitle>
+
+<div class="auth-page">
+    <section class="auth-story" aria-hidden="true">
+        <div class="story-halo">
+            <svg viewBox="0 0 120 120"><path d="M91 25C58 24 34 42 28 76c17-21 34-30 53-34-21 10-36 23-44 41 18 3 33-2 44-14 10-11 13-27 10-44Z" /><path d="M27 78c-7 7-11 14-13 22" /></svg>
+        </div>
+        <span>Samwise</span>
+        <h1>A little help<br />for the road ahead.</h1>
+        <p>Turn the messages that find you into thoughtful, approved action.</p>
+    </section>
+
+    <LumexCard Class="auth-card" Shadow="@Shadow.Large" Radius="@Radius.Large">
+        <LumexCardBody Class="auth-card-body">
+        <div class="auth-heading">
+            <span class="page-kicker">Welcome back</span>
+            <h1>Sign in</h1>
+            <p>Continue as <strong>@OwnerEmail</strong></p>
+        </div>
+
+        <EditForm Model="Input" method="post" OnValidSubmit="SignInAsync" FormName="owner-login">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="auth-validation" role="alert" />
+
+            @if (!string.IsNullOrWhiteSpace(Error))
+            {
+                <div class="inline-alert auth-alert" role="alert">@Error</div>
+            }
+
+            <div class="auth-field">
+                <label for="password">Password</label>
+                <InputText type="password"
+                           @bind-Value="Input.Password"
+                           id="password"
+                           class="auth-input"
+                           autocomplete="current-password"
+                           autofocus
+                           placeholder="Password" />
+            </div>
+
+            <LumexButton Type="@ButtonType.Submit" FullWidth="true" Color="@ThemeColor.Primary" Variant="@Variant.Shadow" Size="@Size.Large">Sign in</LumexButton>
+        </EditForm>
+        <p class="auth-footnote">Private by design · one owner account</p>
+        </LumexCardBody>
+    </LumexCard>
+</div>

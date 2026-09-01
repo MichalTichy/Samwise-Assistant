@@ -1,0 +1,19 @@
+@page "/Error"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>Error</PageTitle>
+
+<div class="system-state-page">
+<span class="page-kicker">Unexpected detour</span>
+<h1>Samwise lost the path.</h1>
+<p>An error occurred while processing your request. Try the previous step again.</p>
+
+@if (ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> <code>@RequestId</code>
+    </p>
+}
+
+<a class="button-link button-link-secondary" href="/">Return home</a>
+</div>

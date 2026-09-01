@@ -44,6 +44,7 @@ ScaffoldingReadMe.txt
 *~
 CodeCoverage/
 .data/
+node_modules/
 
 # MSBuild Binary and Structured Log
 *.binlog

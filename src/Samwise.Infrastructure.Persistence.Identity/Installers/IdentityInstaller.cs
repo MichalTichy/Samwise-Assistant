@@ -15,8 +15,7 @@ public sealed class IdentityInstaller : IInstaller
         var connectionString = configuration.GetConnectionString("samwise")
             ?? configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'samwise' was not configured.");
-        var requireHttps = configuration.GetValue<bool?>("Authentication:RequireHttps")
-            ?? isProduction;
+        var requireHttps = configuration.GetValue<bool>("Authentication:RequireHttps");
 
         services.AddAuthentication(options =>
             {

@@ -10,7 +10,7 @@ This project verifies domain invariants, application workflow boundaries, Gatewa
 - `Agents/` tests invocation lifecycle, playbook steering/snapshots, per-stage model and effort propagation, standard OpenAI runtime registration and captured requests, plus the isolated Gateway catalog extensions.
 - `Architecture/` protects installer composition and application-layer conventions.
 - `Persistence/` verifies the nested work-item and agent-configuration document shapes plus work-item optimistic concurrency against real PostgreSQL when enabled.
-- `Identity/` verifies secure production cookie defaults and the explicit direct-HTTP deployment override.
+- `Identity/` verifies request-scheme cookie behavior and the explicit strict-HTTPS deployment option.
 
 ## Architectural guards
 

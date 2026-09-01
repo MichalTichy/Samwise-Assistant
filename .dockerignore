@@ -1,0 +1,15 @@
+.git
+.github
+.vs
+.vscode
+.idea
+.data
+artifacts
+**/bin
+**/obj
+**/node_modules
+**/TestResults
+*.binlog
+*.nupkg
+*.snupkg
+.env

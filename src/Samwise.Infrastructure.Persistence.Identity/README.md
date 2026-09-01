@@ -6,7 +6,7 @@ This project implements the deliberately small single-owner authentication syste
 
 - `ApplicationUser` is the one supported Identity user type.
 - `ApplicationDbContext` stores Identity tables in PostgreSQL's `identity` schema.
-- `IdentityInstaller` configures Identity Core, cookie authentication, fallback authorization, EF Core, durable Data Protection keys, and owner settings.
+- `IdentityInstaller` configures Identity Core, cookie authentication, fallback authorization, EF Core, durable Data Protection keys, and owner settings. Production cookies require HTTPS by default; `Authentication:RequireHttps=false` is the explicit escape hatch for a direct-HTTP trusted-network deployment.
 - `OwnerAccountOptions` binds the configured email and first-start password.
 - `OwnerIdentityInitializer` runs EF migrations and creates or validates the single owner.
 - `Migrations/` contains the checked-in Identity schema migration.

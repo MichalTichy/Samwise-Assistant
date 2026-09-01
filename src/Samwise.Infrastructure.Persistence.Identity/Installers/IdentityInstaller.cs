@@ -15,6 +15,8 @@ public sealed class IdentityInstaller : IInstaller
         var connectionString = configuration.GetConnectionString("samwise")
             ?? configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'samwise' was not configured.");
+        var requireHttps = configuration.GetValue<bool?>("Authentication:RequireHttps")
+            ?? isProduction;
 
         services.AddAuthentication(options =>
             {
@@ -58,7 +60,7 @@ public sealed class IdentityInstaller : IInstaller
             options.AccessDeniedPath = "/login";
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
-            options.Cookie.SecurePolicy = isProduction
+            options.Cookie.SecurePolicy = requireHttps
                 ? Microsoft.AspNetCore.Http.CookieSecurePolicy.Always
                 : Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
             options.ExpireTimeSpan = TimeSpan.FromDays(30);

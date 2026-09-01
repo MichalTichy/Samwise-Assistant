@@ -7,8 +7,10 @@ namespace Shared.Infrastructure.Persistence.Marten.UnitOfWorks;
 
 public class UnitOfWork : IAsyncDisposable
 {
+#if DEBUG
     [UsedImplicitly]
     private readonly string creationStackTrace;
+#endif
 
     public Guid OwnerId { get; }
 
@@ -20,8 +22,6 @@ public class UnitOfWork : IAsyncDisposable
         OwnerId = ownerId;
 #if DEBUG
         creationStackTrace = new StackTrace().ToString();
-#else
-        creationStackTrace = "Only in debug";
 #endif
     }
 

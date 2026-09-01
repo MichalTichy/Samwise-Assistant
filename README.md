@@ -107,5 +107,18 @@ dotnet build Samwise.slnx --no-restore
 dotnet test tests/Samwise.Tests/Samwise.Tests.csproj --no-build --no-restore
 ```
 
+## Deploy with Docker Compose
+
+The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway and its isolated runner, using an existing PostgreSQL instance. Persistent volumes retain Gateway state, Codex authentication, and ASP.NET Core Data Protection keys.
+
+Copy `.env.example` to the ignored `.env`, replace every secret placeholder, then run:
+
+```powershell
+docker compose pull
+docker compose up -d
+```
+
+See [deployment.md](docs/deployment.md) for reverse-proxy, persistence, update, build, and registry details.
+
 No database password or Gateway API key is checked into this repository. The checked-in owner
 password is an intentionally disposable local first-run default.

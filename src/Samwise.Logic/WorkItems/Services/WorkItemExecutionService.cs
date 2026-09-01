@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
-using Samwise.Domain.Prompts;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
 using Samwise.Logic.Prompts;
@@ -19,7 +18,7 @@ internal interface IWorkItemExecutionService
 
 internal sealed class WorkItemExecutionService(
     IRepository<DomainWorkItem> workItemRepository,
-    IReadOnlyRepository<PromptTemplate> promptRepository,
+    IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
     IAgentRuntime runtime,
     IPromptRenderer promptRenderer,
     IAgentInvocationService invocationService,
@@ -42,7 +41,10 @@ internal sealed class WorkItemExecutionService(
         {
             var plan = workItem.FindCurrentPlan()
                 ?? throw new InvalidOperationException("The approved plan is missing from the work item document.");
-            var template = await promptRepository.GetRequiredByIdAsync("execution", cancellationToken);
+            var agentConfiguration = await agentConfigurationRepository.GetRequiredByIdAsync(
+                AgentConfiguration.DocumentId,
+                cancellationToken);
+            var stageConfiguration = agentConfiguration.GetStage(AgentStage.Execution);
             var comments = workItem.Comments;
             var catalog = await runtime.GetExecutionToolsAsync(cancellationToken);
             if (!string.Equals(plan.ExecutionTools.CatalogVersion, catalog.CatalogVersion, StringComparison.Ordinal))
@@ -52,8 +54,8 @@ internal sealed class WorkItemExecutionService(
             }
 
             var rendered = promptRenderer.Render(
-                PromptStage.Execution,
-                template.Content,
+                AgentStage.Execution,
+                stageConfiguration.Prompt,
                 AgentWorkflowSupport.BuildExecutionValues(
                     workItem,
                     comments,
@@ -71,14 +73,21 @@ internal sealed class WorkItemExecutionService(
                     rendered.Text,
                     null,
                     workItem.Id,
-                    workItem.Revision),
+                    workItem.Revision,
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
                 cancellationToken);
             workItem.StartExecution(plan.Id, request.WorkItemRevision, timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(workItem, cancellationToken);
             executionStarted = true;
 
             var result = await runtime.ExecuteAsync(
-                new ExecutionRequest(workItem.Id, workItem.Revision, plan.Id, rendered.Text, catalog),
+                new ExecutionRequest(
+                    workItem.Id,
+                    workItem.Revision,
+                    plan.Id,
+                    rendered.Text,
+                    catalog,
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
                 cancellationToken);
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 

@@ -1,3 +1,5 @@
+using Samwise.Domain.Agents;
+
 namespace Samwise.Logic.Agents;
 
 public enum IntakeDecision
@@ -11,7 +13,8 @@ public enum IntakeDecision
 public sealed record IntakeRequest(
     string InboundEventId,
     string Source,
-    string RenderedPrompt);
+    string RenderedPrompt,
+    AgentRunConfiguration Configuration);
 
 public sealed record IntakeResult(
     IntakeDecision Decision,
@@ -39,9 +42,11 @@ public sealed record PlannerRequest(
     int PlanNumber,
     string RenderedPrompt,
     ToolCatalogSnapshot PlanningCatalog,
-    ToolCatalogSnapshot ExecutionCatalog);
+    ToolCatalogSnapshot ExecutionCatalog,
+    AgentRunConfiguration Configuration);
 
 public sealed record PlanDraft(
+    string? PlaybookId,
     string Summary,
     IReadOnlyList<string> Assumptions,
     IReadOnlyList<string> Risks,
@@ -64,7 +69,8 @@ public sealed record ExecutionRequest(
     int WorkItemRevision,
     string PlanId,
     string RenderedPrompt,
-    ToolCatalogSnapshot ExecutionCatalog);
+    ToolCatalogSnapshot ExecutionCatalog,
+    AgentRunConfiguration Configuration);
 
 public sealed record ExecutionResult(
     bool Succeeded,
@@ -77,3 +83,7 @@ public sealed record AgentReceipt(
     string? Model,
     string? CompletionId,
     string RawResponse);
+
+public sealed record AgentRunConfiguration(
+    string Model,
+    string ReasoningEffort);

@@ -10,10 +10,14 @@ Each feature is grouped by responsibility:
 - `Services/` contains reusable processing and mandatory follow-up flow shared by use cases.
 - `Specifications/` contains named read definitions executed through `IReadOnlyRepository<T>`.
 - `Initialization/` contains feature-owned startup seeders.
-- `Agents/` contains the `IAgentRuntime` port, structured request/result models, invocation tracking, and prompt-context assembly.
+- `Agents/` contains the `IAgentRuntime` and `IAgentModelCatalog` ports, structured request/result models, invocation tracking, and prompt-context assembly.
+- `Prompts/` contains prompt rendering, the startup initializer for the single agent-configuration document, and the UI-triggered use case that updates one nested stage.
+- `Playbooks/` contains the UI-triggered save use case and public read specification for reusable planning guidance.
 - `Installers/LogicInstaller` registers MediatR and application services.
 
 There are intentionally no read-only `Get*Usecase` wrappers. Blazor pages call the read-only repository with public specifications directly.
+
+The fixed Intake, Planning, and Execution settings form one `AgentConfiguration` document. Startup creates the complete aggregate; workflow services load that root and select the required nested stage. Model and reasoning-effort IDs are stored as strings because `IAgentModelCatalog` reports a model-specific set of supported efforts. `SaveAgentStageConfigurationUsecase` requires the root to exist, validates that pair against the current catalog, and mutates only the selected stage, so normal commands never invent missing configuration structure.
 
 ## Intake and planning flow
 
@@ -23,7 +27,8 @@ There are intentionally no read-only `Get*Usecase` wrappers. Blazor pages call t
 4. `Ignore` and `NeedsReview` finish without a work item.
 5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
 6. `InboundEventProcessingService` calls `WorkItemPlanningService` for that work item.
-7. Planning fetches both planning and execution tool catalogs, renders the complete planning prompt, validates referenced execution tools, attaches the plan, and leaves it awaiting approval.
+7. Planning loads enabled playbooks and both tool catalogs, renders the complete planning prompt, and calls the configured planning model and reasoning effort.
+8. Samwise validates the selected playbook ID and referenced execution tools, snapshots any selected playbook into the plan, attaches it, and leaves the work item awaiting approval.
 
 ## Approval and execution flow
 
@@ -35,7 +40,7 @@ There are intentionally no read-only `Get*Usecase` wrappers. Blazor pages call t
 ## Shared services
 
 - `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution.
-- `PromptRenderer` validates placeholders and renders the full prompt stored with every invocation.
+- `PromptRenderer` validates placeholders—including planning's `{{playbooks}}` value—and renders the full prompt stored with every invocation.
 - `AgentWorkflowSupport` assembles deterministic structured context for each stage.
 
 ## Architectural rules

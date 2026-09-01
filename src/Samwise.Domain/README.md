@@ -5,13 +5,14 @@ This project contains Samwise's durable business state and transition rules. It 
 ## Structure and main components
 
 - `WorkItems/WorkItem` is the main consistency boundary. It owns plans, comments, discard metadata, revision changes, and lifecycle transitions.
-- `WorkItems/WorkItemPlan` is the serializable plan snapshot presented to the user. It includes steps, tool-catalog snapshots, assumptions, risks, the work-item revision for which it was created, and its optional review.
+- `WorkItems/WorkItemPlan` is the serializable plan snapshot presented to the user. It includes steps, an optional selected-playbook snapshot, tool-catalog snapshots, assumptions, risks, the work-item revision for which it was created, and its optional review.
 - `WorkItems/WorkItemComment` stores user, Samwise, and system context inside the aggregate.
 - `WorkItems/PlanReview` records the single approval or rejection outcome owned by its plan.
 - `WorkItems/WorkItemStatus` defines the draft, approval, execution, completion, attention, uncertainty, and discarded states.
 - `Inbox/InboundEvent` is the source-neutral audit document for manual input and future connectors.
 - `Agents/AgentInvocation` records one intake, planning, or execution call and its final outcome.
-- `Prompts/PromptTemplate` stores the currently configured prompt for one workflow stage.
+- `Agents/AgentConfiguration` is the single current-settings document. It owns fixed nested Intake, Planning, and Execution settings, each with its model ID, exact Gateway reasoning-effort ID, prompt, and update timestamp. Reasoning effort is deliberately not an enum because supported values belong to the selected model.
+- `Playbooks/Playbook` stores one reusable, optionally enabled planning instruction configured by the user.
 
 ## Work-item lifecycle
 
@@ -24,7 +25,7 @@ This project contains Samwise's durable business state and transition rules. It 
 
 ## Aggregate boundary
 
-Plans, their reviews, plan steps, tool snapshots, comments, and discard metadata are nested in `WorkItem` because they change with and are consistent with that work item. Approval and rejection belong to the reviewed plan; discard belongs to the work-item lifecycle. Inbound events, prompt templates, and agent invocations are independent documents because they have separate identity, retention, and access patterns.
+Plans, their selected-playbook snapshots, reviews, plan steps, tool snapshots, comments, and discard metadata are nested in `WorkItem` because they change with and are consistent with that work item. Approval and rejection belong to the reviewed plan; discard belongs to the work-item lifecycle. The three agent-stage settings are nested in one `AgentConfiguration` because they form one fixed configuration edited and loaded together. Inbound events, playbook definitions, that configuration root, and agent invocations remain separate documents because they have separate identity, retention, and access patterns.
 
 ## Rules for this project
 

@@ -1,4 +1,4 @@
-using Samwise.Domain.Prompts;
+using Samwise.Domain.Agents;
 
 namespace Samwise.Logic.Prompts;
 
@@ -8,17 +8,18 @@ public sealed record PromptPlaceholder(
     string Description,
     string Example);
 
-public sealed record PromptTemplateEditor(
-    string Id,
-    PromptStage Stage,
+public sealed record AgentStageConfigurationEditor(
+    AgentStage Stage,
     string Name,
-    string Content,
+    string Prompt,
+    string Model,
+    string ReasoningEffort,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<PromptPlaceholder> Placeholders);
 
-public sealed record PromptSaveResult(bool Succeeded, IReadOnlyList<string> Errors)
+public sealed record AgentStageConfigurationSaveResult(bool Succeeded, IReadOnlyList<string> Errors)
 {
-    public static PromptSaveResult Success { get; } = new(true, []);
+    public static AgentStageConfigurationSaveResult Success { get; } = new(true, []);
 }
 
 public sealed record PromptRenderResult(bool Succeeded, string Text, IReadOnlyList<string> Errors);

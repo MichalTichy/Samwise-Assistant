@@ -1,21 +1,21 @@
 using System.Text.RegularExpressions;
 using Samwise.Logic.Prompts;
-using Samwise.Domain.Prompts;
+using Samwise.Domain.Agents;
 
 namespace Samwise.Logic.Prompts;
 
 internal sealed partial class PromptRenderer : IPromptRenderer
 {
-    private static readonly IReadOnlyDictionary<PromptStage, IReadOnlyList<PromptPlaceholder>> Definitions =
-        new Dictionary<PromptStage, IReadOnlyList<PromptPlaceholder>>
+    private static readonly IReadOnlyDictionary<AgentStage, IReadOnlyList<PromptPlaceholder>> Definitions =
+        new Dictionary<AgentStage, IReadOnlyList<PromptPlaceholder>>
         {
-            [PromptStage.Intake] =
+            [AgentStage.Intake] =
             [
                 new("input.text", "Input text", "Normalized text received from the source.", "Please send the revised offer."),
                 new("active_work_items", "Active work items", "Compact JSON list of possible existing work items.", "[{...}]"),
                 new("current_time", "Current time", "Current UTC time in ISO 8601 format.", "2026-08-17T14:30:00Z")
             ],
-            [PromptStage.Planning] =
+            [AgentStage.Planning] =
             [
                 new("work_item.id", "Work item ID", "Stable Samwise work item identifier.", "8b07..."),
                 new("work_item.title", "Work item title", "Short work item title.", "Prepare revised offer"),
@@ -24,10 +24,11 @@ internal sealed partial class PromptRenderer : IPromptRenderer
                 new("work_item.comments", "Work item comments", "User context and planning feedback as Markdown.", "- Add delivery dates"),
                 new("previous_plan", "Previous plan", "Previous plan JSON, or an empty string.", "{...}"),
                 new("rejection_feedback", "Rejection feedback", "Latest user feedback, or an empty string.", "Use the new price list"),
+                new("playbooks", "Playbooks", "Enabled playbooks as trusted planning guidance in JSON format.", "[{...}]"),
                 new("execution_tools", "Execution tools", "Execution Gateway tool catalog as untrusted JSON data.", "{...}"),
                 new("current_time", "Current time", "Current UTC time in ISO 8601 format.", "2026-08-17T14:30:00Z")
             ],
-            [PromptStage.Execution] =
+            [AgentStage.Execution] =
             [
                 new("work_item.id", "Work item ID", "Stable Samwise work item identifier.", "8b07..."),
                 new("work_item.title", "Work item title", "Short work item title.", "Prepare revised offer"),
@@ -40,9 +41,9 @@ internal sealed partial class PromptRenderer : IPromptRenderer
             ]
         };
 
-    public IReadOnlyList<PromptPlaceholder> GetPlaceholders(PromptStage stage) => Definitions[stage];
+    public IReadOnlyList<PromptPlaceholder> GetPlaceholders(AgentStage stage) => Definitions[stage];
 
-    public IReadOnlyList<string> Validate(PromptStage stage, string template)
+    public IReadOnlyList<string> Validate(AgentStage stage, string template)
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(template))
@@ -72,7 +73,7 @@ internal sealed partial class PromptRenderer : IPromptRenderer
     }
 
     public PromptRenderResult Render(
-        PromptStage stage,
+        AgentStage stage,
         string template,
         IReadOnlyDictionary<string, string?> values)
     {

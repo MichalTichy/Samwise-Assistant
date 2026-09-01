@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
-using Samwise.Domain.Prompts;
+using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
 using Samwise.Logic.Prompts;
+using Samwise.Logic.Playbooks.Specifications;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
@@ -18,7 +19,8 @@ internal interface IWorkItemPlanningService
 
 internal sealed class WorkItemPlanningService(
     IRepository<DomainWorkItem> workItemRepository,
-    IReadOnlyRepository<PromptTemplate> promptRepository,
+    IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
+    IReadOnlyRepository<Playbook> playbookRepository,
     IAgentRuntime runtime,
     IPromptRenderer promptRenderer,
     IAgentInvocationService invocationService,
@@ -40,18 +42,24 @@ internal sealed class WorkItemPlanningService(
         AgentInvocation? invocation = null;
         try
         {
-            var template = await promptRepository.GetRequiredByIdAsync("planning", cancellationToken);
+            var agentConfiguration = await agentConfigurationRepository.GetRequiredByIdAsync(
+                AgentConfiguration.DocumentId,
+                cancellationToken);
+            var stageConfiguration = agentConfiguration.GetStage(AgentStage.Planning);
+            var playbooks = await playbookRepository.ListAsync(
+                new PlaybooksSpecification(enabledOnly: true), cancellationToken);
             var comments = workItem.Comments;
             var previousPlan = workItem.FindLatestPlan();
             var planningCatalog = await runtime.GetPlanningToolsAsync(cancellationToken);
             var executionCatalog = await runtime.GetExecutionToolsAsync(cancellationToken);
             var renderResult = promptRenderer.Render(
-                PromptStage.Planning,
-                template.Content,
+                AgentStage.Planning,
+                stageConfiguration.Prompt,
                 AgentWorkflowSupport.BuildPlanningValues(
                     workItem,
                     comments,
                     previousPlan,
+                    playbooks,
                     executionCatalog,
                     timeProvider.GetUtcNow()));
             if (!renderResult.Succeeded)
@@ -60,7 +68,13 @@ internal sealed class WorkItemPlanningService(
             }
 
             invocation = await invocationService.StartAsync(
-                new AgentInvocationStart("Planning", renderResult.Text, null, workItem.Id, revision),
+                new AgentInvocationStart(
+                    "Planning",
+                    renderResult.Text,
+                    null,
+                    workItem.Id,
+                    revision,
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
                 cancellationToken);
             var result = await runtime.PlanAsync(
                 new PlannerRequest(
@@ -69,9 +83,11 @@ internal sealed class WorkItemPlanningService(
                     planNumber,
                     renderResult.Text,
                     planningCatalog,
-                    executionCatalog),
+                    executionCatalog,
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
                 cancellationToken);
             AgentWorkflowSupport.ValidatePlan(result.Plan, executionCatalog);
+            var playbook = AgentWorkflowSupport.ResolvePlaybookSnapshot(result.Plan.PlaybookId, playbooks);
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
@@ -89,6 +105,7 @@ internal sealed class WorkItemPlanningService(
                 Summary = result.Plan.Summary,
                 Assumptions = [.. result.Plan.Assumptions],
                 Risks = [.. result.Plan.Risks],
+                Playbook = playbook,
                 Steps = result.Plan.Steps.Select(step => new PlanStep
                 {
                     Order = step.Order,
@@ -100,8 +117,8 @@ internal sealed class WorkItemPlanningService(
                 }).ToList(),
                 PlanningTools = AgentWorkflowSupport.CreatePlanToolSnapshot(planningCatalog),
                 ExecutionTools = AgentWorkflowSupport.CreatePlanToolSnapshot(executionCatalog),
-                PromptTemplateId = template.Id,
-                PromptTemplateUpdatedAt = template.UpdatedAt,
+                AgentConfigurationId = agentConfiguration.Id,
+                AgentConfigurationUpdatedAt = stageConfiguration.UpdatedAt,
                 PlanningInvocationId = invocation.Id,
                 CreatedAt = timeProvider.GetUtcNow()
             };

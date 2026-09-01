@@ -13,7 +13,7 @@ This is the single deployable Samwise process and the Blazor Interactive Server 
 - `Components/Pages/Login` and `Components/Pages/ChangePassword` are the deliberately small custom account UI.
 - `Components/Shared/` contains presentation-only helpers such as login redirection.
 - `Endpoints/OwnerAccountEndpoints` contains the antiforgery-protected logout endpoint.
-- `Styles/app.css` is the Tailwind/LumexUI source, and the package scripts define stylesheet generation.
+- `Styles/app.css` is the Tailwind/LumexUI source; `wwwroot/app.css` is the generated asset.
 - `appsettings*.json` contains safe local defaults and option structure; secrets belong in user secrets or environment variables.
 
 ## Read and command boundary
@@ -63,6 +63,14 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 3. Saving sends `SaveAgentStageConfigurationUsecase`, which validates the model/effort pair and prompt before updating the selected nested stage in that document.
 4. `Playbooks` reads playbook documents directly through `PlaybooksSpecification`; save actions send `SavePlaybookUsecase`.
 5. Both pages reload the saved documents rather than treating browser state as authoritative.
+
+## Frontend asset flow
+
+1. Tailwind scans `Styles/app.css` and component markup using the sources configured in the stylesheet.
+2. `npm run build:css` generates the deployable `wwwroot/app.css` file.
+3. The generated stylesheet is committed so ordinary Debug builds do not require Node.js.
+4. Release builds run the frontend build target and regenerate the stylesheet.
+5. Change the source stylesheet or component classes, then regenerate; do not hand-edit `wwwroot/app.css`.
 
 ## UI principles
 

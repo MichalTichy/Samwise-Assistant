@@ -8,7 +8,8 @@ internal sealed record AgentInvocationStart(
     string RenderedPrompt,
     string? InboundEventId,
     string? WorkItemId,
-    int WorkItemRevision);
+    int WorkItemRevision,
+    AgentRunConfiguration Configuration);
 
 internal interface IAgentInvocationService
 {
@@ -39,6 +40,8 @@ internal sealed class AgentInvocationService(
             WorkItemRevision = request.WorkItemRevision,
             Profile = request.Profile,
             Provider = "Pending",
+            Model = request.Configuration.Model,
+            ReasoningEffort = request.Configuration.ReasoningEffort,
             RenderedPrompt = request.RenderedPrompt,
             Status = AgentInvocationStatus.Running,
             StartedAt = timeProvider.GetUtcNow()

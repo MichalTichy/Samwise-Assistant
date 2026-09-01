@@ -1,15 +1,15 @@
-using Samwise.Domain.Prompts;
+using Samwise.Domain.Agents;
 
 namespace Samwise.Logic.Prompts;
 
 public interface IPromptRenderer
 {
-    IReadOnlyList<PromptPlaceholder> GetPlaceholders(PromptStage stage);
+    IReadOnlyList<PromptPlaceholder> GetPlaceholders(AgentStage stage);
 
-    IReadOnlyList<string> Validate(PromptStage stage, string template);
+    IReadOnlyList<string> Validate(AgentStage stage, string template);
 
     PromptRenderResult Render(
-        PromptStage stage,
+        AgentStage stage,
         string template,
         IReadOnlyDictionary<string, string?> values);
 }

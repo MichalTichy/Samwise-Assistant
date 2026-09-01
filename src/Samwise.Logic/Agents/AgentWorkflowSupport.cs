@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Samwise.Domain.Inbox;
+using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 
@@ -37,6 +38,7 @@ internal static class AgentWorkflowSupport
         DomainWorkItem workItem,
         IReadOnlyList<WorkItemComment> comments,
         WorkItemPlan? previousPlan,
+        IReadOnlyList<Playbook> playbooks,
         ToolCatalogSnapshot executionCatalog,
         DateTimeOffset now) =>
         new Dictionary<string, string?>(StringComparer.Ordinal)
@@ -48,6 +50,14 @@ internal static class AgentWorkflowSupport
             ["work_item.comments"] = FormatComments(comments),
             ["previous_plan"] = previousPlan is null ? string.Empty : JsonSerializer.Serialize(previousPlan, JsonOptions),
             ["rejection_feedback"] = workItem.LatestPlanningFeedback,
+            ["playbooks"] = JsonSerializer.Serialize(
+                playbooks.Select(playbook => new
+                {
+                    id = playbook.Id,
+                    name = playbook.Name,
+                    description = playbook.Description
+                }),
+                JsonOptions),
             ["execution_tools"] = executionCatalog.RawJson,
             ["current_time"] = now.ToString("O")
         };
@@ -94,6 +104,32 @@ internal static class AgentWorkflowSupport
                 CanInvoke = tool.CanInvoke
             }).ToList()
         };
+
+    public static PlanPlaybookSnapshot? ResolvePlaybookSnapshot(
+        string? playbookId,
+        IReadOnlyList<Playbook> availablePlaybooks)
+    {
+        if (string.IsNullOrWhiteSpace(playbookId))
+        {
+            return null;
+        }
+
+        var playbook = availablePlaybooks.SingleOrDefault(
+            candidate => string.Equals(candidate.Id, playbookId.Trim(), StringComparison.Ordinal));
+        if (playbook is null)
+        {
+            throw new InvalidOperationException(
+                $"The planner selected playbook '{playbookId}', which is not currently enabled.");
+        }
+
+        return new PlanPlaybookSnapshot
+        {
+            Id = playbook.Id,
+            Name = playbook.Name,
+            Description = playbook.Description,
+            UpdatedAt = playbook.UpdatedAt
+        };
+    }
 
     public static void ValidatePlan(PlanDraft plan, ToolCatalogSnapshot executionCatalog)
     {

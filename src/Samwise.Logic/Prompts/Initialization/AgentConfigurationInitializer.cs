@@ -1,11 +1,11 @@
-using Samwise.Domain.Prompts;
+using Samwise.Domain.Agents;
 using Shared.Infrastructure.Initializer;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Logic.Prompts.Initialization;
 
-public sealed class PromptTemplateInitializer(
-    IRepository<PromptTemplate> repository,
+public sealed class AgentConfigurationInitializer(
+    IRepository<AgentConfiguration> repository,
     TimeProvider timeProvider) : InitializerBase
 {
     public override int Priority => 0;
@@ -16,12 +16,9 @@ public sealed class PromptTemplateInitializer(
 
     protected override async Task RunInitializationLogicAsync()
     {
-        foreach (var template in DefaultPromptTemplates.Create(timeProvider.GetUtcNow()))
+        if (await repository.GetByIdAsync(AgentConfiguration.DocumentId) is null)
         {
-            if (await repository.GetByIdAsync(template.Id) is null)
-            {
-                await repository.AddAsync(template);
-            }
+            await repository.AddAsync(DefaultAgentConfiguration.Create(timeProvider.GetUtcNow()));
         }
     }
 }

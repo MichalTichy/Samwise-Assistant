@@ -10,13 +10,22 @@ public sealed class WorkItemPlan
     public List<string> Assumptions { get; set; } = [];
     public List<string> Risks { get; set; } = [];
     public List<PlanStep> Steps { get; set; } = [];
+    public PlanPlaybookSnapshot? Playbook { get; set; }
     public PlanToolCatalogSnapshot PlanningTools { get; set; } = new();
     public PlanToolCatalogSnapshot ExecutionTools { get; set; } = new();
-    public string PromptTemplateId { get; set; } = string.Empty;
-    public DateTimeOffset PromptTemplateUpdatedAt { get; set; }
+    public string AgentConfigurationId { get; set; } = string.Empty;
+    public DateTimeOffset AgentConfigurationUpdatedAt { get; set; }
     public string PlanningInvocationId { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }
     public PlanReview? Review { get; set; }
+}
+
+public sealed class PlanPlaybookSnapshot
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 public sealed class PlanToolCatalogSnapshot

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
-using Samwise.Domain.Prompts;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
@@ -22,7 +21,7 @@ internal interface IInboundEventClassificationService
 internal sealed class InboundEventClassificationService(
     IRepository<InboundEvent> inboundRepository,
     IRepository<DomainWorkItem> workItemRepository,
-    IReadOnlyRepository<PromptTemplate> promptRepository,
+    IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
     IAgentRuntime runtime,
     IPromptRenderer promptRenderer,
     IAgentInvocationService invocationService,
@@ -40,12 +39,15 @@ internal sealed class InboundEventClassificationService(
         AgentInvocation? invocation = null;
         try
         {
-            var template = await promptRepository.GetRequiredByIdAsync("intake", cancellationToken);
+            var agentConfiguration = await agentConfigurationRepository.GetRequiredByIdAsync(
+                AgentConfiguration.DocumentId,
+                cancellationToken);
+            var stageConfiguration = agentConfiguration.GetStage(AgentStage.Intake);
             var candidates = await workItemRepository.ListAsync(
                 new ActiveWorkItemCandidatesSpecification(), cancellationToken);
             var rendered = promptRenderer.Render(
-                PromptStage.Intake,
-                template.Content,
+                AgentStage.Intake,
+                stageConfiguration.Prompt,
                 AgentWorkflowSupport.BuildIntakeValues(inboundEvent, candidates, timeProvider.GetUtcNow()));
             if (!rendered.Succeeded)
             {
@@ -53,10 +55,21 @@ internal sealed class InboundEventClassificationService(
             }
 
             invocation = await invocationService.StartAsync(
-                new AgentInvocationStart("Intake", rendered.Text, inboundEvent.Id, null, 0),
+                new AgentInvocationStart(
+                    "Intake",
+                    rendered.Text,
+                    inboundEvent.Id,
+                    null,
+                    0,
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
                 cancellationToken);
             var result = await runtime.ClassifyAsync(
-                new IntakeRequest(inboundEvent.Id, inboundEvent.Source, rendered.Text), cancellationToken);
+                new IntakeRequest(
+                    inboundEvent.Id,
+                    inboundEvent.Source,
+                    rendered.Text,
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
+                cancellationToken);
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 
             inboundEvent.HandledAt = timeProvider.GetUtcNow();

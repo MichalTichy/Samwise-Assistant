@@ -276,6 +276,14 @@
     .prompt-editor-heading h2, .detail-card-heading h2 { margin-bottom: .25rem; color: #443a32; font-size: 1.02rem; }
     .prompt-editor-heading p { margin-bottom: 0; color: #8b7e71; font-size: .76rem; }
     .save-state { color: #60723c; font-size: .74rem; font-weight: 700; }
+    .agent-runtime-settings { margin-top: 1.15rem; display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr); gap: .75rem; }
+    .agent-runtime-settings label, .playbook-form > label { display: block; }
+    .agent-runtime-settings label > span, .playbook-form > label > span, .configuration-field-heading strong { margin-bottom: .38rem; display: block; color: #64574c; font-size: .72rem; font-weight: 750; }
+    .configuration-input { width: 100%; height: 2.8rem; padding: 0 .8rem; border: 1px solid #dacebd; border-radius: .75rem; outline: none; color: #3d342d; background: #fbf6ed; font-size: .8rem; transition: border-color .15s ease, box-shadow .15s ease; }
+    .configuration-input:focus { border-color: #d8952f; box-shadow: 0 0 0 3px rgb(216 149 47 / .13); }
+    .configuration-field-heading { margin-top: 1.1rem; display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+    .configuration-field-heading strong { margin-bottom: 0; }
+    .configuration-field-heading span { color: #9b8e80; font-size: .68rem; }
     .prompt-textarea { margin-top: 1.1rem; }
     .prompt-textarea textarea { font: .78rem/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .prompt-actions { padding: .8rem 0 1.15rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #ece1d4; }
@@ -287,6 +295,16 @@
     .placeholder-grid code, .tool-list code { padding: .2rem .35rem; border-radius: .35rem; color: #8b5b23; background: #f5e5c8; font-size: .66rem; }
     .placeholder-grid strong { margin: .5rem 0 .18rem; display: block; font-size: .74rem; }
     .placeholder-grid p { margin: 0; color: #8d8073; font-size: .68rem; line-height: 1.45; }
+    .playbook-form { margin-top: 1.2rem; display: grid; gap: 1rem; }
+    .playbook-form .prompt-textarea { margin-top: 0; }
+    .configuration-toggle { padding: .8rem .9rem; display: flex !important; align-items: center; gap: .75rem; border: 1px solid #e6dacb; border-radius: .8rem; background: #fbf6ed; }
+    .configuration-toggle input { width: 1rem; height: 1rem; accent-color: #d8952f; }
+    .configuration-toggle span, .configuration-toggle strong, .configuration-toggle small { display: block; }
+    .configuration-toggle span { margin: 0 !important; }
+    .configuration-toggle strong { margin: 0 0 .15rem; color: #55483e; font-size: .75rem; }
+    .configuration-toggle small { color: #918476; font-size: .67rem; }
+    .plan-playbook { margin-top: .55rem; color: #7c6c5d; font-size: .7rem; }
+    .plan-playbook strong { color: #80541f; }
 
     /* Authentication and settings */
     .auth-page { min-height: calc(100vh - 160px); display: grid; grid-template-columns: minmax(320px, 1fr) minmax(340px, 460px); align-items: center; gap: clamp(3rem, 8vw, 8rem); }
@@ -425,6 +443,7 @@
     .prompt-tab { min-width: 150px !important; }
     .prompt-editor-body, .detail-card { padding: 1rem !important; }
     .placeholder-grid, .plan-notes-grid, .work-item-detail-side { grid-template-columns: 1fr; }
+    .agent-runtime-settings { grid-template-columns: 1fr; }
     .event-row { grid-template-columns: 1fr; gap: .6rem; }
     .event-link { padding-top: 0; }
     .approval-panel { grid-template-columns: 1fr; }

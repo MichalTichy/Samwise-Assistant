@@ -1,0 +1,136 @@
+@page "/agent-settings"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Agent settings · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Configuration</span>
+        <h1>Agent settings</h1>
+        <p>Choose the model, reasoning effort, and instructions Samwise uses at each stage.</p>
+    </div>
+</div>
+
+@if (configurations.Count > 0 && selected is not null)
+{
+    <div class="prompt-layout">
+        <aside class="prompt-tabs">
+            @foreach (var configuration in configurations)
+            {
+                <LumexButton FullWidth="true"
+                             Variant="@Variant.Light"
+                             Color="@ThemeColor.Primary"
+                             Class="@($"prompt-tab {(configuration.Stage == selected.Stage ? "active" : null)}")"
+                             OnClick="() => Select(configuration)">
+                    <strong>@configuration.Name</strong>
+                    <span>@DescribeStage(configuration.Stage)</span>
+                </LumexButton>
+            }
+        </aside>
+
+        <LumexCard Class="prompt-editor-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="prompt-editor-body">
+            <div class="prompt-editor-heading">
+                <div>
+                    <h2>@selected.Name agent</h2>
+                    <p>Runtime settings and prompt changes apply to the next invocation.</p>
+                </div>
+                <span class="save-state">@saveMessage</span>
+            </div>
+
+            <div class="agent-runtime-settings">
+                <label>
+                    <span>Model</span>
+                    <select class="configuration-input"
+                            value="@model"
+                            @onchange="ModelChanged"
+                            disabled="@(availableModels.Count == 0)">
+                        @if (!string.IsNullOrWhiteSpace(model) &&
+                             availableModels.All(candidate => candidate.Id != model))
+                        {
+                            <option value="@model">@model (unavailable)</option>
+                        }
+                        @foreach (var availableModel in availableModels)
+                        {
+                            <option value="@availableModel.Id">@availableModel.Id</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    <span>Reasoning effort</span>
+                    <select class="configuration-input"
+                            @bind="reasoningEffort"
+                            disabled="@(availableReasoningEfforts.Count == 0)">
+                        @if (!string.IsNullOrWhiteSpace(reasoningEffort) &&
+                             !availableReasoningEfforts.Contains(reasoningEffort, StringComparer.Ordinal))
+                        {
+                            <option value="@reasoningEffort">@FormatEffort(reasoningEffort) (unavailable)</option>
+                        }
+                        @foreach (var effort in availableReasoningEfforts)
+                        {
+                            <option value="@effort">@FormatEffort(effort)</option>
+                        }
+                    </select>
+                </label>
+            </div>
+
+            @if (availableModels.Count == 0)
+            {
+                <div class="inline-alert">
+                    @(catalogError ?? "The Gateway did not report any models for this stage.")
+                </div>
+            }
+
+            <div class="configuration-field-heading">
+                <strong>Prompt</strong>
+                <span>Use only placeholders from the legend below.</span>
+            </div>
+            <LumexTextarea Class="prompt-textarea"
+                           MinRows="18"
+                           MaxRows="30"
+                           Behavior="@InputBehavior.OnInput"
+                           Variant="@InputVariant.Outlined"
+                           @bind-Value="content" />
+
+            @if (errors.Count > 0)
+            {
+                <div class="inline-alert">
+                    @foreach (var error in errors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="prompt-actions">
+                <span>Changes apply to the next run.</span>
+                <LumexButton Color="@ThemeColor.Primary"
+                             Variant="@Variant.Shadow"
+                             OnClick="SaveAsync"
+                             Disabled="@(saving || availableModels.Count == 0)">
+                    @(saving ? "Saving…" : "Save agent settings")
+                </LumexButton>
+            </div>
+
+            <div class="placeholder-legend">
+                <h3>Placeholder legend</h3>
+                <div class="placeholder-grid">
+                    @foreach (var placeholder in selected.Placeholders)
+                    {
+                        <article>
+                            <code>@($"{{{{{placeholder.Key}}}}}")</code>
+                            <strong>@placeholder.Label</strong>
+                            <p>@placeholder.Description</p>
+                        </article>
+                    }
+                </div>
+            </div>
+        </LumexCardBody>
+        </LumexCard>
+    </div>
+}
+else
+{
+    <div class="empty-state">Loading agent settings…</div>
+}

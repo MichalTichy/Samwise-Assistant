@@ -1,6 +1,6 @@
 # Samwise.Web
 
-This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and provides the authenticated LumexUI application shell.
+This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and presents the manual-input, inbox, board, work-item, agent-settings, playbook, and account experiences.
 
 ## Structure
 
@@ -9,11 +9,19 @@ This is the single deployable Samwise process and the Blazor Interactive Server 
 - `Components/App.razor` defines the HTML document, generated stylesheets, LumexUI script, and Blazor boot script.
 - `Components/Routes.razor` applies authorization and redirects anonymous users to login.
 - `Components/Layout/` contains the authenticated application shell, navigation, and reconnect UI.
+- `Components/Pages/` contains each product page as a `.razor` markup file plus `.razor.cs` behavior file.
 - `Components/Pages/Login` and `Components/Pages/ChangePassword` are the deliberately small custom account UI.
 - `Components/Shared/` contains presentation-only helpers such as login redirection.
 - `Endpoints/OwnerAccountEndpoints` contains the antiforgery-protected logout endpoint.
 - `Styles/app.css` is the Tailwind/LumexUI source, and the package scripts define stylesheet generation.
 - `appsettings*.json` contains safe local defaults and option structure; secrets belong in user secrets or environment variables.
+
+## Read and command boundary
+
+- Pages inject `IReadOnlyRepository<T>` and execute public specifications from `Samwise.Logic` directly for reads.
+- Pages send MediatR use cases only for commands or processing initiated by the user.
+- Pages do not use Marten sessions or infrastructure document APIs.
+- Page-specific mapping and display state stay in the code-behind.
 
 ## Composition flow
 
@@ -33,6 +41,28 @@ This is the single deployable Samwise process and the Blazor Interactive Server 
 ## Page convention
 
 Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI code may depend on application contracts and shared repository abstractions, but it must not use Marten sessions directly.
+
+## Manual-input flow
+
+1. `Home` validates the user's text and sends `CaptureInboundEventUsecase` with source `Web` and a unique external ID.
+2. The use case completes intake classification and any required planning through logic services.
+3. The page navigates to the inbox audit view.
+4. `Inbox` reads `InboundEvent` documents with `InboxEventsSpecification` and can send a retry command for events needing review.
+
+## Work-item flow
+
+1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards.
+2. `WorkItemDetails` loads the aggregate plus recent invocations through repositories and `WorkItemInvocationsSpecification`.
+3. Approve, reject, add-context, retry-planning, and discard buttons send their corresponding external use cases.
+4. Each command reloads the authoritative stored state after it completes.
+
+## Agent settings and playbook flow
+
+1. `AgentSettings` reads the single `AgentConfiguration` through `IReadOnlyRepository<AgentConfiguration>`, expands its three nested stages for display, and combines them with the placeholder legend from `IPromptRenderer`.
+2. It loads the Gateway model catalog for each stage, presents model and model-specific reasoning-effort dropdowns, and selects the Gateway-reported default when the model changes.
+3. Saving sends `SaveAgentStageConfigurationUsecase`, which validates the model/effort pair and prompt before updating the selected nested stage in that document.
+4. `Playbooks` reads playbook documents directly through `PlaybooksSpecification`; save actions send `SavePlaybookUsecase`.
+5. Both pages reload the saved documents rather than treating browser state as authoritative.
 
 ## UI principles
 

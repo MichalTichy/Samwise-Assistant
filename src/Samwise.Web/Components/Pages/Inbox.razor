@@ -1,0 +1,69 @@
+@page "/inbox"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Input events · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Audit trail</span>
+        <h1>Input events</h1>
+        <p>Every received input remains visible together with Samwise’s handling decision.</p>
+    </div>
+    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(actionError))
+{
+    <div class="inline-alert detail-alert">@actionError</div>
+}
+
+<section class="event-list">
+    @if (loading && events.Count == 0)
+    {
+        <div class="empty-state">Loading input events…</div>
+    }
+
+    @foreach (var item in events)
+    {
+        <article class="event-row">
+            <div class="event-source">@item.Source</div>
+            <div class="event-body">
+                <div class="event-meta">
+                    <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip handling-{item.Handling.ToString().ToLowerInvariant()}")">@FormatHandling(item.Handling)</LumexChip>
+                    <time>@item.ReceivedAt.ToLocalTime().ToString("g")</time>
+                </div>
+                <p>@item.Text</p>
+                @if (!string.IsNullOrWhiteSpace(item.Explanation))
+                {
+                    <small>@item.Explanation</small>
+                }
+                else
+                {
+                    <small>Waiting for Samwise to classify this input.</small>
+                }
+            </div>
+            <div>
+                @if (item.WorkItemId is { } workItemId)
+                {
+                    <a class="event-link" href="work-items/@workItemId">Open work item →</a>
+                }
+                @if (item.Handling == InboundHandlingKind.NeedsReview)
+                {
+                    <LumexButton Size="@Size.Small"
+                                 Variant="@Variant.Flat"
+                                 Color="@ThemeColor.Default"
+                                 Disabled="@(retryingEventId is not null)"
+                                 OnClick="() => RetryAsync(item.Id)">
+                        @(retryingEventId == item.Id ? "Retrying…" : "Retry")
+                    </LumexButton>
+                }
+            </div>
+        </article>
+    }
+
+    @if (!loading && events.Count == 0)
+    {
+        <div class="empty-state">No input events yet. Submit a manual input to start the intake pipeline.</div>
+    }
+</section>

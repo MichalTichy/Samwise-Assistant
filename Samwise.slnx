@@ -19,4 +19,7 @@
     <Project Path="src/Samwise.ServiceDefaults/Samwise.ServiceDefaults.csproj" />
     <Project Path="src/Samwise.Web/Samwise.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Samwise.Tests/Samwise.Tests.csproj" />
+  </Folder>
 </Solution>

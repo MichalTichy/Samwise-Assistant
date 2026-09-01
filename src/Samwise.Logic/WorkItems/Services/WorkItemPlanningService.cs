@@ -22,6 +22,7 @@ internal sealed class WorkItemPlanningService(
     IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
     IReadOnlyRepository<Playbook> playbookRepository,
     IAgentRuntime runtime,
+    IAgentToolCatalog toolCatalog,
     IPromptRenderer promptRenderer,
     IAgentInvocationService invocationService,
     TimeProvider timeProvider,
@@ -50,8 +51,8 @@ internal sealed class WorkItemPlanningService(
                 new PlaybooksSpecification(enabledOnly: true), cancellationToken);
             var comments = workItem.Comments;
             var previousPlan = workItem.FindLatestPlan();
-            var planningCatalog = await runtime.GetPlanningToolsAsync(cancellationToken);
-            var executionCatalog = await runtime.GetExecutionToolsAsync(cancellationToken);
+            var planningCatalog = await toolCatalog.GetPlanningToolsAsync(cancellationToken);
+            var executionCatalog = await toolCatalog.GetExecutionToolsAsync(cancellationToken);
             var renderResult = promptRenderer.Render(
                 AgentStage.Planning,
                 stageConfiguration.Prompt,

@@ -20,6 +20,7 @@ internal sealed class WorkItemExecutionService(
     IRepository<DomainWorkItem> workItemRepository,
     IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
     IAgentRuntime runtime,
+    IAgentToolCatalog toolCatalog,
     IPromptRenderer promptRenderer,
     IAgentInvocationService invocationService,
     TimeProvider timeProvider,
@@ -46,7 +47,7 @@ internal sealed class WorkItemExecutionService(
                 cancellationToken);
             var stageConfiguration = agentConfiguration.GetStage(AgentStage.Execution);
             var comments = workItem.Comments;
-            var catalog = await runtime.GetExecutionToolsAsync(cancellationToken);
+            var catalog = await toolCatalog.GetExecutionToolsAsync(cancellationToken);
             if (!string.Equals(plan.ExecutionTools.CatalogVersion, catalog.CatalogVersion, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(

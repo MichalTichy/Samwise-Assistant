@@ -20,7 +20,9 @@ public class UnitOfWorkProvider : IAsyncDisposable
     {
         if (ownsConnection && Data.Value != null)
         {
-            await Data.Value.DisposeAsync();
+            var unitOfWork = Data.Value;
+            Data.Value = null!;
+            await unitOfWork.DisposeAsync();
         }
     }
 

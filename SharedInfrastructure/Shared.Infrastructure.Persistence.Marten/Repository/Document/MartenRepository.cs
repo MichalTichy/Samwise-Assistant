@@ -42,7 +42,7 @@ public class MartenRepository<T>(ISessionFactoryWithAlternateTenantSettings sess
         await using var uow = new UnitOfWorkProvider();
         await using var session = await sessionFactory.OpenSessionAsync(tenantId, uow.Get());
 
-        session.Update(entity);
+        UpdateWithExpectedRevision(session, entity);
         await SaveChangesAsync(session, cancellationToken);
 
         await uow.CommitAsync();
@@ -79,7 +79,7 @@ public class MartenRepository<T>(ISessionFactoryWithAlternateTenantSettings sess
 				}
 				await updateMethod(entity);
 
-				session.Update(entity);
+				UpdateWithExpectedRevision(session, entity);
 
                 await SaveChangesAsync(session, cancellationToken);
 			});
@@ -246,6 +246,17 @@ public class MartenRepository<T>(ISessionFactoryWithAlternateTenantSettings sess
     protected virtual async Task SaveChangesAsync(IDocumentSession session, CancellationToken cancellationToken = default)
     {
         await session.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void UpdateWithExpectedRevision(IDocumentSession session, T entity)
+    {
+        if (entity is IRevisioned revisioned)
+        {
+            session.UpdateRevision(entity, revisioned.Version + 1L);
+            return;
+        }
+
+        session.Update(entity);
     }
 
     public virtual Task<IMartenQueryable<T>> PreprocessQueryAsync(IMartenQueryable<T> queryable)

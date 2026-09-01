@@ -11,5 +11,8 @@
   <Folder Name="/src/">
     <Project Path="src/Samwise.Logic/Samwise.Logic.csproj" />
     <Project Path="src/Samwise.Domain/Samwise.Domain.csproj" />
+    <Project Path="src/Samwise.Infrastructure.CodexGateway/Samwise.Infrastructure.CodexGateway.csproj" />
+    <Project Path="src/Samwise.Infrastructure.AgentRuntimes/Samwise.Infrastructure.AgentRuntimes.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Persistence.Marten/Samwise.Infrastructure.Persistence.Marten.csproj" />
   </Folder>
 </Solution>

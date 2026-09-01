@@ -10,7 +10,7 @@ Each feature is grouped by responsibility:
 - `Services/` contains reusable processing and mandatory follow-up flow shared by use cases.
 - `Specifications/` contains named read definitions executed through `IReadOnlyRepository<T>`.
 - `Initialization/` contains feature-owned startup seeders.
-- `Agents/` contains the `IAgentRuntime` and `IAgentModelCatalog` ports, structured request/result models, invocation tracking, and prompt-context assembly.
+- `Agents/` contains separate `IAgentRuntime`, `IAgentModelCatalog`, and `IAgentToolCatalog` ports, structured request/result models, invocation tracking, and prompt-context assembly.
 - `Prompts/` contains prompt rendering, the startup initializer for the single agent-configuration document, and the UI-triggered use case that updates one nested stage.
 - `Playbooks/` contains the UI-triggered save use case and public read specification for reusable planning guidance.
 - `Installers/LogicInstaller` registers MediatR and application services.
@@ -27,7 +27,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 4. `Ignore` and `NeedsReview` finish without a work item.
 5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
 6. `InboundEventProcessingService` calls `WorkItemPlanningService` for that work item.
-7. Planning loads enabled playbooks and both tool catalogs, renders the complete planning prompt, and calls the configured planning model and reasoning effort.
+7. Planning loads enabled playbooks and both catalogs through `IAgentToolCatalog`, renders the complete planning prompt, and calls the configured planning model and reasoning effort through `IAgentRuntime`.
 8. Samwise validates the selected playbook ID and referenced execution tools, snapshots any selected playbook into the plan, attaches it, and leaves the work item awaiting approval.
 
 ## Approval and execution flow
@@ -50,4 +50,4 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 - Notifications are reserved for independent reactions after an operation finishes; V1 currently has none.
 - Code shared by multiple external operations belongs in a service.
 - Reads use specifications and `IReadOnlyRepository<T>`; mutations use domain behavior through `IRepository<T>`.
-- Concrete Gateway, runtime selection, and persistence behavior belong in infrastructure projects.
+- Standard OpenAI execution, Gateway-specific catalog discovery, runtime selection, and persistence behavior belong in infrastructure projects.

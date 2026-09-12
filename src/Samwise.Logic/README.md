@@ -40,7 +40,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 ## Shared services
 
-- `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution.
+- `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when a planning or execution invocation starts.
 - `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores, durable checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
 - `PromptRenderer` validates placeholders—including planning's `{{playbooks}}` value—and renders the full prompt stored with every invocation.
 - `AgentWorkflowSupport` assembles deterministic structured context for each stage.

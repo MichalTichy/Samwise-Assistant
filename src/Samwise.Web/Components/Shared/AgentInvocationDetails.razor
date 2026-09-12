@@ -1,0 +1,121 @@
+<LumexModal Open="@Open"
+            OpenChanged="HandleOpenChangedAsync"
+            Size="@ModalSize.Large"
+            ScrollBehavior="@ScrollBehavior.Inside">
+    <LumexModalContent>
+        @if (Invocation is { } invocation)
+        {
+            <LumexModalHeader>
+                <div class="activity-dialog-heading">
+                    <div>
+                        <span class="page-kicker">Agent activity</span>
+                        <h2>@invocation.Profile</h2>
+                    </div>
+                    <LumexChip Size="@Size.Small" Variant="@ChipVariant.Dot" Color="@StatusColor(invocation.Status)">@FormatStatus(invocation.Status)</LumexChip>
+                </div>
+            </LumexModalHeader>
+            <LumexModalBody>
+                <div class="activity-dialog-body">
+                    <section class="activity-detail-section">
+                        <h3>Invocation</h3>
+                        <dl class="activity-metadata-grid">
+                            <div><dt>Started</dt><dd>@invocation.StartedAt.ToLocalTime().ToString("G")</dd></div>
+                            <div><dt>Finished</dt><dd>@FormatFinishedAt(invocation)</dd></div>
+                            <div><dt>Duration</dt><dd>@FormatDuration(invocation)</dd></div>
+                            <div><dt>Work item revision</dt><dd>@invocation.WorkItemRevision</dd></div>
+                            <div><dt>Provider</dt><dd>@ValueOrUnavailable(invocation.Provider)</dd></div>
+                            <div><dt>Model</dt><dd>@ValueOrUnavailable(invocation.Model)</dd></div>
+                            <div><dt>Reasoning effort</dt><dd>@ValueOrUnavailable(invocation.ReasoningEffort)</dd></div>
+                            <div><dt>Completion ID</dt><dd class="activity-monospace">@ValueOrUnavailable(invocation.CompletionId)</dd></div>
+                            <div><dt>Invocation ID</dt><dd class="activity-monospace">@invocation.Id</dd></div>
+                            @if (!string.IsNullOrWhiteSpace(invocation.InboundEventId))
+                            {
+                                <div><dt>Inbound event ID</dt><dd class="activity-monospace">@invocation.InboundEventId</dd></div>
+                            }
+                        </dl>
+                    </section>
+
+                    @if (!string.IsNullOrWhiteSpace(invocation.Error))
+                    {
+                        <section class="activity-detail-section activity-error-section">
+                            <h3>Error</h3>
+                            <pre class="activity-payload">@invocation.Error</pre>
+                        </section>
+                    }
+
+                    <section class="activity-detail-section">
+                        <div class="activity-section-heading">
+                            <h3>Prompt</h3>
+                            <span>Rendered prompt sent to the agent</span>
+                        </div>
+                        <pre class="activity-payload">@invocation.RenderedPrompt</pre>
+                    </section>
+
+                    <section class="activity-detail-section">
+                        <div class="activity-section-heading">
+                            <h3>Output</h3>
+                            <span>Complete recorded agent response</span>
+                        </div>
+                        @if (string.IsNullOrWhiteSpace(invocation.RawResponse))
+                        {
+                            <p class="activity-empty-value">No output was recorded.</p>
+                        }
+                        else
+                        {
+                            <pre class="activity-payload">@FormatJson(invocation.RawResponse)</pre>
+                        }
+                    </section>
+
+                    <section class="activity-detail-section">
+                        <div class="activity-section-heading">
+                            <h3>Available tools</h3>
+                            @if (invocation.AvailableTools is { } catalog)
+                            {
+                                <span>@catalog.Tools.Count tools · catalog @catalog.CatalogVersion</span>
+                            }
+                        </div>
+                        @if (invocation.AvailableTools is not { } availableTools)
+                        {
+                            <p class="activity-empty-value">The tool catalog was not recorded for this invocation.</p>
+                        }
+                        else if (availableTools.Tools.Count == 0)
+                        {
+                            <p class="activity-empty-value">No tools were available to this invocation.</p>
+                        }
+                        else
+                        {
+                            <div class="activity-tool-list">
+                                @foreach (var tool in availableTools.Tools.OrderBy(tool => tool.Id, StringComparer.Ordinal))
+                                {
+                                    <details class="activity-tool">
+                                        <summary>
+                                            <span><strong>@tool.Name</strong><code>@tool.Id</code></span>
+                                            <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@(tool.CanInvoke ? ThemeColor.Success : ThemeColor.Default)">@(tool.CanInvoke ? "Invocable" : "Reference only")</LumexChip>
+                                        </summary>
+                                        @if (!string.IsNullOrWhiteSpace(tool.Description))
+                                        {
+                                            <p>@tool.Description</p>
+                                        }
+                                        <h4>Input schema</h4>
+                                        <pre class="activity-payload activity-schema">@FormatJson(tool.InputSchemaJson)</pre>
+                                    </details>
+                                }
+                            </div>
+                        }
+
+                        @if (invocation.AvailableTools is { RawJson.Length: > 0 } rawCatalog)
+                        {
+                            <details class="activity-raw-catalog">
+                                <summary>Raw tool catalog</summary>
+                                <pre class="activity-payload">@FormatJson(rawCatalog.RawJson)</pre>
+                            </details>
+                        }
+                    </section>
+                </div>
+            </LumexModalBody>
+            <LumexModalFooter>
+                <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="CloseAsync">Close</LumexButton>
+            </LumexModalFooter>
+        }
+    </LumexModalContent>
+</LumexModal>

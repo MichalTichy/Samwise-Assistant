@@ -75,7 +75,8 @@ internal sealed class WorkItemPlanningService(
                     null,
                     workItem.Id,
                     revision,
-                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort),
+                    planningCatalog),
                 cancellationToken);
             var result = await runtime.PlanAsync(
                 new PlannerRequest(

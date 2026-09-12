@@ -75,7 +75,8 @@ internal sealed class WorkItemExecutionService(
                     null,
                     workItem.Id,
                     workItem.Revision,
-                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort),
+                    catalog),
                 cancellationToken);
             workItem.StartExecution(plan.Id, request.WorkItemRevision, timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(workItem, cancellationToken);

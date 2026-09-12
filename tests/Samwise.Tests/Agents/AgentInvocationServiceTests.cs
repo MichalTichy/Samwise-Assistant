@@ -24,7 +24,16 @@ public sealed class AgentInvocationServiceTests
                 null,
                 "work-item-1",
                 3,
-                new AgentRunConfiguration("planning-model", "max")),
+                new AgentRunConfiguration("planning-model", "max"),
+                new ToolCatalogSnapshot(
+                    "catalog-version",
+                    "{\"catalog_version\":\"catalog-version\"}",
+                    [new ToolCapability(
+                        "mail/search",
+                        "Search mail",
+                        "Search messages.",
+                        "{\"type\":\"object\"}",
+                        true)])),
             CancellationToken.None);
 
         Assert.Equal(AgentInvocationStatus.Running, invocation.Status);
@@ -33,6 +42,13 @@ public sealed class AgentInvocationServiceTests
         Assert.Equal(3, invocation.WorkItemRevision);
         Assert.Equal("planning-model", invocation.Model);
         Assert.Equal("max", invocation.ReasoningEffort);
+        var availableTools = Assert.IsType<AgentInvocationToolCatalog>(invocation.AvailableTools);
+        Assert.Equal("catalog-version", availableTools.CatalogVersion);
+        Assert.Equal("{\"catalog_version\":\"catalog-version\"}", availableTools.RawJson);
+        var tool = Assert.Single(availableTools.Tools);
+        Assert.Equal("mail/search", tool.Id);
+        Assert.Equal("Search mail", tool.Name);
+        Assert.True(tool.CanInvoke);
         Assert.Equal(Now, invocation.StartedAt);
 
         var receipt = new AgentReceipt("Codex CLI Gateway", "gpt-5", "completion-1", "raw response");

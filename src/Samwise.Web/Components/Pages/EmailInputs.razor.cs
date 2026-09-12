@@ -34,7 +34,6 @@ public partial class EmailInputs
     private string username = string.Empty;
     private string password = string.Empty;
     private bool accountEnabled = true;
-    private bool processExistingUnread;
     private bool savingAccount;
     private IReadOnlyList<string> accountErrors = [];
 
@@ -147,7 +146,6 @@ public partial class EmailInputs
         username = string.Empty;
         password = string.Empty;
         accountEnabled = true;
-        processExistingUnread = false;
         accountErrors = [];
         editingAccount = true;
     }
@@ -163,7 +161,6 @@ public partial class EmailInputs
         username = account.Username;
         password = string.Empty;
         accountEnabled = account.IsEnabled;
-        processExistingUnread = false;
         accountErrors = [];
         editingAccount = true;
     }
@@ -190,8 +187,7 @@ public partial class EmailInputs
                 security,
                 username,
                 password,
-                accountEnabled,
-                processExistingUnread));
+                accountEnabled));
             accountErrors = result.Errors;
             if (!result.Succeeded)
             {

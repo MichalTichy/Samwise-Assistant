@@ -12,7 +12,8 @@ Each source has an external use case and creates its own typed inbound event:
 
 ```text
 SubmitManualInputUsecase -> ManualInboundEvent
-ProcessUnreadEmailsUsecase -> EmailInboundEvent
+PollEmailAccountsUsecase -> EmailInboundEvent
+ProcessUnreadEmailsUsecase (manual) -> EmailInboundEvent
 ```
 
 Both operations call `InboundEventCaptureService`, which uses `Source + ExternalId` for connector-level deduplication. A deterministic key has a database unique constraint. The service stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.
@@ -102,7 +103,9 @@ The authenticated Configuration → Inputs → Emails page owns the polling inte
 
 `EmailInputConfiguration` is a singleton Marten document. `EmailAccount` is a separate document per mailbox because its check timestamps and error state change independently. Passwords and app passwords are protected with ASP.NET Data Protection before persistence and are never returned to the UI; the persisted key ring is shared with authentication cookies.
 
-`Samwise.Infrastructure.Email.Imap` uses MailKit, opens `INBOX` with read-only access, searches for unread messages, and never changes message flags. The dedupe identity is based on IMAP UID semantics rather than `Message-Id`. Attachment metadata is recorded without downloading attachment bodies. Exact ignored senders are recorded as ignored events without an AI call or body download. OAuth, sending, folders other than `INBOX`, and IMAP IDLE are outside V1.
+`Samwise.Infrastructure.Email.Imap` uses MailKit and never changes message flags. Creating an account stores the current INBOX `UIDVALIDITY` and `UIDNEXT`; scheduled checks import all later UIDs whether read or unread, then advance the checkpoint only after durable capture. A changed UID validity establishes a fresh checkpoint without replaying the mailbox. The manual action searches `UNSEEN` messages without changing the automatic checkpoint, allowing deliberate import of older unread mail. The dedupe identity remains account ID, mailbox, UIDVALIDITY, and UID.
+
+Email events snapshot read and answered state. For answered messages, the adapter opens the server-designated Sent folder read-only and finds up to five replies using `Message-ID`, `In-Reply-To`, and `References`; their normalized bodies are included in intake context. Failure to discover or read Sent does not block inbox capture. Attachment metadata is recorded without downloading attachment bodies. Exact ignored senders are recorded as ignored events without an AI call, body download, or sent-reply lookup. OAuth, sending, full thread synchronization, and IMAP IDLE are outside V1.
 
 ## UI
 

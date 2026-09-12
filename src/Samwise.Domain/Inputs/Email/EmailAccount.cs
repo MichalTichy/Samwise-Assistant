@@ -19,7 +19,7 @@ public sealed class EmailAccount : IItemWithId
     public string Username { get; set; } = string.Empty;
     public string ProtectedPassword { get; set; } = string.Empty;
     public bool IsEnabled { get; set; }
-    public DateTimeOffset? ImportAfter { get; set; }
+    public EmailInboxCheckpoint? InboxCheckpoint { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? LastCheckStartedAt { get; set; }
@@ -45,3 +45,8 @@ public sealed class EmailAccount : IItemWithId
             : error.Trim();
     }
 }
+
+public sealed record EmailInboxCheckpoint(
+    uint UidValidity,
+    uint NextUid,
+    DateTimeOffset UpdatedAt);

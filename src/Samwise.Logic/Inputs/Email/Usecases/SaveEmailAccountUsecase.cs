@@ -13,12 +13,12 @@ public sealed record SaveEmailAccountUsecase(
     EmailConnectionSecurity Security,
     string Username,
     string? Password,
-    bool IsEnabled,
-    bool ProcessExistingUnread) : IRequest<EmailAccountSaveResult>;
+    bool IsEnabled) : IRequest<EmailAccountSaveResult>;
 
 internal sealed class SaveEmailAccountUsecaseHandler(
     IRepository<EmailAccount> repository,
     IEmailCredentialProtector credentialProtector,
+    IEmailInboxReader inboxReader,
     TimeProvider timeProvider) : IRequestHandler<SaveEmailAccountUsecase, EmailAccountSaveResult>
 {
     public async Task<EmailAccountSaveResult> Handle(
@@ -40,14 +40,14 @@ internal sealed class SaveEmailAccountUsecaseHandler(
             return new EmailAccountSaveResult(false, request.EmailAccountId, ["The email account no longer exists."]);
         }
 
+        var connectionChanged = account is null || ConnectionChanged(account, request);
         var now = timeProvider.GetUtcNow();
         if (account is null)
         {
             account = new EmailAccount
             {
                 Id = Guid.NewGuid().ToString(),
-                CreatedAt = now,
-                ImportAfter = request.ProcessExistingUnread ? null : now
+                CreatedAt = now
             };
         }
 
@@ -64,6 +64,23 @@ internal sealed class SaveEmailAccountUsecaseHandler(
             account.ProtectedPassword = credentialProtector.Protect(request.Password);
         }
 
+        if (connectionChanged || account.InboxCheckpoint is null)
+        {
+            try
+            {
+                account.InboxCheckpoint = await inboxReader.GetCurrentInboxCheckpointAsync(
+                    account,
+                    cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                return new EmailAccountSaveResult(
+                    false,
+                    request.EmailAccountId,
+                    [$"The INBOX could not be initialized: {exception.Message}"]);
+            }
+        }
+
         if (isNew)
         {
             await repository.AddAsync(account, cancellationToken);
@@ -75,6 +92,12 @@ internal sealed class SaveEmailAccountUsecaseHandler(
 
         return new EmailAccountSaveResult(true, account.Id, []);
     }
+
+    private static bool ConnectionChanged(EmailAccount account, SaveEmailAccountUsecase request) =>
+        !string.Equals(account.Host, request.Host.Trim(), StringComparison.OrdinalIgnoreCase)
+        || account.Port != request.Port
+        || account.Security != request.Security
+        || !string.Equals(account.Username, request.Username.Trim(), StringComparison.Ordinal);
 
     private static List<string> Validate(SaveEmailAccountUsecase request, bool isNew)
     {

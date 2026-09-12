@@ -4,6 +4,7 @@ using Marten.Services;
 using Newtonsoft.Json;
 using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
+using Samwise.Domain.Inputs.Email;
 using Samwise.Domain.WorkItems;
 using Samwise.Infrastructure.Persistence.Marten.Storage;
 using Shared.Infrastructure.CurrentTenancyProvider;
@@ -18,6 +19,47 @@ namespace Samwise.Tests.Persistence;
 
 public sealed class WorkItemDocumentPersistenceTests
 {
+    [Fact]
+    public async Task EmailAccountStoresNestedInboxCheckpoint()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("SAMWISE_TEST_POSTGRES");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return;
+        }
+
+        await using var store = DocumentStore.For(options =>
+        {
+            options.Connection(connectionString);
+            new SamwiseStorageConfiguration().Configure(options);
+        });
+        await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync();
+        IRepository<EmailAccount> repository = new NoTenancyMartenRepository<EmailAccount>(
+            new NoTenancyByDefaultSessionFactory(store, new CurrentTenancyProviderNoTenancy()));
+        var now = DateTimeOffset.UtcNow;
+        var account = new EmailAccount
+        {
+            Id = $"test-{Guid.NewGuid():N}",
+            DisplayName = "Personal",
+            EmailAddress = "sam@example.com",
+            Host = "imap.example.com",
+            Port = 993,
+            Username = "sam@example.com",
+            ProtectedPassword = "protected",
+            InboxCheckpoint = new EmailInboxCheckpoint(42, 173, now),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        await repository.AddAsync(account);
+
+        var persisted = await repository.GetRequiredByIdAsync(account.Id);
+        Assert.Equal(42u, persisted.InboxCheckpoint?.UidValidity);
+        Assert.Equal(173u, persisted.InboxCheckpoint?.NextUid);
+
+        await repository.DeleteByIdAsync(account.Id);
+    }
+
     [Fact]
     public async Task InboundEventHierarchyIsStoredInOneDocumentCollection()
     {
@@ -62,6 +104,19 @@ public sealed class WorkItemDocumentPersistenceTests
             Subject = "Supper",
             FromAddress = "rosie@example.com",
             BodyText = "Come home.",
+            WasReadWhenCaptured = true,
+            WasAnsweredWhenCaptured = true,
+            Replies =
+            [
+                new EmailReplySnapshot(
+                    "reply-1",
+                    "Re: Supper",
+                    "sam@example.com",
+                    "Sam",
+                    ["rosie@example.com"],
+                    DateTimeOffset.UtcNow,
+                    "On my way.")
+            ],
             DedupeKey = Guid.NewGuid().ToString("N"),
             ReceivedAt = DateTimeOffset.UtcNow
         };
@@ -72,6 +127,7 @@ public sealed class WorkItemDocumentPersistenceTests
         var storedEmail = Assert.IsType<EmailInboundEvent>(
             await repository.GetRequiredByIdAsync(email.Id));
         Assert.Contains("Subject: Supper", storedEmail.GetIntakeText(), StringComparison.Ordinal);
+        Assert.Equal("On my way.", Assert.Single(storedEmail.Replies).BodyText);
 
         await repository.DeleteRangeByIdsAsync([manual.Id, email.Id]);
     }

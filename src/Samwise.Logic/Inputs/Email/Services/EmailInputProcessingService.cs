@@ -9,6 +9,10 @@ namespace Samwise.Logic.Inputs.Email.Services;
 
 internal interface IEmailInputProcessingService
 {
+    Task<EmailProcessingResult> ProcessNewAsync(
+        string? emailAccountId,
+        CancellationToken cancellationToken);
+
     Task<EmailProcessingResult> ProcessUnreadAsync(
         string? emailAccountId,
         CancellationToken cancellationToken);
@@ -23,8 +27,19 @@ internal sealed class EmailInputProcessingService(
     TimeProvider timeProvider,
     ILogger<EmailInputProcessingService> logger) : IEmailInputProcessingService
 {
-    public async Task<EmailProcessingResult> ProcessUnreadAsync(
+    public Task<EmailProcessingResult> ProcessNewAsync(
         string? emailAccountId,
+        CancellationToken cancellationToken) =>
+        ProcessAsync(emailAccountId, EmailProcessingMode.NewSinceCheckpoint, cancellationToken);
+
+    public Task<EmailProcessingResult> ProcessUnreadAsync(
+        string? emailAccountId,
+        CancellationToken cancellationToken) =>
+        ProcessAsync(emailAccountId, EmailProcessingMode.Unread, cancellationToken);
+
+    private async Task<EmailProcessingResult> ProcessAsync(
+        string? emailAccountId,
+        EmailProcessingMode mode,
         CancellationToken cancellationToken)
     {
         var accounts = await LoadAccountsAsync(emailAccountId, cancellationToken);
@@ -46,10 +61,24 @@ internal sealed class EmailInputProcessingService(
 
             try
             {
-                var messages = await inboxReader.ReadUnreadAsync(
-                    account,
-                    configuration.IgnoredSenderAddresses,
-                    cancellationToken);
+                IReadOnlyList<EmailMessageSnapshot> messages;
+                NewEmailReadResult? newEmailReadResult = null;
+                if (mode == EmailProcessingMode.NewSinceCheckpoint)
+                {
+                    newEmailReadResult = await inboxReader.ReadNewAsync(
+                        account,
+                        configuration.IgnoredSenderAddresses,
+                        cancellationToken);
+                    messages = newEmailReadResult.Messages;
+                }
+                else
+                {
+                    messages = await inboxReader.ReadUnreadAsync(
+                        account,
+                        configuration.IgnoredSenderAddresses,
+                        cancellationToken);
+                }
+
                 accountsChecked++;
                 foreach (var message in messages)
                 {
@@ -68,6 +97,18 @@ internal sealed class EmailInputProcessingService(
                     else
                     {
                         imported++;
+                    }
+                }
+
+                if (newEmailReadResult is not null)
+                {
+                    account.InboxCheckpoint = newEmailReadResult.NextCheckpoint;
+                    if (newEmailReadResult.CheckpointWasReset)
+                    {
+                        logger.LogWarning(
+                            "The INBOX UID validity changed for email account {EmailAccountId}; "
+                            + "Samwise established a new checkpoint without importing existing mail",
+                            account.Id);
                     }
                 }
 
@@ -109,7 +150,7 @@ internal sealed class EmailInputProcessingService(
 
     private static EmailInboundEvent CreateInboundEvent(
         EmailAccount account,
-        UnreadEmailMessage message,
+        EmailMessageSnapshot message,
         bool isIgnored,
         DateTimeOffset now) => new()
         {
@@ -126,12 +167,21 @@ internal sealed class EmailInputProcessingService(
             ToAddresses = message.ToAddresses,
             SentAt = message.SentAt,
             EmailReceivedAt = message.ReceivedAt,
+            WasReadWhenCaptured = message.WasRead,
+            WasAnsweredWhenCaptured = message.WasAnswered,
             BodyText = message.BodyText,
             Attachments = message.Attachments,
+            Replies = message.Replies,
             Handling = isIgnored ? InboundHandlingKind.Ignore : InboundHandlingKind.Pending,
             HandledAt = isIgnored ? now : null,
             Explanation = isIgnored
                 ? $"Ignored because {message.FromAddress} is in the ignored senders list."
                 : "Waiting for intake classification."
         };
+
+    private enum EmailProcessingMode
+    {
+        NewSinceCheckpoint,
+        Unread
+    }
 }

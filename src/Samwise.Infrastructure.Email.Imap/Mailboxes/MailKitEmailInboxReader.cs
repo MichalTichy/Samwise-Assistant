@@ -2,19 +2,24 @@ using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
 using MailKit.Security;
+using Microsoft.Extensions.Logging;
 using MimeKit;
-using System.Net;
-using System.Text.RegularExpressions;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Inputs.Email;
 using Samwise.Logic.Inputs.Email;
+using System.Net;
+using System.Text.RegularExpressions;
 
 namespace Samwise.Infrastructure.Email.Imap.Mailboxes;
 
 internal sealed partial class MailKitEmailInboxReader(
-    IEmailCredentialProtector credentialProtector) : IEmailInboxReader
+    IEmailCredentialProtector credentialProtector,
+    TimeProvider timeProvider,
+    ILogger<MailKitEmailInboxReader> logger) : IEmailInboxReader
 {
     private const int MaximumBodyCharacters = 50_000;
+    private const int MaximumReplyBodyCharacters = 20_000;
+    private const int MaximumRepliesPerMessage = 5;
 
     public async Task TestConnectionAsync(EmailAccount account, CancellationToken cancellationToken)
     {
@@ -23,7 +28,19 @@ internal sealed partial class MailKitEmailInboxReader(
         await client.DisconnectAsync(true, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<UnreadEmailMessage>> ReadUnreadAsync(
+    public async Task<EmailInboxCheckpoint> GetCurrentInboxCheckpointAsync(
+        EmailAccount account,
+        CancellationToken cancellationToken)
+    {
+        using var client = await ConnectAsync(account, cancellationToken);
+        var inbox = client.Inbox;
+        await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+        var checkpoint = CreateCurrentCheckpoint(inbox);
+        await client.DisconnectAsync(true, cancellationToken);
+        return checkpoint;
+    }
+
+    public async Task<NewEmailReadResult> ReadNewAsync(
         EmailAccount account,
         IReadOnlyCollection<string> ignoredSenderAddresses,
         CancellationToken cancellationToken)
@@ -31,11 +48,88 @@ internal sealed partial class MailKitEmailInboxReader(
         using var client = await ConnectAsync(account, cancellationToken);
         var inbox = client.Inbox;
         await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+        var checkpointAtOpen = CreateCurrentCheckpoint(inbox);
+        var previousCheckpoint = account.InboxCheckpoint;
 
-        var uids = await inbox.SearchAsync(SearchQuery.NotSeen, cancellationToken);
-        if (uids.Count == 0)
+        if (previousCheckpoint is null)
         {
             await client.DisconnectAsync(true, cancellationToken);
+            return new NewEmailReadResult([], checkpointAtOpen, false);
+        }
+
+        if (previousCheckpoint.UidValidity != inbox.UidValidity)
+        {
+            await client.DisconnectAsync(true, cancellationToken);
+            return new NewEmailReadResult([], checkpointAtOpen, true);
+        }
+
+        var uidRange = new UniqueIdRange(
+            inbox.UidValidity,
+            Math.Max(previousCheckpoint.NextUid, 1),
+            uint.MaxValue);
+        var uids = await inbox.SearchAsync(SearchQuery.Uids(uidRange), cancellationToken);
+        var messages = await ReadMessagesAsync(
+            client,
+            inbox,
+            uids,
+            ignoredSenderAddresses,
+            account.Id,
+            cancellationToken);
+
+        var nextUid = checkpointAtOpen.NextUid;
+        if (messages.Count > 0)
+        {
+            var highestReadUid = messages.Max(message => message.Uid);
+            var uidAfterHighestRead = highestReadUid == uint.MaxValue
+                ? uint.MaxValue
+                : highestReadUid + 1;
+            nextUid = Math.Max(nextUid, uidAfterHighestRead);
+        }
+
+        nextUid = Math.Max(nextUid, previousCheckpoint.NextUid);
+        var nextCheckpoint = new EmailInboxCheckpoint(
+            inbox.UidValidity,
+            nextUid,
+            timeProvider.GetUtcNow());
+        await client.DisconnectAsync(true, cancellationToken);
+        return new NewEmailReadResult(messages, nextCheckpoint, false);
+    }
+
+    public async Task<IReadOnlyList<EmailMessageSnapshot>> ReadUnreadAsync(
+        EmailAccount account,
+        IReadOnlyCollection<string> ignoredSenderAddresses,
+        CancellationToken cancellationToken)
+    {
+        using var client = await ConnectAsync(account, cancellationToken);
+        var inbox = client.Inbox;
+        await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+        var uids = await inbox.SearchAsync(SearchQuery.NotSeen, cancellationToken);
+        var messages = await ReadMessagesAsync(
+            client,
+            inbox,
+            uids,
+            ignoredSenderAddresses,
+            account.Id,
+            cancellationToken);
+        await client.DisconnectAsync(true, cancellationToken);
+        return messages;
+    }
+
+    private EmailInboxCheckpoint CreateCurrentCheckpoint(IMailFolder inbox) => new(
+        inbox.UidValidity,
+        Math.Max(inbox.UidNext?.Id ?? 1, 1),
+        timeProvider.GetUtcNow());
+
+    private async Task<IReadOnlyList<EmailMessageSnapshot>> ReadMessagesAsync(
+        ImapClient client,
+        IMailFolder inbox,
+        IList<UniqueId> uids,
+        IReadOnlyCollection<string> ignoredSenderAddresses,
+        string emailAccountId,
+        CancellationToken cancellationToken)
+    {
+        if (uids.Count == 0)
+        {
             return [];
         }
 
@@ -44,33 +138,29 @@ internal sealed partial class MailKitEmailInboxReader(
             MessageSummaryItems.UniqueId
             | MessageSummaryItems.Envelope
             | MessageSummaryItems.InternalDate
+            | MessageSummaryItems.Flags
             | MessageSummaryItems.BodyStructure,
             cancellationToken);
         var ignored = ignoredSenderAddresses.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var result = new List<UnreadEmailMessage>(summaries.Count);
+        var messages = new List<EmailMessageSnapshot>(summaries.Count);
 
         foreach (var summary in summaries.OrderBy(item => item.UniqueId.Id))
         {
-            if (account.ImportAfter is { } importAfter
-                && summary.InternalDate is { } internalDate
-                && internalDate < importAfter)
-            {
-                continue;
-            }
-
             var from = summary.Envelope?.From.Mailboxes.FirstOrDefault();
             var fromAddress = from?.Address ?? string.Empty;
-            var bodyText = ignored.Contains(fromAddress)
+            var isIgnored = ignored.Contains(fromAddress);
+            var bodyText = isIgnored
                 ? string.Empty
-                : await ReadBodyTextAsync(inbox, summary, cancellationToken);
+                : await ReadBodyTextAsync(inbox, summary, MaximumBodyCharacters, cancellationToken);
             var attachments = summary.Attachments
                 .Select(part => new EmailAttachmentSummary(
                     string.IsNullOrWhiteSpace(part.FileName) ? "Unnamed attachment" : part.FileName,
                     part.ContentType.MimeType,
                     part.Octets))
                 .ToList();
+            var flags = summary.Flags ?? MessageFlags.None;
 
-            result.Add(new UnreadEmailMessage(
+            messages.Add(new EmailMessageSnapshot(
                 inbox.FullName,
                 inbox.UidValidity,
                 summary.UniqueId.Id,
@@ -81,12 +171,100 @@ internal sealed partial class MailKitEmailInboxReader(
                 summary.Envelope?.To.Mailboxes.Select(mailbox => mailbox.Address).ToList() ?? [],
                 summary.Envelope?.Date,
                 summary.InternalDate,
+                flags.HasFlag(MessageFlags.Seen),
+                flags.HasFlag(MessageFlags.Answered),
                 bodyText,
-                attachments));
+                attachments,
+                []));
         }
 
-        await client.DisconnectAsync(true, cancellationToken);
-        return result;
+        return await AddSentRepliesAsync(
+            client,
+            messages,
+            ignored,
+            emailAccountId,
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<EmailMessageSnapshot>> AddSentRepliesAsync(
+        ImapClient client,
+        List<EmailMessageSnapshot> messages,
+        HashSet<string> ignoredSenderAddresses,
+        string emailAccountId,
+        CancellationToken cancellationToken)
+    {
+        var candidates = messages
+            .Select((message, index) => new { Message = message, Index = index })
+            .Where(candidate => candidate.Message.WasAnswered
+                && !string.IsNullOrWhiteSpace(candidate.Message.MessageId)
+                && !ignoredSenderAddresses.Contains(candidate.Message.FromAddress))
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return messages;
+        }
+
+        try
+        {
+            var sent = client.GetFolder(SpecialFolder.Sent);
+            if (sent is null)
+            {
+                return messages;
+            }
+
+            await sent.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+            foreach (var candidate in candidates)
+            {
+                var messageId = candidate.Message.MessageId!;
+                var query = SearchQuery.HeaderContains("In-Reply-To", messageId)
+                    .Or(SearchQuery.HeaderContains("References", messageId));
+                var matchingUids = await sent.SearchAsync(query, cancellationToken);
+                if (matchingUids.Count == 0)
+                {
+                    continue;
+                }
+
+                var selectedUids = matchingUids
+                    .OrderByDescending(uid => uid.Id)
+                    .Take(MaximumRepliesPerMessage)
+                    .OrderBy(uid => uid.Id)
+                    .ToList();
+                var summaries = await sent.FetchAsync(
+                    selectedUids,
+                    MessageSummaryItems.UniqueId
+                    | MessageSummaryItems.Envelope
+                    | MessageSummaryItems.BodyStructure,
+                    cancellationToken);
+                var replies = new List<EmailReplySnapshot>(summaries.Count);
+                foreach (var summary in summaries.OrderBy(item => item.UniqueId.Id))
+                {
+                    var from = summary.Envelope?.From.Mailboxes.FirstOrDefault();
+                    replies.Add(new EmailReplySnapshot(
+                        summary.Envelope?.MessageId,
+                        summary.Envelope?.Subject ?? string.Empty,
+                        from?.Address ?? string.Empty,
+                        from?.Name ?? string.Empty,
+                        summary.Envelope?.To.Mailboxes.Select(mailbox => mailbox.Address).ToList() ?? [],
+                        summary.Envelope?.Date,
+                        await ReadBodyTextAsync(
+                            sent,
+                            summary,
+                            MaximumReplyBodyCharacters,
+                            cancellationToken)));
+                }
+
+                messages[candidate.Index] = candidate.Message with { Replies = replies };
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                exception,
+                "Sent replies could not be loaded for email account {EmailAccountId}",
+                emailAccountId);
+        }
+
+        return messages;
     }
 
     private async Task<ImapClient> ConnectAsync(
@@ -120,20 +298,21 @@ internal sealed partial class MailKitEmailInboxReader(
     }
 
     private static async Task<string> ReadBodyTextAsync(
-        IMailFolder inbox,
+        IMailFolder folder,
         IMessageSummary summary,
+        int maximumCharacters,
         CancellationToken cancellationToken)
     {
         string text;
         if (summary.TextBody is not null)
         {
-            var textPart = await inbox.GetBodyPartAsync(summary.UniqueId, summary.TextBody, cancellationToken)
+            var textPart = await folder.GetBodyPartAsync(summary.UniqueId, summary.TextBody, cancellationToken)
                 as TextPart;
             text = textPart?.Text ?? string.Empty;
         }
         else if (summary.HtmlBody is not null)
         {
-            var htmlPart = await inbox.GetBodyPartAsync(summary.UniqueId, summary.HtmlBody, cancellationToken)
+            var htmlPart = await folder.GetBodyPartAsync(summary.UniqueId, summary.HtmlBody, cancellationToken)
                 as TextPart;
             text = ConvertHtmlToText(htmlPart?.Text ?? string.Empty);
         }
@@ -143,9 +322,9 @@ internal sealed partial class MailKitEmailInboxReader(
         }
 
         text = text.Trim();
-        return text.Length <= MaximumBodyCharacters
+        return text.Length <= maximumCharacters
             ? text
-            : $"{text[..MaximumBodyCharacters]}\n\n[Email body truncated by Samwise.]";
+            : $"{text[..maximumCharacters]}\n\n[Email body truncated by Samwise.]";
     }
 
     private static string ConvertHtmlToText(string html)

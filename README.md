@@ -2,7 +2,7 @@
 
 Samwise is a single-user personal assistant that turns incoming information into approved, executable work.
 
-Version 1 accepts manual text and unread messages from configured IMAP accounts in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline that future Microsoft Teams and Todoist connectors can also use:
+Version 1 accepts manual text and email messages from configured IMAP accounts in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline that future Microsoft Teams and Todoist connectors can also use:
 
 ```mermaid
 flowchart LR
@@ -101,7 +101,7 @@ dotnet user-secrets set "AgentEndpoints:Execution:ApiKey" "..." --project src/Sa
 
 Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to give the planning agent reusable workload guidance.
 
-Configure one or more password/app-password IMAP accounts under **Configuration → Inputs → Emails**. Samwise always polls enabled accounts at the UI-configured interval, leaves every message unread, and uses the same intake and planning flow as manual input. Account passwords are encrypted with the persisted Data Protection key ring.
+Configure one or more password/app-password IMAP accounts under **Configuration → Inputs → Emails**. Account creation records the current INBOX UID as a starting checkpoint, so historical mail is not imported automatically. Samwise then polls enabled accounts at the UI-configured interval and captures every newly delivered message even if you read it first, without changing message flags. The manual action searches unread mail regardless of age. When an imported message was answered, Samwise attempts to include matching sent replies in the intake context. Account passwords are encrypted with the persisted Data Protection key ring.
 
 ## Verify
 

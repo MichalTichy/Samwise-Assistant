@@ -68,9 +68,9 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 ## Email-input flow
 
 1. `EmailInputs` lives at Configuration → Inputs → Emails and reads the singleton `EmailInputConfiguration` plus individual `EmailAccount` documents through repositories.
-2. Saving the interval or exact-address ignore list sends `SaveEmailInputConfigurationUsecase`; saving an account sends `SaveEmailAccountUsecase`, which protects a new password before persistence.
+2. Saving the interval or exact-address ignore list sends `SaveEmailInputConfigurationUsecase`; saving an account sends `SaveEmailAccountUsecase`, which protects a new password and establishes the current INBOX UID as its automatic-import starting point before persistence.
 3. Connection-test and per-account/global process buttons trigger their external use cases and display the returned outcome.
-4. Automatic processing is always active for enabled accounts; the IMAP infrastructure timer triggers the same processing use case after the configured interval.
+4. Automatic processing is always active for enabled accounts; the IMAP infrastructure timer triggers `PollEmailAccountsUsecase` to import newly delivered messages whether read or unread. The manual buttons trigger `ProcessUnreadEmailsUsecase` and may import older unread messages.
 5. Account passwords are never returned to the page, and editing with a blank password keeps the protected value already stored.
 
 ## Frontend asset flow

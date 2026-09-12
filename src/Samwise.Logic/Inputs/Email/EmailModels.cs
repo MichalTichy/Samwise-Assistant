@@ -1,8 +1,9 @@
 using Samwise.Domain.Inbox;
+using Samwise.Domain.Inputs.Email;
 
 namespace Samwise.Logic.Inputs.Email;
 
-public sealed record UnreadEmailMessage(
+public sealed record EmailMessageSnapshot(
     string Mailbox,
     uint UidValidity,
     uint Uid,
@@ -13,8 +14,16 @@ public sealed record UnreadEmailMessage(
     IReadOnlyList<string> ToAddresses,
     DateTimeOffset? SentAt,
     DateTimeOffset? ReceivedAt,
+    bool WasRead,
+    bool WasAnswered,
     string BodyText,
-    IReadOnlyList<EmailAttachmentSummary> Attachments);
+    IReadOnlyList<EmailAttachmentSummary> Attachments,
+    IReadOnlyList<EmailReplySnapshot> Replies);
+
+public sealed record NewEmailReadResult(
+    IReadOnlyList<EmailMessageSnapshot> Messages,
+    EmailInboxCheckpoint NextCheckpoint,
+    bool CheckpointWasReset);
 
 public sealed record EmailAccountSaveResult(
     bool Succeeded,

@@ -8,7 +8,7 @@
     <div>
         <span class="page-kicker">Configuration · Inputs</span>
         <h1>Emails</h1>
-        <p>Connect IMAP inboxes and choose how often Samwise looks for unread messages.</p>
+        <p>Connect IMAP inboxes and choose how often Samwise looks for newly delivered messages.</p>
     </div>
     <div class="heading-actions">
         <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
@@ -221,13 +221,9 @@
 
                     @if (selectedAccountId is null)
                     {
-                        <label class="configuration-toggle email-field-wide">
-                            <input type="checkbox" @bind="processExistingUnread" />
-                            <span>
-                                <strong>Process existing unread messages</strong>
-                                <small>Otherwise Samwise only considers messages received after this account is saved.</small>
-                            </span>
-                        </label>
+                        <div class="email-field-wide email-account-baseline-note">
+                            Existing messages are not imported automatically. Use <strong>Process unread</strong> later if you want to import older unread mail.
+                        </div>
                     }
                 </div>
 

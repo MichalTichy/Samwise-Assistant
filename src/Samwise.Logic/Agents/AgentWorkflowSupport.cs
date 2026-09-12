@@ -19,7 +19,7 @@ internal static class AgentWorkflowSupport
         DateTimeOffset now) =>
         new Dictionary<string, string?>(StringComparer.Ordinal)
         {
-            ["input.text"] = inboundEvent.Text,
+            ["input.text"] = inboundEvent.GetIntakeText(),
             ["active_work_items"] = JsonSerializer.Serialize(
                 candidates.Select(workItem => new
                 {

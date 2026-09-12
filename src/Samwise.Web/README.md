@@ -1,6 +1,6 @@
 # Samwise.Web
 
-This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and presents the manual-input, inbox, board, work-item, agent-settings, playbook, and account experiences.
+This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and presents the manual-input, inbox, board, work-item, agent-settings, playbook, email-input, and account experiences.
 
 ## Structure
 
@@ -45,7 +45,7 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 
 ## Manual-input flow
 
-1. `Home` validates the user's text and sends `CaptureInboundEventUsecase` with source `Web` and a unique external ID.
+1. `Home` validates the user's text and sends `SubmitManualInputUsecase`.
 2. The use case completes intake classification and any required planning through logic services.
 3. The page navigates to the inbox audit view.
 4. `Inbox` reads `InboundEvent` documents with `InboxEventsSpecification` and can send a retry command for events needing review.
@@ -64,6 +64,14 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 3. Saving sends `SaveAgentStageConfigurationUsecase`, which validates the model/effort pair and prompt before updating the selected nested stage in that document.
 4. `Playbooks` reads playbook documents directly through `PlaybooksSpecification`; save actions send `SavePlaybookUsecase`.
 5. Both pages reload the saved documents rather than treating browser state as authoritative.
+
+## Email-input flow
+
+1. `EmailInputs` lives at Configuration → Inputs → Emails and reads the singleton `EmailInputConfiguration` plus individual `EmailAccount` documents through repositories.
+2. Saving the interval or exact-address ignore list sends `SaveEmailInputConfigurationUsecase`; saving an account sends `SaveEmailAccountUsecase`, which protects a new password and establishes the current INBOX UID as its automatic-import starting point before persistence.
+3. Connection-test and per-account/global process buttons trigger their external use cases and display the returned outcome.
+4. Automatic processing is always active for enabled accounts. The timer triggers `ProcessEmailsUsecase(NewSinceCheckpoint)` to import newly delivered messages whether read or unread; the manual buttons trigger `ProcessEmailsUsecase(Unread)` and may import older unread messages.
+5. Account passwords are never returned to the page, and editing with a blank password keeps the protected value already stored.
 
 ## Frontend asset flow
 

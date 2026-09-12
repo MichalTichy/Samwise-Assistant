@@ -2,21 +2,23 @@
 
 ## Product boundary
 
-Samwise is a personal, single-owner assistant—not a multi-tenant SaaS. V1 deliberately uses one deployable web process and one PostgreSQL database. Externally triggered MediatR use cases coordinate the short workflow through scoped services; there is no background worker, work-item queue, or separate processor.
+Samwise is a personal, single-owner assistant—not a multi-tenant SaaS. V1 deliberately uses one deployable web process and one PostgreSQL database. Externally triggered MediatR use cases coordinate the short workflow through scoped services; there is no separate worker process, work-item queue, or separate processor. A small in-process timer is the external trigger for periodic email checks.
 
 The web browser never calls the Codex CLI API Gateway. All Gateway credentials and calls remain server-side.
 
 ## Canonical intake
 
-Every source sends the same `CaptureInboundEventUsecase` through MediatR:
+Each source has an external use case and creates its own typed inbound event:
 
 ```text
-InboundEventCapture(Source, ExternalId, Text)
+SubmitManualInputUsecase -> ManualInboundEvent
+ProcessEmailsUsecase(NewSinceCheckpoint) -> EmailInboundEvent
+ProcessEmailsUsecase(Unread) -> EmailInboundEvent
 ```
 
-`Source + ExternalId` provides connector-level deduplication. A deterministic key has a database unique constraint. The capture use case stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.
+Both operations call `InboundEventCaptureService`, which uses `Source + ExternalId` for connector-level deduplication. A deterministic key has a database unique constraint. The service stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.
 
-Manual web text uses `Source = "Web"`. A future email adapter will normalize an email into the same capture contract and use the provider message ID as `ExternalId`. Teams and Todoist follow the same rule. Connectors do not create or modify work items themselves.
+Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapter stores account and message metadata plus a normalized body on `EmailInboundEvent`; its stable external identity is account ID, mailbox, UIDVALIDITY, and UID. Each derived event computes its intake text from its source fields. Future Teams and Todoist sources follow the same rule. Connectors do not create or modify work items themselves.
 
 Use cases represent external triggers only: a user action, an endpoint request, or a newly received input event. A use-case handler coordinates the integral steps of that operation by calling scoped processing, classification, planning, execution, and invocation-lifecycle services. It never sends another use case.
 
@@ -95,6 +97,16 @@ Playbooks are independent UI-managed documents containing a name, description, e
 
 Every invocation stores its fully rendered prompt, so changing the current template does not erase what a past run saw.
 
+## Email input
+
+The authenticated Configuration → Inputs → Emails page owns the polling interval, a global list of exact ignored-sender addresses, and individual IMAP accounts. Automatic processing is always active; disabling an account removes only that account from scheduled checks. The same page can test an account and manually process one or all enabled accounts.
+
+`EmailInputConfiguration` is a singleton Marten document. `EmailAccount` is a separate document per mailbox because its check timestamps and error state change independently. Passwords and app passwords are protected with ASP.NET Data Protection before persistence and are never returned to the UI; the persisted key ring is shared with authentication cookies.
+
+`Samwise.Infrastructure.Email.Imap` uses MailKit and never changes message flags. Creating an account stores the current INBOX `UIDVALIDITY` and `UIDNEXT`; scheduled checks import all later UIDs whether read or unread, then advance the checkpoint only after durable capture. A changed UID validity establishes a fresh checkpoint without replaying the mailbox. The manual action searches `UNSEEN` messages without changing the automatic checkpoint, allowing deliberate import of older unread mail. The dedupe identity remains account ID, mailbox, UIDVALIDITY, and UID.
+
+Email events snapshot read and answered state. For answered messages, the adapter opens the server-designated Sent folder read-only and finds up to five replies using `Message-ID`, `In-Reply-To`, and `References`; their normalized bodies are included in intake context. Failure to discover or read Sent does not block inbox capture. Attachment metadata is recorded without downloading attachment bodies. Exact ignored senders are recorded as ignored events without an AI call, body download, or sent-reply lookup. OAuth, sending, full thread synchronization, and IMAP IDLE are outside V1.
+
 ## UI
 
 - **New input** — manual capture form and a four-step explanation of capture, triage, planning, and approval.
@@ -103,6 +115,7 @@ Every invocation stores its fully rendered prompt, so changing the current templ
 - **Work item detail** — current plan, steps, tools, assumptions, risks, approve/reject/discard controls, comments, plan reviews, and recent agent activity.
 - **Agent settings** — model, reasoning effort, prompt editor, and placeholder legend for each stage.
 - **Playbooks** — create, edit, enable, and disable reusable planning guidance.
+- **Configuration → Inputs → Emails** — polling interval, exact ignored senders, IMAP account management, connection tests, and manual unread processing.
 - **Account** — two Samwise-owned pages: password-only login and change password. Startup seeds the one owner from `OwnerAccount` configuration. There is no generated Identity UI, registration, email confirmation/recovery, external login, 2FA, or passkey flow.
 
 Work item comments are first-class owned values inside the work item aggregate. This supports ordinary context and rejection feedback immediately, makes the work item revision and its new context one atomic document update, and lets a future Todoist projection treat comments as another command surface without changing the work item model.
@@ -115,14 +128,14 @@ Ordinary Todoist comments become work item context and invalidate the current pl
 
 ## Persistence
 
-- Marten schema `samwise`: versioned work item aggregate documents (including nested plans, selected playbook snapshots, plan reviews, comments, discard metadata, plan steps, and tool snapshots), inbound events, agent invocations, the nested agent-configuration document, and playbooks.
+- Marten schema `samwise`: versioned work item aggregate documents (including nested plans, selected playbook snapshots, plan reviews, comments, discard metadata, plan steps, and tool snapshots), polymorphic inbound events, email accounts, email-input configuration, agent invocations, the nested agent-configuration document, and playbooks.
 - EF Core schema `identity`: the single password-authenticated ASP.NET Identity owner. Samwise uses Identity only for its password store and application cookie.
 - Durable Data Protection keys: login cookies survive restarts.
 - EF migrations initialize Identity; Marten creates or updates its document schema at startup. This is an intentional single-user V1 simplicity tradeoff.
 
 The work item is the consistency boundary. It implements Marten numeric revisioning, so concurrent updates fail instead of silently replacing nested context or plan reviews. Each work item transition—including its comment, plan review, discard metadata, or plan—is persisted as one document update. Intake classification uses one ambient Marten transaction when it must update both an inbound event and a work item. Agent invocations remain separate because they are large operational audit records whose running/final states straddle an external call.
 
-V1 assumes a single user and a single web process. It intentionally has no durable workflow queue: an external use case coordinates classification, planning, or execution services to completion in the same request. If background delivery or crash recovery becomes necessary later, it can be added around those services without changing the external use-case boundary or moving workflow rules into persistence.
+V1 assumes a single user and a single web process. It intentionally has no durable workflow queue: an external use case coordinates classification, planning, or execution services to completion in the same request. The in-process email poller triggers that same external email-processing use case. If durable background delivery or broader crash recovery becomes necessary later, it can be added around those services without changing the external use-case boundary or moving workflow rules into persistence.
 
 ## Code organization
 
@@ -137,6 +150,7 @@ The solution follows the useful Edifio conventions while retaining the single-pr
 - specifications live beside their feature in `Samwise.Logic`; read-only `Get*Usecase` wrappers are intentionally absent;
 - each infrastructure concern has its own project and `IInstaller` implementation;
 - standard OpenAI execution lives in `Samwise.Infrastructure.AgentRuntimes`, while only nonstandard catalog discovery lives in `Samwise.Infrastructure.CodexGateway`;
+- IMAP transport, credential protection, and the in-process polling trigger live in `Samwise.Infrastructure.Email.Imap`; sender-ignore and workflow decisions remain in `Samwise.Logic`;
 - EF migration/owner creation and prompt seeding are `InitializerBase` startup initializers; prompt defaults and initialization belong to `Samwise.Logic`, not the Marten adapter;
 - custom Blazor pages, including login and password change, keep markup in `Page.razor` and behavior in `Page.razor.cs`;
 - `Program.cs` is only the composition/pipeline entry point and discovers installers and initializers;

@@ -81,6 +81,32 @@
     color: #96601d;
 }
 
+.nav-group-label {
+    min-height: 38px;
+    padding: 0 13px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: #655a50;
+    font-size: .76rem;
+    font-weight: 760;
+}
+
+.primary-nav ::deep .nav-entry-child {
+    min-height: 36px;
+    margin-left: 25px;
+    padding-left: 12px;
+    font-size: .8rem;
+}
+
+.nav-child-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: .65;
+}
+
 .primary-nav ::deep .nav-icon {
     width: 21px;
     color: currentColor;
@@ -170,6 +196,7 @@
 
     .brand span,
     .nav-section-label,
+    .nav-group-label,
     .sidebar-spacer,
     .user-entry,
     .logout-form {
@@ -183,5 +210,9 @@
     .primary-nav ::deep .nav-entry {
         min-height: 39px;
         white-space: nowrap;
+    }
+
+    .primary-nav ::deep .nav-entry-child {
+        margin-left: 0;
     }
 }

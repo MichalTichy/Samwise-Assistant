@@ -44,7 +44,6 @@ services:
       Codex__Container__MemoryMegabytes: "${CODEX_RUNNER_MEMORY_MB:-2048}"
       Codex__Container__CpuLimit: "${CODEX_RUNNER_CPU_LIMIT:-2}"
       Codex__Container__PidsLimit: "${CODEX_RUNNER_PIDS_LIMIT:-256}"
-      Codex__Container__NoNewPrivileges: "false"
       Codex__Container__TmpfsMegabytes: "${CODEX_RUNNER_TMPFS_MB:-256}"
       McpGateway__RunnerBaseUrl: http://gateway:8080
     volumes:

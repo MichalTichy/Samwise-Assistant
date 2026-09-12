@@ -64,11 +64,6 @@ docker compose pull
 docker compose up -d
 ```
 
-The private-network stack disables the OCI `no-new-privileges` flag because the
-target container host rejects runner execution with it. Generated runners remain
-non-root, read-only, capability-free, resource-limited, and attached only to the
-dedicated runner network.
-
 ## Building and publishing
 
 Build from the repository root. Replace `<commit>` with the Git commit being published:

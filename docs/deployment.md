@@ -59,7 +59,7 @@ Back up these volumes and the two PostgreSQL databases. Losing only the data-pro
 
 ## Updating
 
-The Compose defaults use the `latest` Samwise, Gateway, runner, and MCP images. The checked-in `.env.example` pins the currently verified Gateway pair (`decfeca`) and MCP (`0617e7d`). Prefer immutable tags in the deployed `.env`, then run:
+The Compose defaults use the `latest` Samwise, Gateway, runner, and MCP images. The checked-in `.env.example` pins the currently verified Gateway pair (`decfeca`) and native-app-host MCP (`0903bf4`). Prefer immutable tags in the deployed `.env`, then run:
 
 ```bash
 docker compose pull

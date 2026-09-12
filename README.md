@@ -94,9 +94,10 @@ safe during planning. The execution project owns the exact approved execution al
 retrieves that execution catalog separately and gives its metadata to the planner.
 
 The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts)
-on the private `codex-gateway-backend` network. Its tools remain behind the Gateway: only tools
-explicitly enabled on the trusted server and granted to `samwise-execution` can be planned and
-invoked. Version 1 must leave `send_email` and `unsubscribe_from_email` ungranted.
+and the official [Todoist MCP](https://github.com/Doist/todoist-mcp) server on the private
+`codex-gateway-backend` network. Their tools remain behind the Gateway: only tools explicitly
+enabled on each trusted server and granted to `samwise-execution` can be planned and invoked.
+Version 1 must leave `send_email` and `unsubscribe_from_email` ungranted.
 
 ```powershell
 dotnet user-secrets set "AgentEndpoints:Intake:ApiKey" "..." --project src/Samwise.Web
@@ -118,7 +119,7 @@ dotnet test tests/Samwise.Tests/Samwise.Tests.csproj --no-build --no-restore
 
 ## Deploy with Docker Compose
 
-The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, and Mail, Calendar & Contacts MCP, using an existing PostgreSQL instance. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
+The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, and Todoist MCP, using an existing PostgreSQL instance. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
 
 Copy `.env.example` to the ignored `.env`, replace every secret placeholder, then run:
 

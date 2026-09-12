@@ -10,7 +10,9 @@ This project applies Samwise-specific document mappings to the reusable shared M
 ## Document layout
 
 - `WorkItem` is one revisioned aggregate document containing plans, selected-playbook snapshots, plan reviews, plan steps, comments, discard metadata, and tool snapshots.
-- `InboundEvent` is an independent audit document with received-time and unique deduplication-key indexes.
+- `InboundEvent` is one polymorphic audit collection containing manual and email event documents, with received-time and unique deduplication-key indexes.
+- `EmailAccount` is one document per IMAP account so frequently changing synchronization state does not rewrite global configuration.
+- `EmailInputConfiguration` is one document containing the polling interval and nested ignored-sender addresses.
 - `AgentInvocation` is an independent operational document indexed by work-item ID.
 - `AgentConfiguration` is one current-settings document containing nested Intake, Planning, and Execution settings.
 - `Playbook` is an independent user-managed planning-guidance document.

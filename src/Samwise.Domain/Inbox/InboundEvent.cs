@@ -13,18 +13,21 @@ public enum InboundHandlingKind
     NeedsReview
 }
 
-public sealed class InboundEvent : IItemWithId
+public abstract class InboundEvent : IItemWithId
 {
     public string Id { get; set; } = string.Empty;
-    public string Source { get; set; } = string.Empty;
-    public string ExternalId { get; set; } = string.Empty;
     public string DedupeKey { get; set; } = string.Empty;
-    public string Text { get; set; } = string.Empty;
     public DateTimeOffset ReceivedAt { get; set; }
     public DateTimeOffset? HandledAt { get; set; }
     public InboundHandlingKind Handling { get; set; }
     public string? WorkItemId { get; set; }
     public string Explanation { get; set; } = string.Empty;
+
+    public abstract string Source { get; }
+
+    public abstract string ExternalId { get; }
+
+    public abstract string GetIntakeText();
 
     public static string CreateDedupeKey(string source, string externalId)
     {

@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Components;
-using Samwise.Logic.Inbox;
 using Samwise.Logic.Inbox.Usecases;
 
 namespace Samwise.Web.Components.Pages;
@@ -24,10 +23,7 @@ public partial class Home
         error = null;
         try
         {
-            await Sender.Send(new CaptureInboundEventUsecase(new InboundEventCapture(
-                "Web",
-                $"manual:{Guid.NewGuid():N}",
-                input.Text)));
+            await Sender.Send(new SubmitManualInputUsecase(input.Text));
             Navigation.NavigateTo("/inbox");
         }
         catch (Exception exception)

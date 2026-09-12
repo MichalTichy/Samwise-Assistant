@@ -6,12 +6,31 @@ services:
     entrypoint: ["/bin/true"]
     restart: "no"
 
+  mail-calendar-contacts-mcp:
+    image: ${MAIL_CALENDAR_CONTACTS_IMAGE:-registry.tichymichal.net/mcp-mail-calendar-contacts:latest}
+    restart: unless-stopped
+    ports:
+      - "${MAIL_CALENDAR_CONTACTS_BIND_ADDRESS:-0.0.0.0}:${MAIL_CALENDAR_CONTACTS_PORT:-5051}:8080"
+    environment:
+      CALENDAR_MCP_ADMIN_TOKEN: "${MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN:?Set MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN in an ignored .env file}"
+      CALENDAR_MCP_MCP_KEY: "${MAIL_CALENDAR_CONTACTS_MCP_KEY:?Set MAIL_CALENDAR_CONTACTS_MCP_KEY in an ignored .env file}"
+      CALENDAR_MCP_CalendarMcp__Mcp__RequireApiKey: "true"
+      CALENDAR_MCP_CalendarMcp__ExternalBaseUrl: "${MAIL_CALENDAR_CONTACTS_MCP_EXTERNAL_URL:-http://localhost:5051}"
+    volumes:
+      - mail-calendar-contacts-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - gateway-backend
+
   gateway:
     image: ${CODEX_GATEWAY_IMAGE:-registry.tichymichal.net/codex-gateway:latest}
     restart: unless-stopped
     depends_on:
       gateway-runner-image:
         condition: service_completed_successfully
+      mail-calendar-contacts-mcp:
+        condition: service_started
     ports:
       - "${CODEX_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${CODEX_GATEWAY_PORT:-5050}:8080"
     extra_hosts:
@@ -30,6 +49,7 @@ services:
       Codex__Container__PidsLimit: "${CODEX_RUNNER_PIDS_LIMIT:-256}"
       Codex__Container__TmpfsMegabytes: "${CODEX_RUNNER_TMPFS_MB:-256}"
       McpGateway__RunnerBaseUrl: http://gateway:8080
+      MAIL_CALENDAR_CONTACTS_MCP_KEY: "${MAIL_CALENDAR_CONTACTS_MCP_KEY:?Set MAIL_CALENDAR_CONTACTS_MCP_KEY in an ignored .env file}"
     volumes:
       - gateway-data:/app/data
       - codex-home:/app/.codex-home
@@ -45,6 +65,7 @@ services:
     networks:
       - default
       - runner
+      - gateway-backend
 
   web:
     image: ${SAMWISE_IMAGE:-registry.tichymichal.net/samwise-assistant:latest}
@@ -77,6 +98,8 @@ services:
 
 volumes:
   data-protection-keys:
+  mail-calendar-contacts-data:
+    name: ${MAIL_CALENDAR_CONTACTS_DATA_VOLUME:-mcp-mail-calendar-contacts-data}
   gateway-data:
     name: ${CODEX_GATEWAY_DATA_VOLUME:-codex-gateway-data}
   codex-home:
@@ -85,3 +108,5 @@ volumes:
 networks:
   runner:
     name: ${CODEX_GATEWAY_RUNNER_NETWORK:-codex-gateway-runner}
+  gateway-backend:
+    name: ${CODEX_GATEWAY_BACKEND_NETWORK:-codex-gateway-backend}

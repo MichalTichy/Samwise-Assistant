@@ -18,8 +18,6 @@ services:
       CALENDAR_MCP_CalendarMcp__ExternalBaseUrl: "${MAIL_CALENDAR_CONTACTS_MCP_EXTERNAL_URL:-http://localhost:5051}"
     volumes:
       - mail-calendar-contacts-data:/app/data
-    security_opt:
-      - no-new-privileges:true
     networks:
       - gateway-backend
 

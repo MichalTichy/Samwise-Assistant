@@ -256,7 +256,11 @@ else
                     <div class="activity-list">
                         @foreach (var invocation in model.Invocations)
                         {
-                            <article>
+                            <button type="button"
+                                    class="activity-list-item"
+                                    aria-haspopup="dialog"
+                                    aria-label="View complete @invocation.Profile agent activity"
+                                    @onclick="() => ShowInvocation(invocation)">
                                 <span class="activity-dot activity-@invocation.Status.ToString().ToLowerInvariant()"></span>
                                 <div>
                                     <strong>@invocation.Profile</strong>
@@ -270,7 +274,8 @@ else
                                         <small>@invocation.Error</small>
                                     }
                                 </div>
-                            </article>
+                                <span class="activity-open-indicator" aria-hidden="true">›</span>
+                            </button>
                         }
                         @if (model.Invocations.Count == 0)
                         {
@@ -304,4 +309,6 @@ else
             </aside>
         </div>
     </div>
+
+    <AgentInvocationDetails Invocation="selectedInvocation" @bind-Open="activityDetailsOpen" />
 }

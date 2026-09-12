@@ -20,6 +20,8 @@ public partial class WorkItemDetails
     private string contextText = string.Empty;
     private string rejectionFeedback = string.Empty;
     private string? actionError;
+    private AgentInvocation? selectedInvocation;
+    private bool activityDetailsOpen;
 
     [Inject]
     private ISender Sender { get; set; } = default!;
@@ -124,6 +126,12 @@ public partial class WorkItemDetails
 
     private WorkItemDetailsModel RequireDetails() =>
         details ?? throw new InvalidOperationException("The work item is not loaded.");
+
+    private void ShowInvocation(AgentInvocation invocation)
+    {
+        selectedInvocation = invocation;
+        activityDetailsOpen = true;
+    }
 
     private static string FormatStatus(WorkItemStatus status) => status switch
     {

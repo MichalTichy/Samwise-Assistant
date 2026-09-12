@@ -54,8 +54,9 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 
 1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards.
 2. `WorkItemDetails` loads the aggregate plus recent invocations through repositories and `WorkItemInvocationsSpecification`.
-3. Approve, reject, add-context, retry-planning, and discard buttons send their corresponding external use cases.
-4. Each command reloads the authoritative stored state after it completes.
+3. Selecting an agent-activity row opens its full invocation record in a Lumex dialog, including the prompt, output, model metadata, error, and available-tool snapshot.
+4. Approve, reject, add-context, retry-planning, and discard buttons send their corresponding external use cases.
+5. Each command reloads the authoritative stored state after it completes.
 
 ## Agent settings and playbook flow
 

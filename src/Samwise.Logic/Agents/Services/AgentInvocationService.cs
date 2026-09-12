@@ -9,7 +9,8 @@ internal sealed record AgentInvocationStart(
     string? InboundEventId,
     string? WorkItemId,
     int WorkItemRevision,
-    AgentRunConfiguration Configuration);
+    AgentRunConfiguration Configuration,
+    ToolCatalogSnapshot? AvailableTools = null);
 
 internal interface IAgentInvocationService
 {
@@ -43,12 +44,30 @@ internal sealed class AgentInvocationService(
             Model = request.Configuration.Model,
             ReasoningEffort = request.Configuration.ReasoningEffort,
             RenderedPrompt = request.RenderedPrompt,
+            AvailableTools = CreateToolCatalogSnapshot(request.AvailableTools),
             Status = AgentInvocationStatus.Running,
             StartedAt = timeProvider.GetUtcNow()
         };
 
         return repository.AddAsync(invocation, cancellationToken);
     }
+
+    private static AgentInvocationToolCatalog? CreateToolCatalogSnapshot(ToolCatalogSnapshot? catalog) =>
+        catalog is null
+            ? null
+            : new AgentInvocationToolCatalog
+            {
+                CatalogVersion = catalog.CatalogVersion,
+                RawJson = catalog.RawJson,
+                Tools = catalog.Tools.Select(tool => new AgentInvocationTool
+                {
+                    Id = tool.Id,
+                    Name = tool.Name,
+                    Description = tool.Description,
+                    InputSchemaJson = tool.InputSchemaJson,
+                    CanInvoke = tool.CanInvoke
+                }).ToList()
+            };
 
     public async Task CompleteAsync(
         string agentInvocationId,

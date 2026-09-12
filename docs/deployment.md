@@ -6,7 +6,7 @@
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, MCP admin token, and MCP key. The two MCP secrets must be different. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Replace the owner credentials, Gateway admin password, and MCP admin token. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -26,7 +26,7 @@ The Gateway control plane and MCP container intentionally do not use Compose's `
 
 ## Mail, calendar, and contacts MCP
 
-The [MCP.MailCalendarContacts](https://github.com/MichalTichy/MCP.MailCalendarContacts) server is included in the Samwise stack. Samwise never connects to it directly. The Gateway connects to it over the private `codex-gateway-backend` Docker network, authenticates with `MAIL_CALENDAR_CONTACTS_MCP_KEY`, and enforces the tool grant associated with each Samwise API key. The admin UI is published on port `5051`; its MCP endpoint is not used through that host port by Gateway.
+The [MCP.MailCalendarContacts](https://github.com/MichalTichy/MCP.MailCalendarContacts) server is included in the Samwise stack. Samwise never connects to it directly. The private-network deployment does not require an MCP transport API key; Gateway enforces the exact tool grant associated with each Samwise API key through its run-scoped relay. The admin UI remains protected by `MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN` and is published on port `5051` for the trusted LAN.
 
 For Portainer:
 
@@ -38,8 +38,6 @@ For Portainer:
    | Name | `Mail, Calendar & Contacts` |
    | URL | `http://mail-calendar-contacts-mcp:8080` |
    | Execution mode | `Gateway` |
-   | Header | `X-Api-Key` |
-   | Header environment variable | `MAIL_CALENDAR_CONTACTS_MCP_KEY` |
 
 3. Test the connection and discover the server's tools. Enable only the tools that the Gateway may expose.
 4. Grant the desired subset to the `samwise-execution` project/key. Start with mail, calendar, and contact read tools. Calendar/contact write and mail-management tools can be enabled individually when wanted. Do not grant `send_email` or `unsubscribe_from_email` in version 1.

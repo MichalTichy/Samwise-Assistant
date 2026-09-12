@@ -13,8 +13,7 @@ services:
       - "${MAIL_CALENDAR_CONTACTS_BIND_ADDRESS:-0.0.0.0}:${MAIL_CALENDAR_CONTACTS_PORT:-5051}:8080"
     environment:
       CALENDAR_MCP_ADMIN_TOKEN: "${MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN:?Set MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN in an ignored .env file}"
-      CALENDAR_MCP_MCP_KEY: "${MAIL_CALENDAR_CONTACTS_MCP_KEY:?Set MAIL_CALENDAR_CONTACTS_MCP_KEY in an ignored .env file}"
-      CALENDAR_MCP_CalendarMcp__Mcp__RequireApiKey: "true"
+      CALENDAR_MCP_CalendarMcp__Mcp__RequireApiKey: "false"
       CALENDAR_MCP_CalendarMcp__ExternalBaseUrl: "${MAIL_CALENDAR_CONTACTS_MCP_EXTERNAL_URL:-http://localhost:5051}"
     volumes:
       - mail-calendar-contacts-data:/app/data
@@ -47,7 +46,6 @@ services:
       Codex__Container__PidsLimit: "${CODEX_RUNNER_PIDS_LIMIT:-256}"
       Codex__Container__TmpfsMegabytes: "${CODEX_RUNNER_TMPFS_MB:-256}"
       McpGateway__RunnerBaseUrl: http://gateway:8080
-      MAIL_CALENDAR_CONTACTS_MCP_KEY: "${MAIL_CALENDAR_CONTACTS_MCP_KEY:?Set MAIL_CALENDAR_CONTACTS_MCP_KEY in an ignored .env file}"
     volumes:
       - gateway-data:/app/data
       - codex-home:/app/.codex-home

@@ -22,7 +22,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 ## Intake and planning flow
 
-1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. The timer-triggered `PollEmailAccountsUsecase` imports every message delivered after an account's checkpoint, while the user-triggered `ProcessUnreadEmailsUsecase` imports unread messages regardless of age; both create `EmailInboundEvent` documents through the IMAP port.
+1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. Both the timer and UI trigger `ProcessEmailsUsecase`: the timer selects `NewSinceCheckpoint`, while the UI selects `Unread`; both create `EmailInboundEvent` documents through the IMAP port.
 2. Both use `InboundEventCaptureService` to validate, deduplicate, persist, and continue pending inputs through `InboundEventProcessingService`.
 3. `InboundEventClassificationService` renders the intake prompt, records an invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the intake decision.
 4. `Ignore` and `NeedsReview` finish without a work item.
@@ -41,7 +41,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 ## Shared services
 
 - `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution.
-- `EmailInputProcessingService` coordinates both email read modes, exact-address ignores, durable checkpoint updates, and shared inbound capture. A keyed in-process lock prevents overlapping checks of one account.
+- `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores, durable checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
 - `PromptRenderer` validates placeholders—including planning's `{{playbooks}}` value—and renders the full prompt stored with every invocation.
 - `AgentWorkflowSupport` assembles deterministic structured context for each stage.
 

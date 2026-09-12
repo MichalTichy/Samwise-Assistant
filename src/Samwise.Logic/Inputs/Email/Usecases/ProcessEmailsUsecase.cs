@@ -1,48 +1,39 @@
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Inputs.Email;
 using Samwise.Logic.Inbox.Services;
+using Samwise.Logic.Inputs.Email.Services;
 using Samwise.Logic.Inputs.Email.Specifications;
 using Shared.Infrastructure.Persistence.Repositories;
 
-namespace Samwise.Logic.Inputs.Email.Services;
+namespace Samwise.Logic.Inputs.Email.Usecases;
 
-internal interface IEmailInputProcessingService
+public enum EmailSelection
 {
-    Task<EmailProcessingResult> ProcessNewAsync(
-        string? emailAccountId,
-        CancellationToken cancellationToken);
-
-    Task<EmailProcessingResult> ProcessUnreadAsync(
-        string? emailAccountId,
-        CancellationToken cancellationToken);
+    NewSinceCheckpoint,
+    Unread
 }
 
-internal sealed class EmailInputProcessingService(
+public sealed record ProcessEmailsUsecase(
+    EmailSelection Selection,
+    string? EmailAccountId = null) : IRequest<EmailProcessingResult>;
+
+internal sealed class ProcessEmailsUsecaseHandler(
     IRepository<EmailAccount> accountRepository,
     IReadOnlyRepository<EmailInputConfiguration> configurationRepository,
     IEmailInboxReader inboxReader,
     IInboundEventCaptureService captureService,
     IEmailAccountProcessingLock accountProcessingLock,
     TimeProvider timeProvider,
-    ILogger<EmailInputProcessingService> logger) : IEmailInputProcessingService
+    ILogger<ProcessEmailsUsecaseHandler> logger)
+    : IRequestHandler<ProcessEmailsUsecase, EmailProcessingResult>
 {
-    public Task<EmailProcessingResult> ProcessNewAsync(
-        string? emailAccountId,
-        CancellationToken cancellationToken) =>
-        ProcessAsync(emailAccountId, EmailProcessingMode.NewSinceCheckpoint, cancellationToken);
-
-    public Task<EmailProcessingResult> ProcessUnreadAsync(
-        string? emailAccountId,
-        CancellationToken cancellationToken) =>
-        ProcessAsync(emailAccountId, EmailProcessingMode.Unread, cancellationToken);
-
-    private async Task<EmailProcessingResult> ProcessAsync(
-        string? emailAccountId,
-        EmailProcessingMode mode,
+    public async Task<EmailProcessingResult> Handle(
+        ProcessEmailsUsecase request,
         CancellationToken cancellationToken)
     {
-        var accounts = await LoadAccountsAsync(emailAccountId, cancellationToken);
+        var accounts = await LoadAccountsAsync(request.EmailAccountId, cancellationToken);
         var configuration = await configurationRepository.GetRequiredByIdAsync(
             EmailInputConfiguration.DocumentId,
             cancellationToken);
@@ -61,26 +52,14 @@ internal sealed class EmailInputProcessingService(
 
             try
             {
-                IReadOnlyList<EmailMessageSnapshot> messages;
-                NewEmailReadResult? newEmailReadResult = null;
-                if (mode == EmailProcessingMode.NewSinceCheckpoint)
-                {
-                    newEmailReadResult = await inboxReader.ReadNewAsync(
-                        account,
-                        configuration.IgnoredSenderAddresses,
-                        cancellationToken);
-                    messages = newEmailReadResult.Messages;
-                }
-                else
-                {
-                    messages = await inboxReader.ReadUnreadAsync(
-                        account,
-                        configuration.IgnoredSenderAddresses,
-                        cancellationToken);
-                }
-
+                var readResult = await ReadAsync(
+                    request.Selection,
+                    account,
+                    configuration.IgnoredSenderAddresses,
+                    cancellationToken);
                 accountsChecked++;
-                foreach (var message in messages)
+
+                foreach (var message in readResult.Messages)
                 {
                     var isIgnored = configuration.IsIgnored(message.FromAddress);
                     var now = timeProvider.GetUtcNow();
@@ -100,10 +79,10 @@ internal sealed class EmailInputProcessingService(
                     }
                 }
 
-                if (newEmailReadResult is not null)
+                if (readResult.NextCheckpoint is not null)
                 {
-                    account.InboxCheckpoint = newEmailReadResult.NextCheckpoint;
-                    if (newEmailReadResult.CheckpointWasReset)
+                    account.InboxCheckpoint = readResult.NextCheckpoint;
+                    if (readResult.CheckpointWasReset)
                     {
                         logger.LogWarning(
                             "The INBOX UID validity changed for email account {EmailAccountId}; "
@@ -131,6 +110,36 @@ internal sealed class EmailInputProcessingService(
             ignored,
             alreadyProcessed,
             errors);
+    }
+
+    private async Task<EmailReadResult> ReadAsync(
+        EmailSelection selection,
+        EmailAccount account,
+        IReadOnlyCollection<string> ignoredSenderAddresses,
+        CancellationToken cancellationToken)
+    {
+        if (selection == EmailSelection.NewSinceCheckpoint)
+        {
+            var result = await inboxReader.ReadNewAsync(
+                account,
+                ignoredSenderAddresses,
+                cancellationToken);
+            return new EmailReadResult(
+                result.Messages,
+                result.NextCheckpoint,
+                result.CheckpointWasReset);
+        }
+
+        if (selection == EmailSelection.Unread)
+        {
+            var messages = await inboxReader.ReadUnreadAsync(
+                account,
+                ignoredSenderAddresses,
+                cancellationToken);
+            return new EmailReadResult(messages, null, false);
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(selection), selection, null);
     }
 
     private async Task<IReadOnlyList<EmailAccount>> LoadAccountsAsync(
@@ -179,9 +188,8 @@ internal sealed class EmailInputProcessingService(
                 : "Waiting for intake classification."
         };
 
-    private enum EmailProcessingMode
-    {
-        NewSinceCheckpoint,
-        Unread
-    }
+    private sealed record EmailReadResult(
+        IReadOnlyList<EmailMessageSnapshot> Messages,
+        EmailInboxCheckpoint? NextCheckpoint,
+        bool CheckpointWasReset);
 }

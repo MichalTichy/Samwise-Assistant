@@ -7,7 +7,7 @@ This project is the inbound-email adapter. It connects enabled accounts to IMAP 
 - `Mailboxes/MailKitEmailInboxReader` authenticates with a username and password or app password. Automatic reads use the account's durable INBOX UID checkpoint and therefore include newly delivered mail even when it has already been read; manual reads search only unread mail.
 - The reader captures read/answered flags, attachment metadata without downloading attachment content, and up to five matching sent replies discovered through `Message-ID`, `In-Reply-To`, and `References` headers. Missing or inaccessible Sent folders do not prevent inbox ingestion.
 - `Credentials/DataProtectionEmailCredentialProtector` protects account passwords with the same persisted key ring used by the Samwise web application.
-- `Polling/EmailPollingBackgroundService` waits for the UI-configured interval and triggers `PollEmailAccountsUsecase`. The timer is an external use-case trigger; processing and workflow coordination remain in `Samwise.Logic`.
+- `Polling/EmailPollingBackgroundService` waits for the UI-configured interval and triggers `ProcessEmailsUsecase` with `NewSinceCheckpoint`. The timer is an external use-case trigger; processing and workflow coordination remain in the use-case handler in `Samwise.Logic`.
 - `Installers/EmailImapInstaller` registers the adapter and the in-process poller.
 
 ## Boundaries

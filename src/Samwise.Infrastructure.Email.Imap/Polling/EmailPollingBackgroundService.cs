@@ -23,7 +23,9 @@ internal sealed class EmailPollingBackgroundService(
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var sender = scope.ServiceProvider.GetRequiredService<ISender>();
-                var result = await sender.Send(new PollEmailAccountsUsecase(), stoppingToken);
+                var result = await sender.Send(
+                    new ProcessEmailsUsecase(EmailSelection.NewSinceCheckpoint),
+                    stoppingToken);
                 if (result.Errors.Count > 0)
                 {
                     logger.LogWarning(

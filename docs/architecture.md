@@ -12,8 +12,8 @@ Each source has an external use case and creates its own typed inbound event:
 
 ```text
 SubmitManualInputUsecase -> ManualInboundEvent
-PollEmailAccountsUsecase -> EmailInboundEvent
-ProcessUnreadEmailsUsecase (manual) -> EmailInboundEvent
+ProcessEmailsUsecase(NewSinceCheckpoint) -> EmailInboundEvent
+ProcessEmailsUsecase(Unread) -> EmailInboundEvent
 ```
 
 Both operations call `InboundEventCaptureService`, which uses `Source + ExternalId` for connector-level deduplication. A deterministic key has a database unique constraint. The service stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.

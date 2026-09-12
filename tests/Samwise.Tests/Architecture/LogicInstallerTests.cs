@@ -27,7 +27,6 @@ public sealed class LogicInstallerTests
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventClassificationService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventProcessingService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventCaptureService));
-        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IEmailInputProcessingService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IEmailAccountProcessingLock));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemPlanningService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemExecutionService));

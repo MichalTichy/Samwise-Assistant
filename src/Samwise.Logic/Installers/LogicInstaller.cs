@@ -19,7 +19,6 @@ public sealed class LogicInstaller : IInstaller
         services.AddScoped<IInboundEventClassificationService, InboundEventClassificationService>();
         services.AddScoped<IInboundEventProcessingService, InboundEventProcessingService>();
         services.AddScoped<IInboundEventCaptureService, InboundEventCaptureService>();
-        services.AddScoped<IEmailInputProcessingService, EmailInputProcessingService>();
         services.AddSingleton<IEmailAccountProcessingLock, EmailAccountProcessingLock>();
         services.AddScoped<IWorkItemPlanningService, WorkItemPlanningService>();
         services.AddScoped<IWorkItemExecutionService, WorkItemExecutionService>();

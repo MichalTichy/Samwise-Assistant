@@ -71,21 +71,6 @@ public sealed class EmailAccountUsecaseTests
         Assert.Equal("Personal mail", repository.Account?.DisplayName);
     }
 
-    [Fact]
-    public async Task PollAndManualCommandsUseDifferentReadModes()
-    {
-        var processing = new StubEmailInputProcessingService();
-        var pollHandler = new PollEmailAccountsUsecaseHandler(processing);
-        var unreadHandler = new ProcessUnreadEmailsUsecaseHandler(processing);
-
-        await pollHandler.Handle(new PollEmailAccountsUsecase(), CancellationToken.None);
-        await unreadHandler.Handle(new ProcessUnreadEmailsUsecase("personal"), CancellationToken.None);
-
-        Assert.Equal(1, processing.NewCallCount);
-        Assert.Equal(1, processing.UnreadCallCount);
-        Assert.Equal("personal", processing.LastUnreadAccountId);
-    }
-
     private static SaveEmailAccountUsecase CreateRequest() => new(
         null,
         "Personal",
@@ -136,32 +121,6 @@ public sealed class EmailAccountUsecaseTests
             IReadOnlyCollection<string> ignoredSenderAddresses,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
-    }
-
-    private sealed class StubEmailInputProcessingService : Samwise.Logic.Inputs.Email.Services.IEmailInputProcessingService
-    {
-        private static readonly EmailProcessingResult EmptyResult = new(0, 0, 0, 0, []);
-
-        public int NewCallCount { get; private set; }
-        public int UnreadCallCount { get; private set; }
-        public string? LastUnreadAccountId { get; private set; }
-
-        public Task<EmailProcessingResult> ProcessNewAsync(
-            string? emailAccountId,
-            CancellationToken cancellationToken)
-        {
-            NewCallCount++;
-            return Task.FromResult(EmptyResult);
-        }
-
-        public Task<EmailProcessingResult> ProcessUnreadAsync(
-            string? emailAccountId,
-            CancellationToken cancellationToken)
-        {
-            UnreadCallCount++;
-            LastUnreadAccountId = emailAccountId;
-            return Task.FromResult(EmptyResult);
-        }
     }
 
     private sealed class EmailAccountRepository(EmailAccount? account = null) : IRepository<EmailAccount>

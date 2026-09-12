@@ -229,7 +229,7 @@ public partial class EmailInputs
         pageMessage = null;
         try
         {
-            var result = await Sender.Send(new ProcessUnreadEmailsUsecase(accountId));
+            var result = await Sender.Send(new ProcessEmailsUsecase(EmailSelection.Unread, accountId));
             pageMessage = FormatProcessingResult(result);
             await LoadAsync();
         }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Samwise.Logic.Agents.Services;
 using Samwise.Logic.Inbox.Services;
+using Samwise.Logic.Inputs.Email.Services;
 using Samwise.Logic.Prompts;
 using Samwise.Logic.WorkItems.Services;
 using Shared.Infrastructure.IoC;
@@ -17,6 +18,9 @@ public sealed class LogicInstaller : IInstaller
         services.AddScoped<IAgentInvocationService, AgentInvocationService>();
         services.AddScoped<IInboundEventClassificationService, InboundEventClassificationService>();
         services.AddScoped<IInboundEventProcessingService, InboundEventProcessingService>();
+        services.AddScoped<IInboundEventCaptureService, InboundEventCaptureService>();
+        services.AddScoped<IEmailInputProcessingService, EmailInputProcessingService>();
+        services.AddSingleton<IEmailAccountProcessingLock, EmailAccountProcessingLock>();
         services.AddScoped<IWorkItemPlanningService, WorkItemPlanningService>();
         services.AddScoped<IWorkItemExecutionService, WorkItemExecutionService>();
         services.AddSingleton<IPromptRenderer, PromptRenderer>();

@@ -5,7 +5,8 @@ This project verifies domain invariants, application workflow boundaries, Gatewa
 ## Structure
 
 - `WorkItems/` tests aggregate transitions, revision-bound approval, invalidation, and execution outcomes.
-- `Inbox/` tests inbound-event state and the classification-to-planning processing flow.
+- `Inbox/` tests inbound-event state, computed manual/email intake text, stable IMAP identity, and the classification-to-planning processing flow.
+- `Inputs/Email/` tests polling configuration and exact ignored-sender normalization.
 - `Prompts/` tests the single agent-configuration aggregate, stage-save behavior, placeholder validation including playbook injection, and deterministic rendering.
 - `Agents/` tests invocation lifecycle, playbook steering/snapshots, per-stage model and effort propagation, standard OpenAI runtime registration and captured requests, plus the isolated Gateway catalog extensions.
 - `Architecture/` protects installer composition and application-layer conventions.
@@ -28,7 +29,7 @@ Runtime tests capture local OpenAI Chat Completions traffic and verify endpoint 
 
 ## PostgreSQL test
 
-`WorkItemDocumentPersistenceTests` runs only when `SAMWISE_TEST_POSTGRES` contains a disposable PostgreSQL connection string. It stores a complete nested work-item graph, confirms that a stale document update throws a Marten concurrency exception, and verifies that all three agent stages round-trip inside one configuration document.
+`WorkItemDocumentPersistenceTests` runs only when `SAMWISE_TEST_POSTGRES` contains a disposable PostgreSQL connection string. It stores a complete nested work-item graph, confirms that a stale document update throws a Marten concurrency exception, verifies that all three agent stages round-trip inside one configuration document, and verifies that manual/email inbound subtypes round-trip through the common Marten repository.
 
 ## Running the suite
 

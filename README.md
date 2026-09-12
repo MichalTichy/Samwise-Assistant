@@ -2,7 +2,7 @@
 
 Samwise is a single-user personal assistant that turns incoming information into approved, executable work.
 
-Version 1 accepts manual text in the password-protected Blazor UI. The text does **not** create a work item directly. It enters the canonical inbound-event pipeline that future Outlook email, Microsoft Teams, and Todoist connectors will also use:
+Version 1 accepts manual text and unread messages from configured IMAP accounts in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline that future Microsoft Teams and Todoist connectors can also use:
 
 ```mermaid
 flowchart LR
@@ -30,6 +30,7 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - LumexUI with Tailwind CSS 4 for the web interface
 - ASP.NET Core Identity password hashing and cookie authentication for one owner account
 - PostgreSQL with Marten for Samwise documents
+- MailKit for read-only IMAP ingestion with password or app-password authentication
 - one versioned work item aggregate containing its plans, plan reviews, comments, discard metadata, and exact tool-catalog snapshots
 - PostgreSQL with EF Core migrations for Identity
 - .NET Aspire for local orchestration
@@ -43,6 +44,7 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - [Samwise.Infrastructure.Persistence.Marten](src/Samwise.Infrastructure.Persistence.Marten/README.md) — only Marten registration and Samwise document mappings
 - [Samwise.Infrastructure.AgentRuntimes](src/Samwise.Infrastructure.AgentRuntimes/README.md) — provider-neutral endpoint configuration plus the standard OpenAI/Agent Framework implementation of `IAgentRuntime`
 - [Samwise.Infrastructure.CodexGateway](src/Samwise.Infrastructure.CodexGateway/README.md) — only the Gateway-specific model-capability and versioned MCP tool catalogs
+- [Samwise.Infrastructure.Email.Imap](src/Samwise.Infrastructure.Email.Imap/README.md) — read-only MailKit adapter, Data Protection credential encryption, and in-process polling trigger
 - [Samwise.Infrastructure.Persistence.Identity](src/Samwise.Infrastructure.Persistence.Identity/README.md) — ASP.NET Core Identity storage, migration, and owner initializer
 - [Samwise.Web](src/Samwise.Web/README.md) — authenticated Blazor composition root and presentation
 - [Samwise.AppHost](src/Samwise.AppHost/README.md) — local PostgreSQL and web orchestration
@@ -98,6 +100,8 @@ dotnet user-secrets set "AgentEndpoints:Execution:ApiKey" "..." --project src/Sa
 ```
 
 Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to give the planning agent reusable workload guidance.
+
+Configure one or more password/app-password IMAP accounts under **Configuration → Inputs → Emails**. Samwise always polls enabled accounts at the UI-configured interval, leaves every message unread, and uses the same intake and planning flow as manual input. Account passwords are encrypted with the persisted Data Protection key ring.
 
 ## Verify
 

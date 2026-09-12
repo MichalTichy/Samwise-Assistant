@@ -26,7 +26,7 @@ public sealed class InboundEventTests
     [Fact]
     public void PrepareForRetryReturnsNeedsReviewEventToPending()
     {
-        var inboundEvent = new InboundEvent
+        var inboundEvent = new ManualInboundEvent
         {
             Handling = InboundHandlingKind.NeedsReview,
             HandledAt = DateTimeOffset.UtcNow,
@@ -45,7 +45,7 @@ public sealed class InboundEventTests
     [Fact]
     public void PrepareForRetryRejectsHandledEvent()
     {
-        var inboundEvent = new InboundEvent { Handling = InboundHandlingKind.Ignore };
+        var inboundEvent = new ManualInboundEvent { Handling = InboundHandlingKind.Ignore };
 
         var exception = Assert.Throws<InvalidOperationException>(inboundEvent.PrepareForRetry);
 

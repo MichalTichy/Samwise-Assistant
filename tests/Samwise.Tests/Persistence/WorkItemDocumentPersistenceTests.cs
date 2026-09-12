@@ -1,12 +1,16 @@
 using JasperFx;
 using Marten;
+using Marten.Services;
+using Newtonsoft.Json;
 using Samwise.Domain.Agents;
+using Samwise.Domain.Inbox;
 using Samwise.Domain.WorkItems;
 using Samwise.Infrastructure.Persistence.Marten.Storage;
 using Shared.Infrastructure.CurrentTenancyProvider;
 using Shared.Infrastructure.Persistence.Marten.Repository.Document;
 using Shared.Infrastructure.Persistence.Marten.SessionFactory;
 using Shared.Infrastructure.Persistence.Repositories;
+using Weasel.Core;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using Task = System.Threading.Tasks.Task;
 
@@ -14,6 +18,64 @@ namespace Samwise.Tests.Persistence;
 
 public sealed class WorkItemDocumentPersistenceTests
 {
+    [Fact]
+    public async Task InboundEventHierarchyIsStoredInOneDocumentCollection()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("SAMWISE_TEST_POSTGRES");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return;
+        }
+
+        await using var store = DocumentStore.For(options =>
+        {
+            options.Connection(connectionString);
+            var serializer = new JsonNetSerializer
+            {
+                EnumStorage = EnumStorage.AsString
+            };
+            serializer.Configure(settings => settings.TypeNameHandling = TypeNameHandling.Objects);
+            options.Serializer(serializer);
+            new SamwiseStorageConfiguration().Configure(options);
+        });
+        await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync();
+        IRepository<InboundEvent> repository = new NoTenancyMartenRepository<InboundEvent>(
+            new NoTenancyByDefaultSessionFactory(store, new CurrentTenancyProviderNoTenancy()));
+
+        var manual = new ManualInboundEvent
+        {
+            Id = $"test-{Guid.NewGuid():N}",
+            ManualInputId = Guid.NewGuid().ToString("N"),
+            Input = "Bring potatoes.",
+            DedupeKey = Guid.NewGuid().ToString("N"),
+            ReceivedAt = DateTimeOffset.UtcNow
+        };
+        var email = new EmailInboundEvent
+        {
+            Id = $"test-{Guid.NewGuid():N}",
+            EmailAccountId = "personal",
+            AccountName = "Personal",
+            AccountEmailAddress = "sam@example.com",
+            Mailbox = "INBOX",
+            UidValidity = 7,
+            Uid = 11,
+            Subject = "Supper",
+            FromAddress = "rosie@example.com",
+            BodyText = "Come home.",
+            DedupeKey = Guid.NewGuid().ToString("N"),
+            ReceivedAt = DateTimeOffset.UtcNow
+        };
+
+        await repository.AddAsync([manual, email]);
+
+        Assert.IsType<ManualInboundEvent>(await repository.GetRequiredByIdAsync(manual.Id));
+        var storedEmail = Assert.IsType<EmailInboundEvent>(
+            await repository.GetRequiredByIdAsync(email.Id));
+        Assert.Contains("Subject: Supper", storedEmail.GetIntakeText(), StringComparison.Ordinal);
+
+        await repository.DeleteRangeByIdsAsync([manual.Id, email.Id]);
+    }
+
     [Fact]
     public async Task AgentStagesAreStoredInsideOneConfigurationDocument()
     {

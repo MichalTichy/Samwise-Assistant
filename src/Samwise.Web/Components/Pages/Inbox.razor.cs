@@ -32,7 +32,7 @@ public partial class Inbox
             events = inboundEvents.Select(item => new InboxEventItem(
                 item.Id,
                 item.Source,
-                item.Text,
+                item.GetIntakeText(),
                 item.ReceivedAt,
                 item.Handling,
                 item.WorkItemId,

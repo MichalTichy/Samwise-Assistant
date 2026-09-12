@@ -16,12 +16,11 @@ public sealed class AgentWorkflowSupportTests
     public void NewWorkItemPreservesInboundTextInsteadOfAiDescription()
     {
         const string inboundText = "Prepare the revised offer.\nInclude the signed appendix and delivery dates.";
-        var inboundEvent = new InboundEvent
+        var inboundEvent = new ManualInboundEvent
         {
             Id = Guid.NewGuid().ToString(),
-            Source = "Manual",
-            ExternalId = "manual:test",
-            Text = inboundText
+            ManualInputId = "manual:test",
+            Input = inboundText
         };
         var result = new IntakeResult(
             IntakeDecision.CreateWorkItem,
@@ -32,7 +31,7 @@ public sealed class AgentWorkflowSupportTests
             Receipt);
 
         var workItem = Samwise.Domain.WorkItems.WorkItem.CreateFromInbound(
-            inboundEvent.Text,
+            inboundEvent.GetIntakeText(),
             result.ProposedTitle,
             new DateTimeOffset(2026, 8, 17, 8, 0, 0, TimeSpan.Zero));
 

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Samwise.Logic.Agents.Services;
 using Samwise.Logic.Inbox.Services;
+using Samwise.Logic.Inputs.Email.Services;
 using Samwise.Logic.Installers;
 using Samwise.Logic.Prompts;
 using Samwise.Logic.WorkItems.Services;
@@ -25,6 +26,9 @@ public sealed class LogicInstallerTests
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IAgentInvocationService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventClassificationService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventProcessingService));
+        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventCaptureService));
+        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IEmailInputProcessingService));
+        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IEmailAccountProcessingLock));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemPlanningService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemExecutionService));
     }

@@ -84,7 +84,7 @@ internal sealed class InboundEventClassificationService(
                 {
                     case IntakeDecision.CreateWorkItem:
                         workItemToPlan = DomainWorkItem.CreateFromInbound(
-                            inboundEvent.Text, result.ProposedTitle, timeProvider.GetUtcNow());
+                            inboundEvent.GetIntakeText(), result.ProposedTitle, timeProvider.GetUtcNow());
                         await workItemRepository.AddAsync(workItemToPlan, cancellationToken);
                         inboundEvent.Handling = InboundHandlingKind.CreateWorkItem;
                         inboundEvent.WorkItemId = workItemToPlan.Id;
@@ -100,7 +100,7 @@ internal sealed class InboundEventClassificationService(
                             break;
                         }
 
-                        workItemToPlan.AddContext(inboundEvent.Text, timeProvider.GetUtcNow());
+                        workItemToPlan.AddContext(inboundEvent.GetIntakeText(), timeProvider.GetUtcNow());
                         await workItemRepository.UpdateAsync(workItemToPlan, cancellationToken);
                         inboundEvent.Handling = InboundHandlingKind.AppendToWorkItem;
                         inboundEvent.WorkItemId = workItemToPlan.Id;

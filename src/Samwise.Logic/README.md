@@ -13,6 +13,7 @@ Each feature is grouped by responsibility:
 - `Agents/` contains separate `IAgentRuntime`, `IAgentModelCatalog`, and `IAgentToolCatalog` ports, structured request/result models, invocation tracking, and prompt-context assembly.
 - `Prompts/` contains prompt rendering, the startup initializer for the single agent-configuration document, and the UI-triggered use case that updates one nested stage.
 - `Playbooks/` contains the UI-triggered save use case and public read specification for reusable planning guidance.
+- `Inputs/Email/` contains the IMAP adapter contracts, email-account and settings commands, account reads, automatic/manual unread processing, and the startup initializer for email settings.
 - `Installers/LogicInstaller` registers MediatR and application services.
 
 There are intentionally no read-only `Get*Usecase` wrappers. Blazor pages call the read-only repository with public specifications directly.
@@ -21,8 +22,8 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 ## Intake and planning flow
 
-1. `CaptureInboundEventUsecase` validates and deduplicates an external input, then stores an `InboundEvent` in `Pending` state.
-2. It calls `InboundEventProcessingService`, the reusable flow also used by retry.
+1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`; `ProcessUnreadEmailsUsecase` creates `EmailInboundEvent` documents for messages returned by the IMAP port.
+2. Both use `InboundEventCaptureService` to validate, deduplicate, persist, and continue pending inputs through `InboundEventProcessingService`.
 3. `InboundEventClassificationService` renders the intake prompt, records an invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the intake decision.
 4. `Ignore` and `NeedsReview` finish without a work item.
 5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
@@ -40,6 +41,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 ## Shared services
 
 - `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution.
+- `EmailInputProcessingService` coordinates enabled-account reads, exact-address ignores, account synchronization state, and shared inbound capture. A keyed in-process lock prevents overlapping checks of one account.
 - `PromptRenderer` validates placeholders—including planning's `{{playbooks}}` value—and renders the full prompt stored with every invocation.
 - `AgentWorkflowSupport` assembles deterministic structured context for each stage.
 

@@ -1,0 +1,253 @@
+@page "/configuration/inputs/emails"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Email inputs · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Configuration · Inputs</span>
+        <h1>Emails</h1>
+        <p>Connect IMAP inboxes and choose how often Samwise looks for unread messages.</p>
+    </div>
+    <div class="heading-actions">
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
+        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ProcessAllAsync" Disabled="@(processingAccountId is not null || !accounts.Any(account => account.IsEnabled))">
+            @(processingAccountId == AllAccountsMarker ? "Processing…" : "Process unread now")
+        </LumexButton>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(pageMessage))
+{
+    <div class="inline-alert email-page-message">@pageMessage</div>
+}
+
+<div class="email-settings-grid">
+    <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="email-card-body">
+            <div class="email-section-heading">
+                <div>
+                    <span class="email-section-icon" aria-hidden="true">↻</span>
+                    <div>
+                        <h2>Automatic processing</h2>
+                        <p>Enabled accounts are checked continuously while Samwise is running.</p>
+                    </div>
+                </div>
+                <span class="email-live-indicator"><i></i> Always on</span>
+            </div>
+
+            <label class="email-field compact-field">
+                <span>Polling interval</span>
+                <div class="email-input-with-suffix">
+                    <input class="configuration-input"
+                           type="number"
+                           min="1"
+                           max="1440"
+                           @bind="pollingIntervalMinutes" />
+                    <span>minutes</span>
+                </div>
+                <small>Changes take effect after the current polling wait finishes.</small>
+            </label>
+
+            <div class="email-card-actions">
+                <span class="save-state">@settingsSaveMessage</span>
+                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@savingSettings">
+                    @(savingSettings ? "Saving…" : "Save email settings")
+                </LumexButton>
+            </div>
+        </LumexCardBody>
+    </LumexCard>
+
+    <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="email-card-body">
+            <div class="email-section-heading">
+                <div>
+                    <span class="email-section-icon" aria-hidden="true">⊘</span>
+                    <div>
+                        <h2>Ignored senders</h2>
+                        <p>Messages from these exact addresses are recorded but never sent to AI.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ignored-sender-composer">
+                <input class="configuration-input"
+                       type="email"
+                       placeholder="newsletter@example.com"
+                       @bind="ignoredSenderInput"
+                       @bind:event="oninput"
+                       @onkeydown="HandleIgnoredSenderKeyDown" />
+                <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="AddIgnoredSender">Add</LumexButton>
+            </div>
+
+            @if (ignoredSenderAddresses.Count == 0)
+            {
+                <div class="empty-inline email-empty-inline">No ignored senders.</div>
+            }
+            else
+            {
+                <div class="ignored-sender-list">
+                    @foreach (var address in ignoredSenderAddresses)
+                    {
+                        <span>
+                            @address
+                            <button type="button" title="Remove sender" @onclick="() => RemoveIgnoredSender(address)">×</button>
+                        </span>
+                    }
+                </div>
+            }
+
+            <div class="email-card-actions">
+                <span class="save-state">@settingsSaveMessage</span>
+                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@savingSettings">
+                    @(savingSettings ? "Saving…" : "Save ignored senders")
+                </LumexButton>
+            </div>
+        </LumexCardBody>
+    </LumexCard>
+</div>
+
+<section class="email-accounts-section">
+    <div class="email-accounts-heading">
+        <div>
+            <h2>Email accounts</h2>
+            <p>Each account uses its own encrypted password or app password.</p>
+        </div>
+        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewAccount">Add account</LumexButton>
+    </div>
+
+    @if (loading)
+    {
+        <div class="empty-state">Loading email accounts…</div>
+    }
+    else if (accounts.Count == 0)
+    {
+        <div class="empty-state">No email accounts yet. Add an IMAP account to begin receiving email inputs.</div>
+    }
+    else
+    {
+        <div class="email-account-list">
+            @foreach (var account in accounts)
+            {
+                <article class="email-account-card">
+                    <div class="email-account-mark" aria-hidden="true">@@</div>
+                    <div class="email-account-main">
+                        <div class="email-account-title">
+                            <h3>@account.DisplayName</h3>
+                            <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@(account.IsEnabled ? "email-account-enabled" : "email-account-disabled")">
+                                @(account.IsEnabled ? "Enabled" : "Disabled")
+                            </LumexChip>
+                        </div>
+                        <p>@account.EmailAddress</p>
+                        <small>@account.Host:@account.Port · @FormatSecurity(account.Security)</small>
+                        @if (!string.IsNullOrWhiteSpace(account.LastError))
+                        {
+                            <div class="email-account-error">@account.LastError</div>
+                        }
+                    </div>
+                    <div class="email-account-status">
+                        <span>Last successful check</span>
+                        <strong>@FormatLastCheck(account.LastSuccessfulCheckAt)</strong>
+                    </div>
+                    <div class="email-account-actions">
+                        <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="() => EditAccount(account)">Edit</LumexButton>
+                        <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" Disabled="@(testingAccountId is not null)" OnClick="() => TestAccountAsync(account.Id)">
+                            @(testingAccountId == account.Id ? "Testing…" : "Test")
+                        </LumexButton>
+                        <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Primary" Disabled="@(processingAccountId is not null)" OnClick="() => ProcessAccountAsync(account.Id)">
+                            @(processingAccountId == account.Id ? "Processing…" : "Process unread")
+                        </LumexButton>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@if (editingAccount)
+{
+    <div class="email-editor-backdrop" @onclick="CancelAccountEdit">
+        <LumexCard Class="email-editor-card" Shadow="@Shadow.Large" Radius="@Radius.Large" @onclick:stopPropagation="true">
+            <LumexCardBody Class="email-editor-body">
+                <div class="email-editor-heading">
+                    <div>
+                        <span class="page-kicker">IMAP account</span>
+                        <h2>@(selectedAccountId is null ? "Add email account" : "Edit email account")</h2>
+                    </div>
+                    <button type="button" class="email-editor-close" title="Close" @onclick="CancelAccountEdit">×</button>
+                </div>
+
+                <div class="email-account-form">
+                    <label class="email-field">
+                        <span>Account name</span>
+                        <input class="configuration-input" placeholder="Personal Gmail" @bind="accountName" @bind:event="oninput" />
+                    </label>
+                    <label class="email-field">
+                        <span>Email address</span>
+                        <input class="configuration-input" type="email" placeholder="sam@example.com" @bind="accountEmailAddress" @bind:event="oninput" />
+                    </label>
+                    <label class="email-field email-field-wide">
+                        <span>IMAP host</span>
+                        <input class="configuration-input" placeholder="imap.example.com" @bind="host" @bind:event="oninput" />
+                    </label>
+                    <label class="email-field">
+                        <span>Port</span>
+                        <input class="configuration-input" type="number" min="1" max="65535" @bind="port" />
+                    </label>
+                    <label class="email-field">
+                        <span>Security</span>
+                        <select class="configuration-input" @bind="security">
+                            <option value="@EmailConnectionSecurity.SslOnConnect">SSL/TLS</option>
+                            <option value="@EmailConnectionSecurity.StartTls">STARTTLS</option>
+                        </select>
+                    </label>
+                    <label class="email-field email-field-wide">
+                        <span>Username</span>
+                        <input class="configuration-input" autocomplete="username" @bind="username" @bind:event="oninput" />
+                    </label>
+                    <label class="email-field email-field-wide">
+                        <span>Password or app password</span>
+                        <input class="configuration-input" type="password" autocomplete="new-password" placeholder="@(selectedAccountId is null ? "Required" : "Leave blank to keep the saved password")" @bind="password" @bind:event="oninput" />
+                    </label>
+
+                    <label class="configuration-toggle email-field-wide">
+                        <input type="checkbox" @bind="accountEnabled" />
+                        <span>
+                            <strong>Enabled</strong>
+                            <small>Include this account in automatic checks.</small>
+                        </span>
+                    </label>
+
+                    @if (selectedAccountId is null)
+                    {
+                        <label class="configuration-toggle email-field-wide">
+                            <input type="checkbox" @bind="processExistingUnread" />
+                            <span>
+                                <strong>Process existing unread messages</strong>
+                                <small>Otherwise Samwise only considers messages received after this account is saved.</small>
+                            </span>
+                        </label>
+                    }
+                </div>
+
+                @if (accountErrors.Count > 0)
+                {
+                    <div class="inline-alert">
+                        @foreach (var accountError in accountErrors)
+                        {
+                            <div>@accountError</div>
+                        }
+                    </div>
+                }
+
+                <div class="email-editor-actions">
+                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="CancelAccountEdit">Cancel</LumexButton>
+                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAccountAsync" Disabled="@savingAccount">
+                        @(savingAccount ? "Saving…" : "Save account")
+                    </LumexButton>
+                </div>
+            </LumexCardBody>
+        </LumexCard>
+    </div>
+}

@@ -22,7 +22,7 @@
 
 Samwise listens on plain HTTP port `8080` inside its container and the Gateway listens on `8080` inside its container. Their default published host ports are `8080` and `5050`. The Compose default `SAMWISE_REQUIRE_HTTPS=false` allows login when Samwise is opened directly over HTTP on a trusted network. For any internet-accessible deployment, terminate HTTPS in the host reverse proxy and set `SAMWISE_REQUIRE_HTTPS=true`; `ASPNETCORE_FORWARDEDHEADERS_ENABLED` lets Samwise honor the proxy's forwarded scheme.
 
-The Gateway control plane intentionally does not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start its non-root .NET entrypoint under that option, and the control plane already requires tightly scoped Docker-socket access to create isolated runner containers. Dynamically created runner containers retain the Gateway's own runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway now keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
+The Gateway control plane and MCP container intentionally do not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start .NET processes under that option. Both containers still run as dedicated non-root users; the MCP remains isolated on the private backend network, while dynamically created runner containers retain the Gateway's stricter runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
 
 ## Mail, calendar, and contacts MCP
 

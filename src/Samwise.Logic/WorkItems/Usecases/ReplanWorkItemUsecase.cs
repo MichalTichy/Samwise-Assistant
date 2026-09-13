@@ -5,17 +5,17 @@ using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 
 namespace Samwise.Logic.WorkItems.Usecases;
 
-public sealed record RetryWorkItemPlanningUsecase(string WorkItemId) : IRequest;
+public sealed record ReplanWorkItemUsecase(string WorkItemId) : IRequest;
 
-internal sealed class RetryWorkItemPlanningUsecaseHandler(
+internal sealed class ReplanWorkItemUsecaseHandler(
     IRepository<DomainWorkItem> repository,
     IWorkItemPlanningService planningService,
-    TimeProvider timeProvider) : IRequestHandler<RetryWorkItemPlanningUsecase>
+    TimeProvider timeProvider) : IRequestHandler<ReplanWorkItemUsecase>
 {
-    public async Task Handle(RetryWorkItemPlanningUsecase request, CancellationToken cancellationToken)
+    public async Task Handle(ReplanWorkItemUsecase request, CancellationToken cancellationToken)
     {
         var workItem = await repository.GetRequiredByIdAsync(request.WorkItemId, cancellationToken);
-        workItem.RetryPlanning(timeProvider.GetUtcNow());
+        workItem.Replan(timeProvider.GetUtcNow());
         await repository.UpdateAsync(workItem, cancellationToken);
         await planningService.PlanAsync(workItem.Id, cancellationToken);
     }

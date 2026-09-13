@@ -28,6 +28,8 @@ public sealed class McpInstaller : IInstaller
         services.AddMcpServer()
             .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
             .WithTools<WorkItemTools>()
+            .WithTools<WorkItemActionTools>()
+            .WithTools<AgentInvocationTools>()
             .WithTools<InputEventTools>()
             .WithTools<PlaybookTools>()
             .WithTools<AgentSettingsTools>();

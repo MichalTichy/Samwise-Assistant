@@ -105,7 +105,7 @@ public partial class WorkItemDetails
 
     private Task DiscardAsync() => RunActionAsync(() => Sender.Send(new DiscardWorkItemUsecase(WorkItemId)));
 
-    private Task RetryPlanningAsync() => RunActionAsync(() => Sender.Send(new RetryWorkItemPlanningUsecase(WorkItemId)));
+    private Task ReplanAsync() => RunActionAsync(() => Sender.Send(new ReplanWorkItemUsecase(WorkItemId)));
 
     private async Task RunActionAsync(Func<Task> action)
     {

@@ -7,6 +7,7 @@ This project is the HTTP MCP adapter that lets an approved Samwise agent inspect
 Read tools use `IReadOnlyRepository<T>` and public specifications:
 
 - `list_work_items` and `get_work_item`
+- `get_agent_invocation` returns the exact recorded prompt, raw response, error, model settings, and available-tool snapshot for one agent run.
 - `list_input_events` and `get_input_event`
 - `list_playbooks`
 - `get_agent_settings`, including each stage's allowed placeholder legend
@@ -15,8 +16,9 @@ Mutation tools send externally triggered application use cases through MediatR:
 
 - `save_agent_prompt` replaces one complete stage prompt while preserving its model and reasoning effort.
 - `save_playbook` creates or updates a Playbook, including its enabled state.
+- `replan_work_item` invalidates an unexecuted current plan and immediately generates its replacement while retaining plan history.
 
-The adapter does not expose endpoint credentials, owner identity data, email-account passwords, direct repository mutation, Work Item approval, or Work Item execution.
+The adapter does not expose endpoint credentials, owner identity data, email-account passwords, direct repository mutation, Work Item approval, or Work Item execution. Replanning is the only Work Item lifecycle mutation it exposes.
 
 ## Structure
 

@@ -82,7 +82,7 @@ Samwise hosts its own MCP endpoint in the web container. Put a long random value
 
 Gateway's environment-header field expects the environment-variable name, not the secret itself. Compose supplies `SAMWISE_MCP_API_KEY` to both Gateway and Samwise; Gateway resolves it only when connecting to the MCP server. The web container joins `gateway-backend`, allowing Gateway metadata discovery and invocation without another container or host port. The normal Samwise web port still serves `/mcp`, but requests without the separate API key receive `401 Unauthorized`.
 
-Enable `list_work_items`, `get_work_item`, `list_input_events`, `get_input_event`, `list_playbooks`, and `get_agent_settings` for the planning project. Enable `save_agent_prompt` and `save_playbook` only for the execution project. This lets planning inspect current state and propose changes while keeping every mutation behind Work Item approval.
+Enable `list_work_items`, `get_work_item`, `get_agent_invocation`, `list_input_events`, `get_input_event`, `list_playbooks`, and `get_agent_settings` for the planning project. Enable `save_agent_prompt`, `save_playbook`, and `replan_work_item` only for the execution project. This lets planning inspect current state and propose changes while keeping every mutation behind Work Item approval.
 
 ## Persistent state
 

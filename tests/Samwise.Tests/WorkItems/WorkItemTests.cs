@@ -117,7 +117,7 @@ public sealed class WorkItemTests
         Assert.Equal(WorkItemStatus.OutcomeUnknown, workItem.Status);
         Assert.Equal(plan.Id, workItem.CurrentPlanId);
         Assert.Throws<InvalidOperationException>(() => workItem.AddContext("Try again.", InitialTime.AddMinutes(7)));
-        Assert.Throws<InvalidOperationException>(() => workItem.RetryPlanning(InitialTime.AddMinutes(7)));
+        Assert.Throws<InvalidOperationException>(() => workItem.Replan(InitialTime.AddMinutes(7)));
     }
 
     [Fact]
@@ -128,10 +128,26 @@ public sealed class WorkItemTests
         workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
         workItem.Status = WorkItemStatus.NeedsAttention;
 
-        workItem.RetryPlanning(InitialTime.AddMinutes(4));
+        workItem.Replan(InitialTime.AddMinutes(4));
 
         Assert.Equal(WorkItemStatus.Planning, workItem.Status);
         Assert.Null(workItem.CurrentPlanId);
+    }
+
+    [Fact]
+    public void AwaitingApprovalPlanCanBeReplannedAndRemainsInHistory()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
+
+        workItem.Replan(InitialTime.AddMinutes(4));
+
+        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
+        Assert.Null(workItem.CurrentPlanId);
+        Assert.Same(plan, Assert.Single(workItem.Plans));
+        Assert.Null(plan.Review);
+        Assert.Equal(InitialTime.AddMinutes(4), workItem.UpdatedAt);
     }
 
     [Fact]

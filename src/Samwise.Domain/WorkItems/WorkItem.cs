@@ -150,11 +150,11 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         }
     }
 
-    public void RetryPlanning(DateTimeOffset now)
+    public void Replan(DateTimeOffset now)
     {
-        if (Status != WorkItemStatus.NeedsAttention)
+        if (Status is not (WorkItemStatus.AwaitingApproval or WorkItemStatus.NeedsAttention))
         {
-            throw new InvalidOperationException("Only a work item needing attention can retry planning.");
+            throw new InvalidOperationException("Only a work item awaiting approval or needing attention can be replanned.");
         }
 
         CurrentPlanId = null;

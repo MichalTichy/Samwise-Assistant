@@ -186,6 +186,7 @@ else
                                         <p>Approve this exact numbered plan, including its suggested tool parameters, or explain what Samwise should change.</p>
                                     </div>
                                     <div class="approval-buttons">
+                                        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
                                         <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ApproveAsync" Disabled="@actionBusy">Approve &amp; execute</LumexButton>
                                     </div>
                                     <LumexTextarea Class="feedback-textarea"
@@ -206,7 +207,7 @@ else
                                         <p>The last planning or pre-execution check failed. Retry to create a new plan from the current Work Item and tool catalogue.</p>
                                     </div>
                                     <div class="approval-buttons">
-                                        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="RetryPlanningAsync" Disabled="@actionBusy">Retry planning</LumexButton>
+                                        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
                                     </div>
                                 </div>
                             }
@@ -225,8 +226,8 @@ else
                                 <span class="state-symbol state-warning">!</span>
                                 <div>
                                     <h2>Samwise needs attention</h2>
-                                    <p>The last agent run did not finish cleanly. Review the activity, then retry planning.</p>
-                                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="RetryPlanningAsync" Disabled="@actionBusy">Retry planning</LumexButton>
+                                    <p>The last agent run did not finish cleanly. Review the activity, then request a new plan.</p>
+                                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
                                 </div>
                             }
                             else if (workItem.Status == WorkItemStatus.Discarded)

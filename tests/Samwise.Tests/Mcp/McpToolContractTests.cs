@@ -22,12 +22,14 @@ public sealed class McpToolContractTests
 
         Assert.Equal(
             [
+                "get_agent_invocation",
                 "get_agent_settings",
                 "get_input_event",
                 "get_work_item",
                 "list_input_events",
                 "list_playbooks",
                 "list_work_items",
+                "replan_work_item",
                 "save_agent_prompt",
                 "save_playbook"
             ],

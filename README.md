@@ -98,8 +98,8 @@ retrieves that execution catalog separately and gives its metadata to the planne
 
 Samwise also serves its own authenticated MCP endpoint at `/mcp`. Configure it in Gateway as
 `http://web:8080/mcp` with the environment-header mapping `X-Api-Key=SAMWISE_MCP_API_KEY`. Grant its read tools
-to planning so the agent can inspect Work Items, input events, Playbooks, and agent settings. Grant
-`save_agent_prompt` and `save_playbook` only to execution so configuration changes remain part of an
+to planning so the agent can inspect Work Items, agent invocations, input events, Playbooks, and agent settings. Grant
+`save_agent_prompt`, `save_playbook`, and `replan_work_item` only to execution so mutations remain part of an
 approved plan.
 
 The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts)

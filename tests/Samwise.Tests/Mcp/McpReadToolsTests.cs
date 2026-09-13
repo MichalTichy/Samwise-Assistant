@@ -80,6 +80,42 @@ public sealed class McpReadToolsTests
     }
 
     [Fact]
+    public async Task AgentInvocationListReturnsCompactWorkItemDiagnostics()
+    {
+        var invocation = new AgentInvocation
+        {
+            Id = "invocation-1",
+            WorkItemId = "work-item-1",
+            WorkItemRevision = 3,
+            Profile = "Planning",
+            Provider = "OpenAI",
+            Model = "gpt-5.6-sol",
+            ReasoningEffort = "high",
+            RenderedPrompt = "The exact rendered prompt.",
+            RawResponse = "The complete raw response, which must not be returned by the list tool.",
+            Error = new string('x', 600),
+            Status = AgentInvocationStatus.Failed,
+            StartedAt = DateTimeOffset.Parse("2026-09-13T08:00:00Z"),
+            FinishedAt = DateTimeOffset.Parse("2026-09-13T08:00:10Z")
+        };
+        var tools = new AgentInvocationTools(new ReadOnlyRepository<AgentInvocation>([invocation]));
+
+        var json = await tools.ListAgentInvocationsAsync(
+            invocation.WorkItemId,
+            cancellationToken: CancellationToken.None);
+        using var document = JsonDocument.Parse(json);
+        var result = document.RootElement;
+        var summary = result.GetProperty("invocations")[0];
+
+        Assert.Equal(1, result.GetProperty("count").GetInt32());
+        Assert.Equal(invocation.Id, summary.GetProperty("id").GetString());
+        Assert.Equal("Failed", summary.GetProperty("status").GetString());
+        Assert.True(summary.GetProperty("errorPreview").GetString()!.Length <= 500);
+        Assert.False(summary.TryGetProperty("renderedPrompt", out _));
+        Assert.False(summary.TryGetProperty("rawResponse", out _));
+    }
+
+    [Fact]
     public async Task InputEventDetailKeepsSourceSpecificEmailContent()
     {
         var inputEvent = new EmailInboundEvent

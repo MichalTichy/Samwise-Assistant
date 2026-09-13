@@ -26,6 +26,7 @@ public sealed class McpToolContractTests
                 "get_agent_settings",
                 "get_input_event",
                 "get_work_item",
+                "list_agent_invocations",
                 "list_input_events",
                 "list_playbooks",
                 "list_work_items",

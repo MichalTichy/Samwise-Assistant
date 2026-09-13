@@ -63,6 +63,13 @@ internal static class AgentWorkflowSupport
             throw new InvalidOperationException("The planner returned an empty plan.");
         }
 
+        if (plan.CompletionMode == PlanCompletionMode.WaitForFollowUp &&
+            string.IsNullOrWhiteSpace(plan.ExpectedFollowUp))
+        {
+            throw new InvalidOperationException(
+                "A plan that waits for follow-up must describe the expected follow-up.");
+        }
+
         var expectedOrder = 1;
         var invocableTools = executionCatalog.Tools
             .Where(tool => tool.CanInvoke)

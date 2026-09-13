@@ -16,6 +16,7 @@ public partial class Board
         new("Draft", "dot-draft", [WorkItemStatus.Planning, WorkItemStatus.NeedsAttention, WorkItemStatus.OutcomeUnknown]),
         new("Approval", "dot-approval", [WorkItemStatus.AwaitingApproval]),
         new("In progress", "dot-running", [WorkItemStatus.Approved, WorkItemStatus.Executing]),
+        new("Follow-up", "dot-follow-up", [WorkItemStatus.WaitingForFollowUp]),
         new("Done", "dot-complete", [WorkItemStatus.Completed, WorkItemStatus.Discarded])
     ];
 
@@ -58,6 +59,7 @@ public partial class Board
         WorkItemStatus.AwaitingApproval => "Awaiting approval",
         WorkItemStatus.NeedsAttention => "Needs attention",
         WorkItemStatus.OutcomeUnknown => "Outcome unknown",
+        WorkItemStatus.WaitingForFollowUp => "Waiting for follow-up",
         _ => status.ToString()
     };
 

@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 @using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus
+@using PlanCompletionMode = Samwise.Domain.WorkItems.PlanCompletionMode
 
 <PageTitle>@(details?.WorkItem.Title ?? "Work item") · Samwise</PageTitle>
 
@@ -103,6 +104,14 @@ else
                                         </ul>
                                     </div>
                                 }
+                            </div>
+                        }
+
+                        @if (plan.CompletionMode == PlanCompletionMode.WaitForFollowUp)
+                        {
+                            <div class="follow-up-intent">
+                                <strong>After execution, wait for follow-up</strong>
+                                <span>@plan.ExpectedFollowUp</span>
                             </div>
                         }
 

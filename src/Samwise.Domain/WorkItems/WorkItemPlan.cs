@@ -10,6 +10,8 @@ public sealed class WorkItemPlan
     public List<string> Assumptions { get; set; } = [];
     public List<string> Risks { get; set; } = [];
     public List<PlanStep> Steps { get; set; } = [];
+    public PlanCompletionMode CompletionMode { get; set; }
+    public string? ExpectedFollowUp { get; set; }
     public PlanPlaybookSnapshot? Playbook { get; set; }
     public PlanToolCatalogSnapshot PlanningTools { get; set; } = new();
     public PlanToolCatalogSnapshot ExecutionTools { get; set; } = new();
@@ -18,6 +20,12 @@ public sealed class WorkItemPlan
     public string PlanningInvocationId { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }
     public PlanReview? Review { get; set; }
+}
+
+public enum PlanCompletionMode
+{
+    Complete = 0,
+    WaitForFollowUp = 1
 }
 
 public sealed class PlanPlaybookSnapshot

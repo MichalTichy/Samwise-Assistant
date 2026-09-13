@@ -5,6 +5,7 @@ using Samwise.Logic.Agents.Services;
 using Samwise.Logic.Prompts.Services;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
+using PlanCompletionMode = Samwise.Domain.WorkItems.PlanCompletionMode;
 using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
 namespace Samwise.Logic.WorkItems.Services;
@@ -82,7 +83,14 @@ internal sealed class WorkItemExecutionService(
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
             if (result.Succeeded)
             {
-                currentWorkItem.CompleteExecution(timeProvider.GetUtcNow());
+                if (plan.CompletionMode == PlanCompletionMode.WaitForFollowUp)
+                {
+                    currentWorkItem.WaitForFollowUp(timeProvider.GetUtcNow());
+                }
+                else
+                {
+                    currentWorkItem.CompleteExecution(timeProvider.GetUtcNow());
+                }
             }
             else
             {

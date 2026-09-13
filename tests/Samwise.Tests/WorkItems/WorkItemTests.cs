@@ -121,6 +121,29 @@ public sealed class WorkItemTests
     }
 
     [Fact]
+    public void SuccessfulExecutionCanWaitForFollowUpAndNewContextRestartsPlanning()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Arrange the meeting.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
+        plan.CompletionMode = PlanCompletionMode.WaitForFollowUp;
+        plan.ExpectedFollowUp = "A reply selecting one of the proposed times.";
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
+        workItem.Approve(plan.Id, workItem.Revision, InitialTime.AddMinutes(4));
+        workItem.StartExecution(plan.Id, workItem.Revision, InitialTime.AddMinutes(5));
+
+        workItem.WaitForFollowUp(InitialTime.AddMinutes(6));
+
+        Assert.Equal(WorkItemStatus.WaitingForFollowUp, workItem.Status);
+        Assert.Null(workItem.CompletedAt);
+
+        workItem.AddContext("Tuesday at 10 works for me.", InitialTime.AddMinutes(7));
+
+        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
+        Assert.Equal(2, workItem.Revision);
+        Assert.Null(workItem.CurrentPlanId);
+    }
+
+    [Fact]
     public void PlanningFailureCanBeRetriedAndInvalidatesItsPlan()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Prepare the revised offer.", null, InitialTime);

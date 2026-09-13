@@ -23,6 +23,7 @@ public sealed class AgentConfigurationTests
         Assert.Empty(configuration.Planning.ReasoningEffort);
         Assert.Empty(configuration.Execution.ReasoningEffort);
         Assert.Contains("{{input.text}}", configuration.Intake.Prompt);
+        Assert.Contains("{{playbooks}}", configuration.Intake.Prompt);
         Assert.Contains("{{planning_tools}}", configuration.Intake.Prompt);
         Assert.Contains("{{execution_tools}}", configuration.Intake.Prompt);
         Assert.Contains("{{playbooks}}", configuration.Planning.Prompt);
@@ -105,6 +106,52 @@ public sealed class AgentConfigurationTests
         Assert.Equal(
             "Reasoning effort 'max' is not supported by model 'fixed-effort-model'.",
             Assert.Single(result.Errors));
+        Assert.Equal(0, repository.UpdateCount);
+    }
+
+    [Fact]
+    public async Task SavingOnlyThePromptPreservesTheConfiguredModelAndEffort()
+    {
+        var configuration = DefaultAgentConfiguration.Create(InitialTime);
+        configuration.Planning.Model = "configured-model";
+        configuration.Planning.ReasoningEffort = "configured-effort";
+        var repository = new AgentConfigurationRepository(configuration);
+        var updatedAt = InitialTime.AddHours(2);
+        var handler = new SaveAgentPromptUsecaseHandler(
+            repository,
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
+            new FixedTimeProvider(updatedAt));
+
+        var result = await handler.Handle(
+            new SaveAgentPromptUsecase(
+                AgentStage.Planning,
+                " Plan {{work_item.title}} with {{playbooks}} "),
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Plan {{work_item.title}} with {{playbooks}}", configuration.Planning.Prompt);
+        Assert.Equal("configured-model", configuration.Planning.Model);
+        Assert.Equal("configured-effort", configuration.Planning.ReasoningEffort);
+        Assert.Equal(updatedAt, configuration.Planning.UpdatedAt);
+        Assert.Equal(1, repository.UpdateCount);
+    }
+
+    [Fact]
+    public async Task SavingOnlyThePromptStillRejectsPlaceholdersFromAnotherStage()
+    {
+        var configuration = DefaultAgentConfiguration.Create(InitialTime);
+        var repository = new AgentConfigurationRepository(configuration);
+        var handler = new SaveAgentPromptUsecaseHandler(
+            repository,
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
+            new FixedTimeProvider(InitialTime));
+
+        var result = await handler.Handle(
+            new SaveAgentPromptUsecase(AgentStage.Intake, "Classify {{work_item.title}}."),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.NotEmpty(result.Errors);
         Assert.Equal(0, repository.UpdateCount);
     }
 

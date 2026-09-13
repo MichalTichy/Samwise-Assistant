@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Shared.Infrastructure.Initializer;
 using Shared.Infrastructure.IoC;
+using Samwise.Infrastructure.Mcp.Endpoints;
 using Samwise.Web.Components;
 using Samwise.Web.Endpoints;
 
@@ -41,6 +42,7 @@ app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapOwnerAccountEndpoints();
+app.MapSamwiseMcp();
 
 var initializers = app.Services.GetRequiredService<InitializerManager>();
 await initializers.RunAllInitializersAsync(InitializerTrigger.OnStartup);

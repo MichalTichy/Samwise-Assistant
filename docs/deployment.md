@@ -6,7 +6,7 @@
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, Mail/Calendar/Contacts MCP admin token, and `TODOIST_API_KEY`. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, Mail/Calendar/Contacts MCP admin token, and `TODOIST_API_KEY`. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -57,6 +57,21 @@ Create a Todoist API token in **Todoist → Settings → Integrations → Develo
 | Execution mode | `Gateway` |
 
 Do not configure an HTTP header for this server. The API token authenticates the MCP server to Todoist; network access and Gateway project grants protect MCP invocation. Test discovery, enable the desired tools, and grant them to `samwise-execution`. Grant only read tools if the agent should inspect Todoist without changing it; task creation, update, completion, and deletion tools are separate execution capabilities.
+
+## Samwise self-management MCP
+
+Samwise hosts its own MCP endpoint in the web container. Put a long random value in `SAMWISE_MCP_API_KEY`, then add this HTTP MCP server in the Gateway admin UI:
+
+| Field | Value |
+| --- | --- |
+| Name | `Samwise` |
+| URL | `http://web:8080/mcp` |
+| Execution mode | `Gateway` |
+| Environment headers | `X-Api-Key=SAMWISE_MCP_API_KEY` |
+
+Gateway's environment-header field expects the environment-variable name, not the secret itself. Compose supplies `SAMWISE_MCP_API_KEY` to both Gateway and Samwise; Gateway resolves it only when connecting to the MCP server. The web container joins `gateway-backend`, allowing Gateway metadata discovery and invocation without another container or host port. The normal Samwise web port still serves `/mcp`, but requests without the separate API key receive `401 Unauthorized`.
+
+Enable `list_work_items`, `get_work_item`, `list_input_events`, `get_input_event`, `list_playbooks`, and `get_agent_settings` for the planning project. Enable `save_agent_prompt` and `save_playbook` only for the execution project. This lets planning inspect current state and propose changes while keeping every mutation behind Work Item approval.
 
 ## Persistent state
 

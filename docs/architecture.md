@@ -93,9 +93,17 @@ Intake and planning calls have bounded transport retries because their credentia
 
 There is one `AgentConfiguration` document containing fixed nested settings for Intake, Planning, and Execution. Startup creates the complete document; stage saves require that root and update one nested setting instead of creating database documents on demand. The authenticated Agent settings page loads the Gateway catalog, restricts reasoning effort to the selected model's advertised values, and edits each stage's prompt with a placeholder legend and save-time validation. V1 intentionally has no configuration version history or live preview.
 
-Playbooks are independent UI-managed documents containing a name, description, enabled state, and update timestamp. During planning, all enabled playbooks are rendered through `{{playbooks}}`. The planning agent selects at most one exact playbook ID, or `null` when none clearly applies. Samwise validates that selection and stores the selected playbook's ID, name, description, and timestamp inside the generated plan. Playbooks steer planning only; they do not own Gateway credentials, tools, execution profiles, handovers, or a separate workflow lifecycle.
+Playbooks are independent documents containing a name, description, enabled state, and update timestamp. Enabled Playbooks are rendered for Intake so known scenarios are recognized as actionable and for Planning so the plan follows their guidance. The planning agent selects at most one exact Playbook ID, or `null` when none clearly applies. Samwise validates that selection and stores the selected Playbook's ID, name, description, and timestamp inside the generated plan. Playbooks do not own Gateway credentials, tools, execution profiles, handovers, or a separate workflow lifecycle.
 
 Every invocation stores its fully rendered prompt, so changing the current template does not erase what a past run saw.
+
+## Samwise MCP boundary
+
+`Samwise.Infrastructure.Mcp` hosts a stateless Streamable HTTP endpoint at `/mcp` inside the existing web process. It is a protocol adapter, not another application layer: reads use the same read-only repositories and specifications as the UI, while writes send externally triggered MediatR use cases. A dedicated `X-Api-Key` protects the endpoint independently of the owner's browser cookie.
+
+The MCP exposes bounded Work Item and input-event lists, full item/event details, all Playbooks, and the nested agent settings with each stage's placeholder legend. Its only mutations are replacing one complete stage prompt and creating or updating a Playbook. It cannot change Gateway credentials, email credentials, owner authentication, Work Item approval, or execution state. Prompt writes retain the existing model and reasoning effort and still pass placeholder validation.
+
+Gateway remains the capability boundary. Planning should receive the Samwise read tools. The write tools belong only in the execution grant, so the planner can propose a self-tuning change but cannot apply it before approval. Historical plans and invocations retain their snapshots after configuration changes.
 
 ## Email input
 

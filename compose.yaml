@@ -79,6 +79,7 @@ services:
       AdminUi__Username: "${CODEX_GATEWAY_ADMIN_USERNAME:?Set CODEX_GATEWAY_ADMIN_USERNAME in an ignored .env file}"
       AdminUi__Password: "${CODEX_GATEWAY_ADMIN_PASSWORD:?Set CODEX_GATEWAY_ADMIN_PASSWORD in an ignored .env file}"
       ConnectionStrings__Gateway: "${CODEX_GATEWAY_CONNECTION_STRING:?Set CODEX_GATEWAY_CONNECTION_STRING in an ignored .env file}"
+      SAMWISE_MCP_API_KEY: "${SAMWISE_MCP_API_KEY:?Set SAMWISE_MCP_API_KEY in an ignored .env file}"
       Codex__Container__EngineExecutablePath: docker
       Codex__Container__Image: "${CODEX_GATEWAY_RUNNER_IMAGE:-registry.tichymichal.net/codex-gateway-runner:latest}"
       Codex__Container__WorkspaceVolume: "${CODEX_GATEWAY_DATA_VOLUME:-codex-gateway-data}"
@@ -132,8 +133,12 @@ services:
       AgentEndpoints__Planning__ApiKey: "${SAMWISE_PLANNING_API_KEY:?Set SAMWISE_PLANNING_API_KEY in an ignored .env file}"
       AgentEndpoints__Execution__BaseAddress: "${SAMWISE_EXECUTION_BASE_URL:-http://gateway:8080/p/samwise-execution/v1/}"
       AgentEndpoints__Execution__ApiKey: "${SAMWISE_EXECUTION_API_KEY:?Set SAMWISE_EXECUTION_API_KEY in an ignored .env file}"
+      SamwiseMcp__ApiKey: "${SAMWISE_MCP_API_KEY:?Set SAMWISE_MCP_API_KEY in an ignored .env file}"
     volumes:
       - data-protection-keys:/app/data-protection
+    networks:
+      - default
+      - gateway-backend
 
 volumes:
   data-protection-keys:

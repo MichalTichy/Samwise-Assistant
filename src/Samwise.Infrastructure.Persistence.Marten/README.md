@@ -15,7 +15,7 @@ This project applies Samwise-specific document mappings to the reusable shared M
 - `EmailInputConfiguration` is one document containing the polling interval and nested ignored-sender addresses.
 - `AgentInvocation` is an independent operational document indexed by work-item ID.
 - `AgentConfiguration` is one current-settings document containing nested Intake, Planning, and Execution settings.
-- `Playbook` is an independent user-managed planning-guidance document.
+- `Playbook` is an independent user-managed intake-and-planning guidance document.
 
 ## Persistence flow
 

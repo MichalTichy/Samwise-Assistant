@@ -198,6 +198,25 @@ public sealed class WorkItemDocumentPersistenceTests
             WorkItemRevision = workItem.Revision,
             PlanNumber = workItem.ReservePlanNumber(now.AddMinutes(2)),
             Summary = "Prepare and verify the offer.",
+            Steps =
+            [
+                new PlanStep
+                {
+                    Order = 1,
+                    Title = "Create the offer",
+                    TechnicalDescription = "Create the approved offer document.",
+                    ToolCalls =
+                    [
+                        new PlanToolCall
+                        {
+                            ToolId = "documents/create",
+                            ArgumentsJson = "{\"title\":\"Revised offer\"}"
+                        }
+                    ],
+                    HasExternalSideEffects = true,
+                    SuccessCriteria = "The document ID is returned."
+                }
+            ],
             Playbook = new PlanPlaybookSnapshot
             {
                 Id = "offer-preparation",
@@ -230,19 +249,31 @@ public sealed class WorkItemDocumentPersistenceTests
         var firstCopy = await repository.GetRequiredByIdAsync(workItem.Id);
         var staleCopy = await repository.GetRequiredByIdAsync(workItem.Id);
 
-        firstCopy.AddExecutionUpdate("Execution completed.", now.AddMinutes(5));
+        firstCopy.StartExecution(plan.Id, firstCopy.Revision, now.AddMinutes(5));
+        firstCopy.CompleteExecution(
+            "Execution completed.",
+            ["Created the revised offer document."],
+            "execution-invocation-id",
+            now.AddMinutes(6));
         await repository.UpdateAsync(firstCopy);
 
-        staleCopy.AddExecutionUpdate("Stale update.", now.AddMinutes(6));
+        staleCopy.AddExecutionUpdate("Stale update.", now.AddMinutes(7));
         await Assert.ThrowsAsync<ConcurrencyException>(() => repository.UpdateAsync(staleCopy));
 
         var persisted = await repository.GetRequiredByIdAsync(workItem.Id);
-        Assert.Equal(2, persisted.Comments.Count);
+        Assert.Single(persisted.Comments);
+        var completion = Assert.IsType<WorkItemCompletion>(persisted.Completion);
+        Assert.Equal("Execution completed.", completion.Summary);
+        Assert.Equal("Created the revised offer document.", Assert.Single(completion.Outputs));
+        Assert.Equal("execution-invocation-id", completion.ExecutionInvocationId);
         var persistedPlan = Assert.Single(persisted.Plans);
         Assert.Equal(PlanReviewKind.Approved, Assert.IsType<PlanReview>(persistedPlan.Review).Kind);
         Assert.Equal("offer-preparation", Assert.IsType<PlanPlaybookSnapshot>(persistedPlan.Playbook).Id);
         Assert.Equal("sha256:test", persistedPlan.ExecutionTools.CatalogVersion);
         Assert.Equal("documents/create", Assert.Single(persistedPlan.ExecutionTools.Tools).Id);
+        var persistedToolCall = Assert.Single(Assert.Single(persistedPlan.Steps).ToolCalls);
+        Assert.Equal("documents/create", persistedToolCall.ToolId);
+        Assert.Equal("{\"title\":\"Revised offer\"}", persistedToolCall.ArgumentsJson);
         Assert.DoesNotContain(persisted.Comments, comment => comment.Body == "Stale update.");
         Assert.True(persisted.Version > workItem.Version);
 

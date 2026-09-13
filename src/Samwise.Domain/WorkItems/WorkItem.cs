@@ -17,6 +17,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+    public WorkItemCompletion? Completion { get; set; }
     public DateTimeOffset? DiscardedAt { get; set; }
     public string? DiscardedFrom { get; set; }
     public List<WorkItemPlan> Plans { get; set; } = [];
@@ -172,14 +173,31 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         UpdatedAt = now;
     }
 
-    public void CompleteExecution(DateTimeOffset now)
+    public void CompleteExecution(
+        string summary,
+        IReadOnlyList<string> outputs,
+        string executionInvocationId,
+        DateTimeOffset now)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(summary);
+        ArgumentNullException.ThrowIfNull(outputs);
+        ArgumentException.ThrowIfNullOrWhiteSpace(executionInvocationId);
         if (Status != WorkItemStatus.Executing)
         {
             throw new InvalidOperationException("The work item is not executing.");
         }
 
         Status = WorkItemStatus.Completed;
+        Completion = new WorkItemCompletion
+        {
+            Summary = summary.Trim(),
+            Outputs = outputs
+                .Where(output => !string.IsNullOrWhiteSpace(output))
+                .Select(output => output.Trim())
+                .ToList(),
+            ExecutionInvocationId = executionInvocationId.Trim(),
+            CompletedAt = now
+        };
         CompletedAt = now;
         UpdatedAt = now;
     }

@@ -135,7 +135,7 @@ public sealed class WorkItemTests
     }
 
     [Fact]
-    public void DiscardMetadataAndExecutionUpdatesAreRecordedInsideTheWorkItemDocument()
+    public void DiscardAndCompletionMetadataAreRecordedInsideTheWorkItemDocument()
     {
         var discarded = DomainWorkItem.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
         var discardedPlan = CreatePlan(
@@ -158,12 +158,18 @@ public sealed class WorkItemTests
         executed.ApplyPlan(plan, InitialTime.AddMinutes(3));
         executed.Approve(plan.Id, executed.Revision, InitialTime.AddMinutes(4));
         executed.StartExecution(plan.Id, executed.Revision, InitialTime.AddMinutes(5));
-        executed.CompleteExecution(InitialTime.AddMinutes(6));
-        executed.AddExecutionUpdate("Created and sent the revised offer.", InitialTime.AddMinutes(6));
+        executed.CompleteExecution(
+            "Created and sent the revised offer.",
+            ["Created the offer document.", "Sent the offer to the customer."],
+            "execution-invocation-id",
+            InitialTime.AddMinutes(6));
 
-        var update = Assert.Single(executed.Comments);
-        Assert.Equal(WorkItemCommentKind.ExecutionUpdate, update.Kind);
-        Assert.Equal("Created and sent the revised offer.", update.Body);
+        var completion = Assert.IsType<WorkItemCompletion>(executed.Completion);
+        Assert.Equal("Created and sent the revised offer.", completion.Summary);
+        Assert.Equal(2, completion.Outputs.Count);
+        Assert.Equal("execution-invocation-id", completion.ExecutionInvocationId);
+        Assert.Equal(InitialTime.AddMinutes(6), completion.CompletedAt);
+        Assert.Empty(executed.Comments);
     }
 
     private static WorkItemPlan CreatePlan(DomainWorkItem workItem, int planNumber, DateTimeOffset createdAt) =>

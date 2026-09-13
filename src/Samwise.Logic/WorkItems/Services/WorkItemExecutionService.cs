@@ -75,16 +75,20 @@ internal sealed class WorkItemExecutionService(
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
             if (result.Succeeded)
             {
-                currentWorkItem.CompleteExecution(timeProvider.GetUtcNow());
+                currentWorkItem.CompleteExecution(
+                    result.Summary,
+                    result.Outputs,
+                    invocation.Id,
+                    timeProvider.GetUtcNow());
             }
             else
             {
                 currentWorkItem.MarkExecutionUncertain(timeProvider.GetUtcNow());
+                currentWorkItem.AddExecutionUpdate(
+                    AgentWorkflowSupport.FormatExecutionResult(result),
+                    timeProvider.GetUtcNow());
             }
 
-            currentWorkItem.AddExecutionUpdate(
-                AgentWorkflowSupport.FormatExecutionResult(result),
-                timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

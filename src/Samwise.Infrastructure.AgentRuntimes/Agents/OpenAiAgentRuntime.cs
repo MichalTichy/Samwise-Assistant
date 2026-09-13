@@ -69,7 +69,9 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
                 step.Order,
                 step.Title,
                 step.TechnicalDescription,
-                step.ToolIds,
+                step.ToolCalls.Select(toolCall => new PlanToolCallDraft(
+                    toolCall.ToolId,
+                    toolCall.ArgumentsJson)).ToList(),
                 step.HasExternalSideEffects,
                 step.SuccessCriteria)).ToList());
 
@@ -247,9 +249,15 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         public required int Order { get; init; }
         public required string Title { get; init; }
         public required string TechnicalDescription { get; init; }
-        public required List<string> ToolIds { get; init; }
+        public required List<PlanToolCallWireResult> ToolCalls { get; init; }
         public required bool HasExternalSideEffects { get; init; }
         public required string SuccessCriteria { get; init; }
+    }
+
+    private sealed class PlanToolCallWireResult
+    {
+        public required string ToolId { get; init; }
+        public required string ArgumentsJson { get; init; }
     }
 
     private sealed class ExecutionWireResult

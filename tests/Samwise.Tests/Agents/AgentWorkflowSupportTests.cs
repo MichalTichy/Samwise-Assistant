@@ -126,4 +126,69 @@ public sealed class AgentWorkflowSupportTests
 
         Assert.Contains("not currently enabled", exception.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void PlanValidationAcceptsSuggestedJsonParameters()
+    {
+        var plan = new PlanDraft(
+            null,
+            "Create the draft.",
+            [],
+            [],
+            [new PlanStepDraft(
+                1,
+                "Create draft",
+                "Create the approved draft.",
+                [new PlanToolCallDraft("documents/create", "{\"title\":\"Approved draft\"}")],
+                true,
+                "The draft ID is returned.")]);
+        var catalog = new ToolCatalogSnapshot(
+            "catalog",
+            "{}",
+            [new ToolServerCapability(
+                "documents",
+                "Documents",
+                "1.0.0",
+                false,
+                null,
+                null,
+                null,
+                [new ToolCapability("documents/create", "create", null, "{}", true)])]);
+
+        AgentWorkflowSupport.ValidatePlan(plan, catalog);
+    }
+
+    [Fact]
+    public void PlanValidationRejectsInvalidSuggestedParameters()
+    {
+        var plan = new PlanDraft(
+            null,
+            "Create the draft.",
+            [],
+            [],
+            [new PlanStepDraft(
+                1,
+                "Create draft",
+                "Create the approved draft.",
+                [new PlanToolCallDraft("documents/create", "not JSON")],
+                true,
+                "The draft ID is returned.")]);
+        var catalog = new ToolCatalogSnapshot(
+            "catalog",
+            "{}",
+            [new ToolServerCapability(
+                "documents",
+                "Documents",
+                "1.0.0",
+                false,
+                null,
+                null,
+                null,
+                [new ToolCapability("documents/create", "create", null, "{}", true)])]);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => AgentWorkflowSupport.ValidatePlan(plan, catalog));
+
+        Assert.Contains("not valid JSON", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

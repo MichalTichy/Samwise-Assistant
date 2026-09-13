@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 
@@ -83,11 +84,40 @@ internal static class AgentWorkflowSupport
                     "Every plan step needs a title, technical description, and success criterion.");
             }
 
-            var unavailableTool = step.ToolIds.FirstOrDefault(toolId => !invocableTools.Contains(toolId));
-            if (unavailableTool is not null)
+            foreach (var toolCall in step.ToolCalls)
             {
-                throw new InvalidOperationException(
-                    $"The plan references execution tool '{unavailableTool}', which is not currently invocable.");
+                if (string.IsNullOrWhiteSpace(toolCall.ToolId))
+                {
+                    throw new InvalidOperationException("A suggested tool call is missing its tool ID.");
+                }
+
+                if (!invocableTools.Contains(toolCall.ToolId))
+                {
+                    throw new InvalidOperationException(
+                        $"The plan suggests unavailable execution tool '{toolCall.ToolId}'.");
+                }
+
+                if (string.IsNullOrWhiteSpace(toolCall.ArgumentsJson))
+                {
+                    throw new InvalidOperationException(
+                        $"Suggested parameters for '{toolCall.ToolId}' cannot be empty.");
+                }
+
+                try
+                {
+                    using var arguments = JsonDocument.Parse(toolCall.ArgumentsJson);
+                    if (arguments.RootElement.ValueKind != JsonValueKind.Object)
+                    {
+                        throw new InvalidOperationException(
+                            $"Suggested parameters for '{toolCall.ToolId}' must be a JSON object.");
+                    }
+                }
+                catch (JsonException exception)
+                {
+                    throw new InvalidOperationException(
+                        $"Suggested parameters for '{toolCall.ToolId}' are not valid JSON.",
+                        exception);
+                }
             }
         }
     }

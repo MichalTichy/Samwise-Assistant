@@ -1,12 +1,12 @@
 # Container deployment
 
-`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL.
+`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, the official Todoist MCP server, and Teams MCP. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL.
 
 ## First deployment
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, Mail/Calendar/Contacts MCP admin token, and `TODOIST_API_KEY`. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Replace the owner credentials, Gateway admin password, MCP admin credentials, `TODOIST_API_KEY`, and Microsoft Entra settings for Teams MCP. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -15,10 +15,11 @@
    ```
 
 5. Open `http://<host>:5051/admin/ui`, sign in with `MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN`, and configure the provider accounts. Replace `MAIL_CALENDAR_CONTACTS_MCP_EXTERNAL_URL` with this reachable URL before using a provider that needs an OAuth callback.
-6. Open `http://<host>:5050/admin` from the local network, sign in to the Gateway, complete Codex device authentication, and create the `samwise-planning` and `samwise-execution` projects and their keys. `CODEX_GATEWAY_BIND_ADDRESS=0.0.0.0` exposes the configured Gateway port on every IPv4 interface; change it to a specific host address if desired.
-7. Put the real intake, planning, and execution keys in `.env`, then recreate Samwise with `docker compose up -d web`.
-8. Open Samwise on its configured host and port, sign in, and change the initial password.
-9. Remove `SAMWISE_OWNER_INITIAL_PASSWORD` from `.env` after the owner has a password. An empty value is valid on subsequent starts.
+6. Open `http://<host>:5052/admin`, sign in with `TEAMS_MCP_ADMIN_PASSWORD`, and connect the delegated Microsoft account.
+7. Open `http://<host>:5050/admin` from the local network, sign in to the Gateway, complete Codex device authentication, and create the `samwise-planning` and `samwise-execution` projects and their keys. `CODEX_GATEWAY_BIND_ADDRESS=0.0.0.0` exposes the configured Gateway port on every IPv4 interface; change it to a specific host address if desired.
+8. Put the real intake, planning, and execution keys in `.env`, then recreate Samwise with `docker compose up -d web`.
+9. Open Samwise on its configured host and port, sign in, and change the initial password.
+10. Remove `SAMWISE_OWNER_INITIAL_PASSWORD` from `.env` after the owner has a password. An empty value is valid on subsequent starts.
 
 Samwise listens on plain HTTP port `8080` inside its container and the Gateway listens on `8080` inside its container. Their default published host ports are `8080` and `5050`. The Compose default `SAMWISE_REQUIRE_HTTPS=false` allows login when Samwise is opened directly over HTTP on a trusted network. For any internet-accessible deployment, terminate HTTPS in the host reverse proxy and set `SAMWISE_REQUIRE_HTTPS=true`; `ASPNETCORE_FORWARDEDHEADERS_ENABLED` lets Samwise honor the proxy's forwarded scheme.
 
@@ -40,7 +41,7 @@ For Portainer:
    | Execution mode | `Gateway` |
 
 3. Test the connection and discover the server's tools. Enable only the tools that the Gateway may expose.
-4. Grant the desired subset to the `samwise-execution` project/key. Start with mail, calendar, and contact read tools. Calendar/contact write and mail-management tools can be enabled individually when wanted. Do not grant `send_email` or `unsubscribe_from_email` in version 1.
+4. Grant read tools to intake/planning only when needed, and grant the desired mutation subset to `samwise-execution`. Calendar/contact writes and mail-management tools can be enabled individually. `reply_email`, `send_email`, and `unsubscribe_from_email` are execution-only capabilities.
 
 The intake and planning keys do not need permission to invoke these MCP tools. Samwise reads the execution key's Gateway tool catalog and supplies that catalog to the planning agent, so plans are constrained to capabilities the execution stage will actually receive.
 
@@ -58,12 +59,19 @@ Create a Todoist API token in **Todoist → Settings → Integrations → Develo
 
 Do not configure an HTTP header for this server. The API token authenticates the MCP server to Todoist; network access and Gateway project grants protect MCP invocation. Test discovery, enable the desired tools, and grant them to `samwise-execution`. Grant only read tools if the agent should inspect Todoist without changing it; task creation, update, completion, and deletion tools are separate execution capabilities.
 
+## Teams MCP
+
+The stack runs `registry.tichymichal.net/mcp-teams`. Its MCP endpoint stays on the Gateway backend network, while port `5052` exposes its password-protected account page to the trusted LAN. Configure a Microsoft Entra app as described in the MCP.Teams repository, then connect the single delegated Microsoft account at `http://<host>:5052/admin`.
+
+Add it to Gateway as an HTTP MCP server named `Microsoft Teams` with URL `http://teams-mcp:8080`, Gateway execution mode, and no headers. Read tools can be granted to intake/planning. Sending chat/channel messages and creating, updating, or cancelling Teams meetings must be granted only to execution. Call-history tools require the Entra application's `CallRecords.Read.All` application permission and client secret.
+
 ## Persistent state
 
-The Compose stack creates four named volumes:
+The Compose stack creates five named volumes:
 
 - `data-protection-keys` keeps login cookies valid across container replacement.
 - `mcp-mail-calendar-contacts-data` stores MCP provider configuration, tokens, and local state.
+- `mcp-teams-data` stores the delegated Microsoft token cache.
 - `codex-gateway-data` is the workspace volume mounted into isolated Gateway runner containers.
 - `codex-gateway-auth` stores the Codex authentication used by the Gateway.
 

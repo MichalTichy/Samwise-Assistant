@@ -99,8 +99,9 @@ public static class AgentPromptPlaceholders
 
     [PromptPlaceholder(
         "Playbooks",
-        "Enabled playbooks as trusted planning guidance in JSON format.",
+        "Enabled playbooks as trusted user-configured guidance in JSON format.",
         "[{...}]",
+        AgentStage.Intake,
         AgentStage.Planning)]
     public const string Playbooks = "playbooks";
 

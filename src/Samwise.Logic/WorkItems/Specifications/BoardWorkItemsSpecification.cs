@@ -7,18 +7,13 @@ using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
 namespace Samwise.Logic.WorkItems.Specifications;
 
-public sealed class BoardWorkItemsSpecification(bool includeArchived) : IListSpecification<DomainWorkItem>
+public sealed class BoardWorkItemsSpecification : IListSpecification<DomainWorkItem>
 {
     public async Task<IReadOnlyList<DomainWorkItem>> ApplyAsync(
         IQueryable<DomainWorkItem> queryable,
         CancellationToken cancellationToken = default)
     {
-        if (!includeArchived)
-        {
-            queryable = queryable.Where(workItem =>
-                workItem.Status != WorkItemStatus.Completed &&
-                workItem.Status != WorkItemStatus.Discarded);
-        }
+        queryable = queryable.Where(workItem => workItem.Status != WorkItemStatus.Discarded);
 
         return await queryable
             .OrderByDescending(workItem => workItem.UpdatedAt)

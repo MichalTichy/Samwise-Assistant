@@ -94,7 +94,7 @@ safe during planning. The execution project owns the exact approved execution al
 retrieves that execution catalog separately and gives its metadata to the planner.
 
 The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts),
-the official [Todoist MCP](https://github.com/Doist/todoist-mcp), and the local Microsoft Teams MCP server on the private
+the official [Todoist MCP](https://github.com/Doist/todoist-mcp), and [Microsoft Teams MCP](https://github.com/MichalTichy/MCP.Teams) on the private
 `codex-gateway-backend` network. Their tools remain behind the Gateway: only tools explicitly
 enabled on each trusted server and granted to `samwise-execution` can be planned and invoked.
 Outbound messages, replies, meetings, and other mutations belong only in the execution grant.

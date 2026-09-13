@@ -61,7 +61,7 @@ Do not configure an HTTP header for this server. The API token authenticates the
 
 ## Teams MCP
 
-The stack runs `registry.tichymichal.net/mcp-teams`. Its MCP endpoint stays on the Gateway backend network, while port `5052` exposes its password-protected account page to the trusted LAN. Configure a Microsoft Entra app as described in the MCP.Teams repository, then connect the single delegated Microsoft account at `http://<host>:5052/admin`.
+The stack runs [`MCP.Teams`](https://github.com/MichalTichy/MCP.Teams) as `registry.tichymichal.net/mcp-teams`. Its MCP endpoint stays on the Gateway backend network, while port `5052` exposes its password-protected account page to the trusted LAN. Configure a Microsoft Entra app as described in that repository, then connect the single delegated Microsoft account at `http://<host>:5052/admin`.
 
 Add it to Gateway as an HTTP MCP server named `Microsoft Teams` with URL `http://teams-mcp:8080`, Gateway execution mode, and no headers. Read tools can be granted to intake/planning. Sending chat/channel messages and creating, updating, or cancelling Teams meetings must be granted only to execution. Call-history tools require the Entra application's `CallRecords.Read.All` application permission and client secret.
 

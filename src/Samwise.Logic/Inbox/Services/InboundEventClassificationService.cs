@@ -12,11 +12,6 @@ using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
 namespace Samwise.Logic.Inbox.Services;
 
-internal interface IInboundEventClassificationService
-{
-    Task<string?> ClassifyAsync(string inboundEventId, CancellationToken cancellationToken);
-}
-
 internal sealed class InboundEventClassificationService(
     IRepository<InboundEvent> inboundRepository,
     IRepository<DomainWorkItem> workItemRepository,

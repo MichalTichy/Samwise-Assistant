@@ -11,43 +11,6 @@ using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 
 namespace Samwise.Logic.Prompts.Services;
 
-internal sealed record IntakeAgentPrompt(
-    string Text,
-    AgentRunConfiguration Configuration,
-    ToolCatalogSnapshot IntakeTools,
-    IReadOnlyList<DomainWorkItem> ActiveWorkItems);
-
-internal sealed record PlanningAgentPrompt(
-    string Text,
-    AgentRunConfiguration Configuration,
-    ToolCatalogSnapshot PlanningTools,
-    ToolCatalogSnapshot ExecutionTools,
-    IReadOnlyList<Playbook> AvailablePlaybooks,
-    string AgentConfigurationId,
-    DateTimeOffset AgentConfigurationUpdatedAt);
-
-internal sealed record ExecutionAgentPrompt(
-    string Text,
-    AgentRunConfiguration Configuration,
-    ToolCatalogSnapshot ExecutionTools);
-
-internal interface IAgentPromptBuilder
-{
-    Task<IntakeAgentPrompt> BuildIntakeAsync(
-        string inboundEventId,
-        CancellationToken cancellationToken);
-
-    Task<PlanningAgentPrompt> BuildPlanningAsync(
-        string workItemId,
-        CancellationToken cancellationToken);
-
-    Task<ExecutionAgentPrompt> BuildExecutionAsync(
-        string workItemId,
-        int workItemRevision,
-        string planId,
-        CancellationToken cancellationToken);
-}
-
 internal sealed class AgentPromptBuilder(
     IReadOnlyRepository<InboundEvent> inboundEventRepository,
     IReadOnlyRepository<DomainWorkItem> workItemRepository,

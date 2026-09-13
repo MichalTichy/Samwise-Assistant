@@ -10,11 +10,6 @@ using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
 namespace Samwise.Logic.WorkItems.Services;
 
-internal interface IWorkItemPlanningService
-{
-    Task PlanAsync(string workItemId, CancellationToken cancellationToken);
-}
-
 internal sealed class WorkItemPlanningService(
     IRepository<DomainWorkItem> workItemRepository,
     IAgentRuntime runtime,

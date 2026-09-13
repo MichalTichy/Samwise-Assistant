@@ -9,13 +9,6 @@ using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
 namespace Samwise.Logic.WorkItems.Services;
 
-internal sealed record WorkItemExecutionRequest(string WorkItemId, string PlanId, int WorkItemRevision);
-
-internal interface IWorkItemExecutionService
-{
-    Task ExecuteAsync(WorkItemExecutionRequest request, CancellationToken cancellationToken);
-}
-
 internal sealed class WorkItemExecutionService(
     IRepository<DomainWorkItem> workItemRepository,
     IAgentRuntime runtime,

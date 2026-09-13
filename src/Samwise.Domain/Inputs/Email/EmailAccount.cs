@@ -16,8 +16,11 @@ public sealed class EmailAccount : IItemWithId
     public string Host { get; set; } = string.Empty;
     public int Port { get; set; }
     public EmailConnectionSecurity Security { get; set; }
+    public EmailAuthenticationMethod AuthenticationMethod { get; set; }
     public string Username { get; set; } = string.Empty;
     public string ProtectedPassword { get; set; } = string.Empty;
+    public string ProtectedOAuthTokenCache { get; set; } = string.Empty;
+    public string? OAuthHomeAccountId { get; set; }
     public bool IsEnabled { get; set; }
     public EmailInboxCheckpoint? InboxCheckpoint { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

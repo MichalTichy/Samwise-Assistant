@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Samwise.Logic\Samwise.Logic.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.CodexGateway\Samwise.Infrastructure.CodexGateway.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Email.Imap\Samwise.Infrastructure.Email.Imap.csproj" />
+    <ProjectReference Include="..\Samwise.Infrastructure.Email.Microsoft365\Samwise.Infrastructure.Email.Microsoft365.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Mcp\Samwise.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Persistence.Identity\Samwise.Infrastructure.Persistence.Identity.csproj" />

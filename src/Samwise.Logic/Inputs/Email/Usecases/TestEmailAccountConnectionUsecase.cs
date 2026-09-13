@@ -7,7 +7,7 @@ namespace Samwise.Logic.Inputs.Email.Usecases;
 public sealed record TestEmailAccountConnectionUsecase(string EmailAccountId) : IRequest<EmailOperationResult>;
 
 internal sealed class TestEmailAccountConnectionUsecaseHandler(
-    IReadOnlyRepository<EmailAccount> repository,
+    IRepository<EmailAccount> repository,
     IEmailInboxReader inboxReader)
     : IRequestHandler<TestEmailAccountConnectionUsecase, EmailOperationResult>
 {
@@ -24,6 +24,7 @@ internal sealed class TestEmailAccountConnectionUsecaseHandler(
         try
         {
             await inboxReader.TestConnectionAsync(account, cancellationToken);
+            await repository.UpdateAsync(account, cancellationToken);
             return new EmailOperationResult(true, "Connection successful.");
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

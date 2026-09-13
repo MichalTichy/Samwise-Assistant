@@ -16,6 +16,8 @@ Each feature is grouped by responsibility:
 - `Inputs/Email/` contains the IMAP adapter contracts, email-account and settings commands, account reads, checkpoint-based automatic processing, manual unread processing, and the startup initializer for email settings.
 - `Installers/LogicInstaller` registers MediatR and application services.
 
+Top-level types live in separate files named after the type. Related models are grouped in feature-local `Models/` folders, prompt placeholder types in `Prompts/Placeholders/`, and service contracts beside their implementations. A type may share a file only when it is a private or nested implementation detail used exclusively by the containing type.
+
 There are intentionally no read-only `Get*Usecase` wrappers. Blazor pages call the read-only repository with public specifications directly.
 
 The fixed Intake, Planning, and Execution settings form one `AgentConfiguration` document. Startup creates the complete aggregate; workflow services load that root and select the required nested stage. Model and reasoning-effort IDs are stored as strings because `IAgentModelCatalog` reports a model-specific set of supported efforts. `SaveAgentStageConfigurationUsecase` requires the root to exist, validates that pair against the current catalog, and mutates only the selected stage, so normal commands never invent missing configuration structure.
@@ -54,3 +56,4 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 - Code shared by multiple external operations belongs in a service.
 - Reads use specifications and `IReadOnlyRepository<T>`; mutations use domain behavior through `IRepository<T>`.
 - Standard OpenAI execution, Gateway-specific catalog discovery, runtime selection, and persistence behavior belong in infrastructure projects.
+- Keep one top-level class, record, interface, enum, or struct per file; use folders rather than grab-bag source files for organization.

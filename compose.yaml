@@ -20,6 +20,29 @@ services:
     networks:
       - gateway-backend
 
+  todoist-mcp:
+    image: ${TODOIST_MCP_RUNTIME_IMAGE:-node:24-alpine}
+    restart: unless-stopped
+    user: node
+    command:
+      - npx
+      - --yes
+      - --package=@doist/todoist-mcp@13.2.4
+      - todoist-mcp-http
+    environment:
+      TODOIST_API_KEY: "${TODOIST_API_KEY:?Set TODOIST_API_KEY in an ignored .env file}"
+      HOST: 0.0.0.0
+      PORT: "8080"
+      ALLOWED_HOSTS: todoist-mcp
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+    networks:
+      - gateway-backend
+
   gateway:
     image: ${CODEX_GATEWAY_IMAGE:-registry.tichymichal.net/codex-gateway:latest}
     restart: unless-stopped
@@ -28,6 +51,8 @@ services:
         condition: service_completed_successfully
       mail-calendar-contacts-mcp:
         condition: service_started
+      todoist-mcp:
+        condition: service_healthy
     ports:
       - "${CODEX_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${CODEX_GATEWAY_PORT:-5050}:8080"
     extra_hosts:

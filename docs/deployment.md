@@ -1,12 +1,12 @@
 # Container deployment
 
-`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, and Mail, Calendar & Contacts MCP. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL.
+`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL.
 
 ## First deployment
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, and MCP admin token. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Replace the owner credentials, Gateway admin password, Mail/Calendar/Contacts MCP admin token, and `TODOIST_API_KEY`. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -22,7 +22,7 @@
 
 Samwise listens on plain HTTP port `8080` inside its container and the Gateway listens on `8080` inside its container. Their default published host ports are `8080` and `5050`. The Compose default `SAMWISE_REQUIRE_HTTPS=false` allows login when Samwise is opened directly over HTTP on a trusted network. For any internet-accessible deployment, terminate HTTPS in the host reverse proxy and set `SAMWISE_REQUIRE_HTTPS=true`; `ASPNETCORE_FORWARDEDHEADERS_ENABLED` lets Samwise honor the proxy's forwarded scheme.
 
-The Gateway control plane and MCP container intentionally do not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start .NET processes under that option. Both containers still run as dedicated non-root users; the MCP remains isolated on the private backend network, while dynamically created runner containers retain the Gateway's stricter runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
+The Gateway control plane and Mail/Calendar/Contacts MCP container intentionally do not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start .NET processes under that option. The MCP containers run as dedicated non-root users and remain isolated on the private backend network, while dynamically created runner containers retain the Gateway's stricter runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
 
 ## Mail, calendar, and contacts MCP
 
@@ -44,6 +44,20 @@ For Portainer:
 
 The intake and planning keys do not need permission to invoke these MCP tools. Samwise reads the execution key's Gateway tool catalog and supplies that catalog to the planning agent, so plans are constrained to capabilities the execution stage will actually receive.
 
+## Todoist MCP
+
+The stack runs the official [`@doist/todoist-mcp`](https://github.com/Doist/todoist-mcp) HTTP server from its pinned npm release. It has no published host port: only Gateway can reach it on the private backend network. `TODOIST_API_KEY` is passed directly to that container and is not copied into Gateway or Samwise. The container downloads the pinned package on its first start, so it needs outbound access to the npm registry when it is created.
+
+Create a Todoist API token in **Todoist → Settings → Integrations → Developer**, put it in the Portainer stack environment as `TODOIST_API_KEY`, and add this HTTP MCP server in the Gateway admin UI:
+
+| Field | Value |
+| --- | --- |
+| Name | `Todoist` |
+| URL | `http://todoist-mcp:8080/mcp` |
+| Execution mode | `Gateway` |
+
+Do not configure an HTTP header for this server. The API token authenticates the MCP server to Todoist; network access and Gateway project grants protect MCP invocation. Test discovery, enable the desired tools, and grant them to `samwise-execution`. Grant only read tools if the agent should inspect Todoist without changing it; task creation, update, completion, and deletion tools are separate execution capabilities.
+
 ## Persistent state
 
 The Compose stack creates four named volumes:
@@ -57,7 +71,7 @@ Back up these volumes and the two PostgreSQL databases. Losing only the data-pro
 
 ## Updating
 
-The Compose defaults use the `latest` Samwise, Gateway, runner, and MCP images. The checked-in `.env.example` pins the currently verified Gateway pair (`decfeca`) and native-app-host MCP (`0903bf4`). Prefer immutable tags in the deployed `.env`, then run:
+The Compose defaults use the `latest` Samwise, Gateway, runner, and Mail/Calendar/Contacts MCP images plus the current Node 24 Alpine runtime. The checked-in `.env.example` pins the currently verified Gateway pair (`decfeca`), native-app-host MCP (`0903bf4`), and Node runtime digest. The official Todoist package is pinned directly in `compose.yaml`. Prefer immutable tags and digests in the deployed `.env`, then run:
 
 ```bash
 docker compose pull

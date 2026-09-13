@@ -79,7 +79,7 @@ Back up these volumes and the two PostgreSQL databases. Losing only the data-pro
 
 ## Updating
 
-The Compose defaults use the `latest` Samwise, Gateway, runner, and Mail/Calendar/Contacts MCP images plus the current Node 24 Alpine runtime. The checked-in `.env.example` pins the currently verified Gateway pair (`decfeca`), native-app-host MCP (`0903bf4`), and Node runtime digest. The official Todoist package is pinned directly in `compose.yaml`. Prefer immutable tags and digests in the deployed `.env`, then run:
+The Compose defaults use the `latest` Samwise, Gateway, runner, Mail/Calendar/Contacts MCP, and Teams MCP images plus the current Node 24 Alpine runtime. The checked-in `.env.example` pins the currently verified Gateway pair (`decfeca`), Mail/Calendar/Contacts MCP (`0903bf4`), Teams MCP (`7292ca0`), and Node runtime digest. The official Todoist package is pinned directly in `compose.yaml`. Prefer immutable tags and digests in the deployed `.env`, then run:
 
 ```bash
 docker compose pull

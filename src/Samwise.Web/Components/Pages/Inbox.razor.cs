@@ -71,4 +71,13 @@ public partial class Inbox
         InboundHandlingKind.Ignore => "Ignored",
         _ => handling.ToString()
     };
+
+    private static string PreviewText(string text)
+    {
+        const int previewLength = 220;
+        var normalized = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length <= previewLength
+            ? normalized
+            : $"{normalized[..previewLength].TrimEnd()}…";
+    }
 }

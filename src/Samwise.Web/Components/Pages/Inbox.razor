@@ -26,40 +26,48 @@
 
     @foreach (var item in events)
     {
-        <article class="event-row">
-            <div class="event-source">@item.Source</div>
-            <div class="event-body">
-                <div class="event-meta">
-                    <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip handling-{item.Handling.ToString().ToLowerInvariant()}")">@FormatHandling(item.Handling)</LumexChip>
-                    <time>@item.ReceivedAt.ToLocalTime().ToString("g")</time>
+        <details class="event-row">
+            <summary class="event-summary">
+                <div class="event-source">@item.Source</div>
+                <div class="event-body">
+                    <div class="event-meta">
+                        <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip handling-{item.Handling.ToString().ToLowerInvariant()}")">@FormatHandling(item.Handling)</LumexChip>
+                        <time>@item.ReceivedAt.ToLocalTime().ToString("g")</time>
+                    </div>
+                    <p class="event-preview">@PreviewText(item.Text)</p>
                 </div>
-                <p>@item.Text</p>
-                @if (!string.IsNullOrWhiteSpace(item.Explanation))
-                {
-                    <small>@item.Explanation</small>
-                }
-                else
-                {
-                    <small>Waiting for Samwise to classify this input.</small>
-                }
+                <span class="event-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="event-expanded">
+                <div class="event-body">
+                    <p>@item.Text</p>
+                    @if (!string.IsNullOrWhiteSpace(item.Explanation))
+                    {
+                        <small>@item.Explanation</small>
+                    }
+                    else
+                    {
+                        <small>Waiting for Samwise to classify this input.</small>
+                    }
+                </div>
+                <div class="event-actions">
+                    @if (item.WorkItemId is { } workItemId)
+                    {
+                        <a class="event-link" href="work-items/@workItemId">Open work item →</a>
+                    }
+                    @if (item.Handling == InboundHandlingKind.NeedsReview)
+                    {
+                        <LumexButton Size="@Size.Small"
+                                     Variant="@Variant.Flat"
+                                     Color="@ThemeColor.Default"
+                                     Disabled="@(retryingEventId is not null)"
+                                     OnClick="() => RetryAsync(item.Id)">
+                            @(retryingEventId == item.Id ? "Retrying…" : "Retry")
+                        </LumexButton>
+                    }
+                </div>
             </div>
-            <div>
-                @if (item.WorkItemId is { } workItemId)
-                {
-                    <a class="event-link" href="work-items/@workItemId">Open work item →</a>
-                }
-                @if (item.Handling == InboundHandlingKind.NeedsReview)
-                {
-                    <LumexButton Size="@Size.Small"
-                                 Variant="@Variant.Flat"
-                                 Color="@ThemeColor.Default"
-                                 Disabled="@(retryingEventId is not null)"
-                                 OnClick="() => RetryAsync(item.Id)">
-                        @(retryingEventId == item.Id ? "Retrying…" : "Retry")
-                    </LumexButton>
-                }
-            </div>
-        </article>
+        </details>
     }
 
     @if (!loading && events.Count == 0)

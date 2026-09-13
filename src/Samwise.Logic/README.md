@@ -10,7 +10,7 @@ Each feature is grouped by responsibility:
 - `Services/` contains reusable processing and mandatory follow-up flow shared by use cases.
 - `Specifications/` contains named read definitions executed through `IReadOnlyRepository<T>`.
 - `Initialization/` contains feature-owned startup seeders.
-- `Agents/` contains separate `IAgentRuntime`, `IAgentModelCatalog`, and `IAgentToolCatalog` ports, structured request/result models, and invocation tracking.
+- `Agents/` contains separate `IAgentRuntime`, `IAgentModelCatalog`, and `IAgentToolCatalog` ports, stage-oriented request/result models under `Models/Intake`, `Models/Planning`, and `Models/Execution`, shared run/catalog models under `Models/Shared`, and invocation tracking.
 - `Prompts/` contains the attribute-driven placeholder catalogue, template validation/rendering, the single `AgentPromptBuilder` that retrieves and assembles every stage's prompt context, the startup initializer for the agent-configuration document, and the UI-triggered use case that updates one nested stage.
 - `Playbooks/` contains the UI-triggered save use case and public read specification for reusable planning guidance.
 - `Inputs/Email/` contains the IMAP adapter contracts, email-account and settings commands, account reads, checkpoint-based automatic processing, manual unread processing, and the startup initializer for email settings.

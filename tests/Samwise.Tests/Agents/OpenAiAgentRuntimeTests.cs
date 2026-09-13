@@ -103,7 +103,14 @@ public sealed class OpenAiAgentRuntimeTests
                     order = 1,
                     title = "Create draft",
                     technical_description = "Create a draft accounting entry.",
-                    tool_ids = new[] { "accounting/create-draft" },
+                    tool_calls = new[]
+                    {
+                        new
+                        {
+                            tool_id = "accounting/create-draft",
+                            arguments_json = "{\"invoice_id\":\"invoice-1\"}"
+                        }
+                    },
                     has_external_side_effects = true,
                     success_criteria = "The draft exists."
                 }
@@ -140,7 +147,10 @@ public sealed class OpenAiAgentRuntimeTests
         Assert.Equal("max", document.RootElement.GetProperty("reasoning_effort").GetString());
         Assert.Equal("invoice-processing", result.Plan.PlaybookId);
         Assert.Equal("Process the invoice safely.", result.Plan.Summary);
-        Assert.Equal("accounting/create-draft", Assert.Single(result.Plan.Steps).ToolIds.Single());
+        var step = Assert.Single(result.Plan.Steps);
+        var toolCall = Assert.Single(step.ToolCalls);
+        Assert.Equal("accounting/create-draft", toolCall.ToolId);
+        Assert.Equal("{\"invoice_id\":\"invoice-1\"}", toolCall.ArgumentsJson);
     }
 
     private static OpenAiAgentRuntime CreateRuntime(Uri baseAddress, string apiKey)

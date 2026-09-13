@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.Agents;
@@ -161,4 +163,119 @@ public partial class WorkItemDetails
         _ when effort.Length > 0 => $"{char.ToUpperInvariant(effort[0])}{effort[1..]} reasoning",
         _ => "Reasoning effort not recorded"
     };
+
+    private static IReadOnlyList<WorkItemComment> ConversationComments(
+        IReadOnlyList<WorkItemComment> comments,
+        bool hasCompletionCard) => hasCompletionCard
+        ? comments.Where(comment => comment.Kind != WorkItemCommentKind.ExecutionUpdate).ToList()
+        : comments;
+
+    private static CompletionDisplay? ResolveCompletion(
+        WorkItemCompletion? completion,
+        IReadOnlyList<WorkItemComment> comments)
+    {
+        if (completion is not null)
+        {
+            return new CompletionDisplay(
+                completion.Summary,
+                completion.Outputs,
+                completion.CompletedAt);
+        }
+
+        var update = comments
+            .Where(comment => comment.Kind == WorkItemCommentKind.ExecutionUpdate)
+            .MaxBy(comment => comment.CreatedAt);
+        if (update is null)
+        {
+            return null;
+        }
+
+        var normalized = update.Body.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
+        var marker = "\n\nOutputs:\n";
+        var markerIndex = normalized.IndexOf(marker, StringComparison.Ordinal);
+        if (markerIndex < 0)
+        {
+            return new CompletionDisplay(normalized, [], update.CreatedAt);
+        }
+
+        var summary = normalized[..markerIndex].Trim();
+        var outputs = normalized[(markerIndex + marker.Length)..]
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(RemoveListMarker)
+            .ToList();
+        return new CompletionDisplay(summary, outputs, update.CreatedAt);
+    }
+
+    private static string RemoveListMarker(string value) => Regex.Replace(
+        value,
+        @"^\s*(?:(?:\d+[.)])|[-*•])\s+",
+        string.Empty);
+
+    private static IReadOnlyList<string> ReadableParagraphs(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
+        var blocks = Regex.Split(
+                text.Replace("\r\n", "\n", StringComparison.Ordinal).Trim(),
+                "\\n\\s*\\n")
+            .Where(block => !string.IsNullOrWhiteSpace(block));
+        var paragraphs = new List<string>();
+        foreach (var block in blocks)
+        {
+            var normalized = block.Trim();
+            if (normalized.Length <= 320 || normalized.Contains('\n'))
+            {
+                paragraphs.Add(normalized);
+                continue;
+            }
+
+            var sentences = Regex.Split(normalized, @"(?<=[.!?])\s+(?=[A-Z0-9])");
+            var paragraph = string.Empty;
+            foreach (var sentence in sentences)
+            {
+                if (paragraph.Length > 0 && paragraph.Length + sentence.Length > 320)
+                {
+                    paragraphs.Add(paragraph);
+                    paragraph = sentence;
+                }
+                else
+                {
+                    paragraph = string.IsNullOrEmpty(paragraph)
+                        ? sentence
+                        : $"{paragraph} {sentence}";
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(paragraph))
+            {
+                paragraphs.Add(paragraph);
+            }
+        }
+
+        return paragraphs;
+    }
+
+    private static string PrettyPrintJson(string value)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(value);
+            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+        }
+        catch (JsonException)
+        {
+            return value;
+        }
+    }
+
+    private sealed record CompletionDisplay(
+        string Summary,
+        IReadOnlyList<string> Outputs,
+        DateTimeOffset CompletedAt);
 }

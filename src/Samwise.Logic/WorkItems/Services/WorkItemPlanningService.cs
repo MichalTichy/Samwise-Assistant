@@ -82,7 +82,11 @@ internal sealed class WorkItemPlanningService(
                     Order = step.Order,
                     Title = step.Title,
                     TechnicalDescription = step.TechnicalDescription,
-                    ToolIds = [.. step.ToolIds],
+                    ToolCalls = step.ToolCalls.Select(toolCall => new PlanToolCall
+                    {
+                        ToolId = toolCall.ToolId,
+                        ArgumentsJson = toolCall.ArgumentsJson
+                    }).ToList(),
                     HasExternalSideEffects = step.HasExternalSideEffects,
                     SuccessCriteria = step.SuccessCriteria
                 }).ToList(),

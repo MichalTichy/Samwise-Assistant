@@ -4,6 +4,6 @@ public sealed record PlanStepDraft(
     int Order,
     string Title,
     string TechnicalDescription,
-    IReadOnlyList<string> ToolIds,
+    IReadOnlyList<PlanToolCallDraft> ToolCalls,
     bool HasExternalSideEffects,
     string SuccessCriteria);

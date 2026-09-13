@@ -19,37 +19,3 @@ public sealed class WorkItemPlan
     public DateTimeOffset CreatedAt { get; set; }
     public PlanReview? Review { get; set; }
 }
-
-public sealed class PlanPlaybookSnapshot
-{
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public DateTimeOffset UpdatedAt { get; set; }
-}
-
-public sealed class PlanToolCatalogSnapshot
-{
-    public string CatalogVersion { get; set; } = string.Empty;
-    public string RawJson { get; set; } = string.Empty;
-    public List<PlanToolCapability> Tools { get; set; } = [];
-}
-
-public sealed class PlanToolCapability
-{
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public string InputSchemaJson { get; set; } = string.Empty;
-    public bool CanInvoke { get; set; }
-}
-
-public sealed class PlanStep
-{
-    public int Order { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string TechnicalDescription { get; set; } = string.Empty;
-    public List<string> ToolIds { get; set; } = [];
-    public bool HasExternalSideEffects { get; set; }
-    public string SuccessCriteria { get; set; } = string.Empty;
-}

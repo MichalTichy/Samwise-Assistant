@@ -284,6 +284,28 @@
     .configuration-field-heading { margin-top: 1.1rem; display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
     .configuration-field-heading strong { margin-bottom: 0; }
     .configuration-field-heading span { color: #9b8e80; font-size: .68rem; }
+    .stage-tool-catalog { margin-top: 1.1rem; padding: 1rem; border: 1px solid #e9ddcf; border-radius: .9rem; background: rgb(251 246 237 / .72); }
+    .stage-tool-catalog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+    .stage-tool-catalog-heading > div > strong, .stage-tool-catalog-heading > div > span { display: block; }
+    .stage-tool-catalog-heading > div > strong { color: #55483e; font-size: .78rem; }
+    .stage-tool-catalog-heading > div > span, .stage-tool-catalog-heading > span { color: #928476; font-size: .67rem; }
+    .stage-tool-catalog-heading > span { text-align: right; }
+    .stage-tool-servers { margin-top: .8rem; display: grid; gap: .5rem; }
+    .stage-tool-server { overflow: hidden; border: 1px solid #e8dac9; border-radius: .75rem; background: #fffaf2; }
+    .stage-tool-server > summary { padding: .75rem .85rem; display: flex; align-items: center; justify-content: space-between; gap: .8rem; cursor: pointer; list-style-position: inside; }
+    .stage-tool-server > summary > span:first-of-type { flex: 1; min-width: 0; }
+    .stage-tool-server > summary strong, .stage-tool-server > summary code { display: block; }
+    .stage-tool-server > summary strong { color: #50443a; font-size: .75rem; }
+    .stage-tool-server > summary code, .stage-tool-list code, .stage-tool-note code { color: #8b5b23; font-size: .63rem; overflow-wrap: anywhere; }
+    .stage-tool-server > summary > span:last-child { display: flex; align-items: center; justify-content: flex-end; gap: .35rem; }
+    .stage-tool-server > summary small { padding: .17rem .38rem; border-radius: 999px; color: #75685d; background: #f1e8dc; font-size: .58rem; white-space: nowrap; }
+    .stage-tool-server > p { margin: 0; padding: 0 .85rem .7rem; color: #847668; font-size: .68rem; line-height: 1.45; }
+    .stage-tool-list { padding: .7rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; border-top: 1px solid #eee2d4; background: #fbf5eb; }
+    .stage-tool-list article { min-width: 0; padding: .65rem; border: 1px solid #eadfd2; border-radius: .65rem; background: #fffaf3; }
+    .stage-tool-list article strong { display: block; color: #594c41; font-size: .7rem; }
+    .stage-tool-list article p { margin: .38rem 0 0; color: #8d8073; font-size: .64rem; line-height: 1.45; }
+    .stage-tool-empty, .stage-tool-note { margin: .75rem 0 0; color: #8d8073; font-size: .68rem; line-height: 1.5; }
+    .stage-tool-note { padding-top: .7rem; border-top: 1px solid #eadfd2; }
     .prompt-textarea { margin-top: 1.1rem; }
     .prompt-textarea textarea { font: .78rem/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .prompt-actions { padding: .8rem 0 1.15rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #ece1d4; }
@@ -533,8 +555,10 @@
     .prompt-tabs { display: flex; overflow-x: auto; }
     .prompt-tab { min-width: 150px !important; }
     .prompt-editor-body, .detail-card { padding: 1rem !important; }
-    .placeholder-grid, .plan-notes-grid, .work-item-detail-side, .activity-metadata-grid { grid-template-columns: 1fr; }
+    .placeholder-grid, .stage-tool-list, .plan-notes-grid, .work-item-detail-side, .activity-metadata-grid { grid-template-columns: 1fr; }
     .agent-runtime-settings { grid-template-columns: 1fr; }
+    .stage-tool-catalog-heading, .stage-tool-server > summary { align-items: flex-start; flex-direction: column; }
+    .stage-tool-catalog-heading > span { text-align: left; }
     .activity-dialog-heading, .activity-section-heading { align-items: flex-start; flex-direction: column; }
     .activity-section-heading > span { text-align: left; }
     .event-row { grid-template-columns: 1fr; gap: .6rem; }

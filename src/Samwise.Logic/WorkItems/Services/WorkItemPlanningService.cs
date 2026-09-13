@@ -1,29 +1,19 @@
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
-using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
-using Samwise.Logic.Prompts;
-using Samwise.Logic.Playbooks.Specifications;
+using Samwise.Logic.Prompts.Services;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
 namespace Samwise.Logic.WorkItems.Services;
 
-internal interface IWorkItemPlanningService
-{
-    Task PlanAsync(string workItemId, CancellationToken cancellationToken);
-}
-
 internal sealed class WorkItemPlanningService(
     IRepository<DomainWorkItem> workItemRepository,
-    IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
-    IReadOnlyRepository<Playbook> playbookRepository,
     IAgentRuntime runtime,
-    IAgentToolCatalog toolCatalog,
-    IPromptRenderer promptRenderer,
+    IAgentPromptBuilder promptBuilder,
     IAgentInvocationService invocationService,
     TimeProvider timeProvider,
     ILogger<WorkItemPlanningService> logger) : IWorkItemPlanningService
@@ -43,53 +33,32 @@ internal sealed class WorkItemPlanningService(
         AgentInvocation? invocation = null;
         try
         {
-            var agentConfiguration = await agentConfigurationRepository.GetRequiredByIdAsync(
-                AgentConfiguration.DocumentId,
-                cancellationToken);
-            var stageConfiguration = agentConfiguration.GetStage(AgentStage.Planning);
-            var playbooks = await playbookRepository.ListAsync(
-                new PlaybooksSpecification(enabledOnly: true), cancellationToken);
-            var comments = workItem.Comments;
-            var previousPlan = workItem.FindLatestPlan();
-            var planningCatalog = await toolCatalog.GetPlanningToolsAsync(cancellationToken);
-            var executionCatalog = await toolCatalog.GetExecutionToolsAsync(cancellationToken);
-            var renderResult = promptRenderer.Render(
-                AgentStage.Planning,
-                stageConfiguration.Prompt,
-                AgentWorkflowSupport.BuildPlanningValues(
-                    workItem,
-                    comments,
-                    previousPlan,
-                    playbooks,
-                    executionCatalog,
-                    timeProvider.GetUtcNow()));
-            if (!renderResult.Succeeded)
-            {
-                throw new InvalidOperationException(string.Join(" ", renderResult.Errors));
-            }
+            var prompt = await promptBuilder.BuildPlanningAsync(workItem.Id, cancellationToken);
 
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
                     "Planning",
-                    renderResult.Text,
+                    prompt.Text,
                     null,
                     workItem.Id,
                     revision,
-                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort),
-                    planningCatalog),
+                    prompt.Configuration,
+                    prompt.PlanningTools),
                 cancellationToken);
             var result = await runtime.PlanAsync(
                 new PlannerRequest(
                     workItem.Id,
                     revision,
                     planNumber,
-                    renderResult.Text,
-                    planningCatalog,
-                    executionCatalog,
-                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
+                    prompt.Text,
+                    prompt.PlanningTools,
+                    prompt.ExecutionTools,
+                    prompt.Configuration),
                 cancellationToken);
-            AgentWorkflowSupport.ValidatePlan(result.Plan, executionCatalog);
-            var playbook = AgentWorkflowSupport.ResolvePlaybookSnapshot(result.Plan.PlaybookId, playbooks);
+            AgentWorkflowSupport.ValidatePlan(result.Plan, prompt.ExecutionTools);
+            var playbook = AgentWorkflowSupport.ResolvePlaybookSnapshot(
+                result.Plan.PlaybookId,
+                prompt.AvailablePlaybooks);
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
@@ -117,10 +86,10 @@ internal sealed class WorkItemPlanningService(
                     HasExternalSideEffects = step.HasExternalSideEffects,
                     SuccessCriteria = step.SuccessCriteria
                 }).ToList(),
-                PlanningTools = AgentWorkflowSupport.CreatePlanToolSnapshot(planningCatalog),
-                ExecutionTools = AgentWorkflowSupport.CreatePlanToolSnapshot(executionCatalog),
-                AgentConfigurationId = agentConfiguration.Id,
-                AgentConfigurationUpdatedAt = stageConfiguration.UpdatedAt,
+                PlanningTools = AgentWorkflowSupport.CreatePlanToolSnapshot(prompt.PlanningTools),
+                ExecutionTools = AgentWorkflowSupport.CreatePlanToolSnapshot(prompt.ExecutionTools),
+                AgentConfigurationId = prompt.AgentConfigurationId,
+                AgentConfigurationUpdatedAt = prompt.AgentConfigurationUpdatedAt,
                 PlanningInvocationId = invocation.Id,
                 CreatedAt = timeProvider.GetUtcNow()
             };

@@ -5,6 +5,7 @@ using Samwise.Logic.Agents.Services;
 using Samwise.Logic.Inbox.Services;
 using Samwise.Logic.Inputs.Email.Services;
 using Samwise.Logic.Prompts;
+using Samwise.Logic.Prompts.Services;
 using Samwise.Logic.WorkItems.Services;
 using Shared.Infrastructure.IoC;
 
@@ -22,6 +23,8 @@ public sealed class LogicInstaller : IInstaller
         services.AddSingleton<IEmailAccountProcessingLock, EmailAccountProcessingLock>();
         services.AddScoped<IWorkItemPlanningService, WorkItemPlanningService>();
         services.AddScoped<IWorkItemExecutionService, WorkItemExecutionService>();
+        services.AddScoped<IAgentPromptBuilder, AgentPromptBuilder>();
+        services.AddSingleton<IAgentPromptPlaceholderCatalog, AgentPromptPlaceholderCatalog>();
         services.AddSingleton<IPromptRenderer, PromptRenderer>();
         services.AddSingleton(TimeProvider.System);
     }

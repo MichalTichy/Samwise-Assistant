@@ -5,7 +5,31 @@ namespace Samwise.Tests.Prompts;
 
 public sealed class PromptRendererTests
 {
-    private readonly PromptRenderer _renderer = new();
+    private readonly AgentPromptPlaceholderCatalog _catalog = new();
+    private readonly PromptRenderer _renderer;
+
+    public PromptRendererTests()
+    {
+        _renderer = new PromptRenderer(_catalog);
+    }
+
+    [Fact]
+    public void PlaceholderCatalogDerivesMetadataAndStagesFromTheConstantDeclarations()
+    {
+        var executionTools = _catalog.GetForStage(AgentStage.Intake)
+            .Single(placeholder => placeholder.Key == AgentPromptPlaceholders.ExecutionTools);
+
+        Assert.Equal("Execution tools", executionTools.Label);
+        Assert.Equal(
+            [AgentStage.Intake, AgentStage.Planning, AgentStage.Execution],
+            executionTools.Stages);
+        Assert.DoesNotContain(
+            _catalog.GetForStage(AgentStage.Intake),
+            placeholder => placeholder.Key == AgentPromptPlaceholders.WorkItemDescription);
+        Assert.Contains(
+            _catalog.GetForStage(AgentStage.Planning),
+            placeholder => placeholder.Key == AgentPromptPlaceholders.WorkItemDescription);
+    }
 
     [Fact]
     public void RenderReplacesKnownPlaceholdersIncludingWhitespaceAndEmptyValues()
@@ -13,9 +37,9 @@ public sealed class PromptRendererTests
         const string template = "Input: {{ input.text }}\nWork items: {{active_work_items}}\nAt: {{current_time}}";
         var values = new Dictionary<string, string?>
         {
-            ["input.text"] = "Please prepare the offer.",
-            ["active_work_items"] = null,
-            ["current_time"] = "2026-08-17T08:00:00Z"
+            [AgentPromptPlaceholders.InputText] = "Please prepare the offer.",
+            [AgentPromptPlaceholders.ActiveWorkItems] = null,
+            [AgentPromptPlaceholders.CurrentTime] = "2026-08-17T08:00:00Z"
         };
 
         var result = _renderer.Render(AgentStage.Intake, template, values);
@@ -64,6 +88,16 @@ public sealed class PromptRendererTests
     public void PlanningPromptAcceptsThePlaybooksPlaceholder()
     {
         var errors = _renderer.Validate(AgentStage.Planning, "Playbooks: {{playbooks}}");
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void IntakePromptAcceptsBothDownstreamToolCatalogPlaceholders()
+    {
+        var errors = _renderer.Validate(
+            AgentStage.Intake,
+            "Planning: {{planning_tools}} Execution: {{execution_tools}}");
 
         Assert.Empty(errors);
     }

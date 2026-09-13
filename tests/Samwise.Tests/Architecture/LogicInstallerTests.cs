@@ -5,6 +5,7 @@ using Samwise.Logic.Inbox.Services;
 using Samwise.Logic.Inputs.Email.Services;
 using Samwise.Logic.Installers;
 using Samwise.Logic.Prompts;
+using Samwise.Logic.Prompts.Services;
 using Samwise.Logic.WorkItems.Services;
 
 namespace Samwise.Tests.Architecture;
@@ -22,6 +23,8 @@ public sealed class LogicInstallerTests
 
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetService<MediatR.ISender>());
+        Assert.IsType<AgentPromptPlaceholderCatalog>(
+            provider.GetRequiredService<IAgentPromptPlaceholderCatalog>());
         Assert.IsType<PromptRenderer>(provider.GetRequiredService<IPromptRenderer>());
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IAgentInvocationService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventClassificationService));
@@ -30,6 +33,7 @@ public sealed class LogicInstallerTests
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IEmailAccountProcessingLock));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemPlanningService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemExecutionService));
+        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IAgentPromptBuilder));
     }
 
     [Fact]

@@ -23,6 +23,8 @@ public sealed class AgentConfigurationTests
         Assert.Empty(configuration.Planning.ReasoningEffort);
         Assert.Empty(configuration.Execution.ReasoningEffort);
         Assert.Contains("{{input.text}}", configuration.Intake.Prompt);
+        Assert.Contains("{{planning_tools}}", configuration.Intake.Prompt);
+        Assert.Contains("{{execution_tools}}", configuration.Intake.Prompt);
         Assert.Contains("{{playbooks}}", configuration.Planning.Prompt);
         Assert.Contains("{{approved_plan}}", configuration.Execution.Prompt);
     }
@@ -36,7 +38,7 @@ public sealed class AgentConfigurationTests
         var handler = new SaveAgentStageConfigurationUsecaseHandler(
             repository,
             new StaticAgentModelCatalog(),
-            new PromptRenderer(),
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
             new FixedTimeProvider(updatedAt));
 
         var result = await handler.Handle(
@@ -65,7 +67,7 @@ public sealed class AgentConfigurationTests
         var handler = new SaveAgentStageConfigurationUsecaseHandler(
             repository,
             new StaticAgentModelCatalog(),
-            new PromptRenderer(),
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
             new FixedTimeProvider(InitialTime));
 
         await Assert.ThrowsAsync<Exception>(() => handler.Handle(
@@ -88,7 +90,7 @@ public sealed class AgentConfigurationTests
             repository,
             new StaticAgentModelCatalog(
                 new AgentModelDefinition("fixed-effort-model", ["high"], "high")),
-            new PromptRenderer(),
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
             new FixedTimeProvider(InitialTime));
 
         var result = await handler.Handle(

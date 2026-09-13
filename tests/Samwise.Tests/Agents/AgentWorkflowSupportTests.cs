@@ -71,7 +71,20 @@ public sealed class AgentWorkflowSupportTests
         var catalog = new ToolCatalogSnapshot(
             "sha256:catalog",
             "{\"catalog_version\":\"sha256:catalog\"}",
-            [new ToolCapability("documents/search", "search", "Search documents", "{\"type\":\"object\"}", true)]);
+            [new ToolServerCapability(
+                "documents",
+                "Documents",
+                "1.0.0",
+                false,
+                null,
+                null,
+                null,
+                [new ToolCapability(
+                    "documents/search",
+                    "search",
+                    "Search documents",
+                    "{\"type\":\"object\"}",
+                    true)])]);
 
         var snapshot = AgentWorkflowSupport.CreatePlanToolSnapshot(catalog);
 
@@ -81,37 +94,6 @@ public sealed class AgentWorkflowSupportTests
         Assert.Equal("documents/search", tool.Id);
         Assert.Equal("{\"type\":\"object\"}", tool.InputSchemaJson);
         Assert.True(tool.CanInvoke);
-    }
-
-    [Fact]
-    public void PlanningValuesExposeConfiguredPlaybooksAsStructuredGuidance()
-    {
-        var now = new DateTimeOffset(2026, 9, 1, 8, 0, 0, TimeSpan.Zero);
-        var workItem = Samwise.Domain.WorkItems.WorkItem.CreateFromInbound(
-            "Process the attached invoice.",
-            "Process invoice",
-            now);
-        var playbook = new Playbook
-        {
-            Id = "invoice-processing",
-            Name = "Invoice processing",
-            Description = "Check duplicates and create only a draft entry.",
-            IsEnabled = true,
-            UpdatedAt = now
-        };
-        var catalog = new ToolCatalogSnapshot("catalog", "{}", []);
-
-        var values = AgentWorkflowSupport.BuildPlanningValues(
-            workItem,
-            [],
-            null,
-            [playbook],
-            catalog,
-            now);
-
-        var renderedPlaybooks = Assert.IsType<string>(values["playbooks"]);
-        Assert.Contains("invoice-processing", renderedPlaybooks, StringComparison.Ordinal);
-        Assert.Contains("create only a draft entry", renderedPlaybooks, StringComparison.Ordinal);
     }
 
     [Fact]

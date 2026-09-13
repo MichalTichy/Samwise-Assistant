@@ -16,9 +16,9 @@ This project contains only Codex CLI API Gateway extensions that are unavailable
 
 ## Tool-catalog flow
 
-1. The client calls the selected project's `GET /v1/tools` endpoint with that profile's credential.
+1. The client calls the selected Intake, Planning, or Execution profile's `GET /v1/tools` endpoint with that profile's credential.
 2. The Gateway returns only tools enabled for that key/project and a deterministic catalog version.
-3. The transport preserves the raw JSON and normalized tool metadata for planning and approval checks.
+3. The transport preserves the raw JSON plus normalized server and tool metadata for the settings UI, prompt context, invocation history, and approval checks.
 
 ## Security and reliability boundaries
 

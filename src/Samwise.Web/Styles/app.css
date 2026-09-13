@@ -221,7 +221,7 @@
     .capture-flow strong { margin-bottom: .2rem; display: block; color: #594d43; font-size: .75rem; }
 
     /* Board */
-    .work-item-board { display: grid; grid-template-columns: repeat(4, minmax(235px, 1fr)); gap: .85rem; overflow-x: auto; padding-bottom: 1rem; }
+    .work-item-board { display: grid; grid-template-columns: repeat(5, minmax(235px, 1fr)); gap: .85rem; overflow-x: auto; padding-bottom: 1rem; }
     .board-column { min-height: 460px; padding: .75rem; border: 1px solid rgb(104 67 41 / .08); border-radius: 1.1rem; background: rgb(226 214 195 / .27); }
     .board-column > header { height: 2.65rem; padding: 0 .2rem .65rem; display: flex; align-items: center; gap: .55rem; }
     .board-column h2 { margin: 0; flex: 1; color: #53483e; font-size: .8rem; font-weight: 780; }
@@ -229,6 +229,7 @@
     .dot-draft { background: #8b9eaa; }
     .dot-approval { background: #d8952f; }
     .dot-running { background: #846998; }
+    .dot-follow-up { background: #4f7893; }
     .dot-complete { background: #6f7f45; }
     .column-count { min-width: 1.4rem; height: 1.4rem; padding: 0 .4rem; display: inline-grid; place-items: center; border-radius: .5rem; color: #837669; background: #e9dfd0; font-size: .65rem; }
     .column-cards { display: grid; align-content: start; gap: .65rem; }
@@ -432,6 +433,8 @@
     .plan-notes-grid { padding: 1rem 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; border-bottom: 1px solid #ece1d4; }
     .plan-notes-grid h3 { margin-bottom: .45rem; color: #7b6e62; font-size: .72rem; text-transform: uppercase; }
     .plan-notes-grid ul { margin: 0; padding-left: 1.15rem; color: #62564c; font-size: .76rem; line-height: 1.6; }
+    .follow-up-intent { margin-top: 1rem; padding: .85rem 1rem; display: grid; gap: .25rem; border: 1px solid #d9caa9; border-radius: 12px; background: #faf4e6; color: #62533e; font-size: .78rem; }
+    .follow-up-intent strong { color: #55442d; }
     .plan-steps { margin: 0; padding: .45rem 0; list-style: none; }
     .plan-steps > li { padding: 1rem 0; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: .8rem; border-bottom: 1px solid #eee4d7; }
     .plan-steps > li:last-child { border-bottom: 0; }
@@ -531,7 +534,7 @@
 }
 
 @media (max-width: 1050px) {
-    .work-item-board { grid-template-columns: repeat(4, 265px); }
+    .work-item-board { grid-template-columns: repeat(5, 265px); }
     .work-item-detail-grid { grid-template-columns: minmax(0, 1fr); }
     .work-item-detail-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .auth-page { grid-template-columns: minmax(280px, 1fr) minmax(340px, 430px); gap: 3rem; }

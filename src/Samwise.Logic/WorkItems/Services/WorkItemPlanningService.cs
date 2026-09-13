@@ -76,6 +76,8 @@ internal sealed class WorkItemPlanningService(
                 Summary = result.Plan.Summary,
                 Assumptions = [.. result.Plan.Assumptions],
                 Risks = [.. result.Plan.Risks],
+                CompletionMode = result.Plan.CompletionMode,
+                ExpectedFollowUp = result.Plan.ExpectedFollowUp,
                 Playbook = playbook,
                 Steps = result.Plan.Steps.Select(step => new PlanStep
                 {

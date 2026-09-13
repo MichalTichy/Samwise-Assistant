@@ -184,6 +184,17 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         UpdatedAt = now;
     }
 
+    public void WaitForFollowUp(DateTimeOffset now)
+    {
+        if (Status != WorkItemStatus.Executing)
+        {
+            throw new InvalidOperationException("The work item is not executing.");
+        }
+
+        Status = WorkItemStatus.WaitingForFollowUp;
+        UpdatedAt = now;
+    }
+
     public void MarkExecutionUncertain(DateTimeOffset now)
     {
         if (Status == WorkItemStatus.Executing)

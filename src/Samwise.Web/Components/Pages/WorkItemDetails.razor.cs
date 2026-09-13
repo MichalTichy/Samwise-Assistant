@@ -138,6 +138,7 @@ public partial class WorkItemDetails
         WorkItemStatus.AwaitingApproval => "Awaiting approval",
         WorkItemStatus.NeedsAttention => "Needs attention",
         WorkItemStatus.OutcomeUnknown => "Outcome unknown",
+        WorkItemStatus.WaitingForFollowUp => "Waiting for follow-up",
         _ => status.ToString()
     };
 

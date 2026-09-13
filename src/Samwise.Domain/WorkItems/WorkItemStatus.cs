@@ -9,5 +9,6 @@ public enum WorkItemStatus
     NeedsAttention = 4,
     Completed = 5,
     Discarded = 6,
-    OutcomeUnknown = 7
+    OutcomeUnknown = 7,
+    WaitingForFollowUp = 8
 }

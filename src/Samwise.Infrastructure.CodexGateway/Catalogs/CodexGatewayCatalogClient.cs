@@ -27,12 +27,6 @@ internal sealed class CodexGatewayCatalogClient : IAgentToolCatalog, IAgentModel
         ValidateProfile(endpoints.Execution, "Execution");
     }
 
-    public Task<ToolCatalogSnapshot> GetPlanningToolsAsync(CancellationToken cancellationToken = default) =>
-        GetToolsAsync(AgentStage.Planning, cancellationToken);
-
-    public Task<ToolCatalogSnapshot> GetExecutionToolsAsync(CancellationToken cancellationToken = default) =>
-        GetToolsAsync(AgentStage.Execution, cancellationToken);
-
     public async Task<IReadOnlyList<AgentModelDefinition>> GetModelsAsync(
         AgentStage stage,
         CancellationToken cancellationToken = default)
@@ -59,18 +53,10 @@ internal sealed class CodexGatewayCatalogClient : IAgentToolCatalog, IAgentModel
             .ToList();
     }
 
-    private async Task<ToolCatalogSnapshot> GetToolsAsync(
+    public async Task<ToolCatalogSnapshot> GetToolsAsync(
         AgentStage stage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
-        if (stage is not AgentStage.Planning and not AgentStage.Execution)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(stage),
-                stage,
-                "Only planning and execution profiles expose tool catalogs.");
-        }
-
         var client = httpClientFactory.CreateClient(GetHttpClientName(stage));
         using var response = await client.GetAsync("tools", cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -80,9 +66,10 @@ internal sealed class CodexGatewayCatalogClient : IAgentToolCatalog, IAgentModel
         var catalogVersion = root.GetProperty("catalog_version").GetString()
             ?? throw new InvalidOperationException("The Gateway tool catalog has no version.");
 
-        var tools = new List<ToolCapability>();
+        var servers = new List<ToolServerCapability>();
         foreach (var server in root.GetProperty("data").EnumerateArray())
         {
+            var tools = new List<ToolCapability>();
             foreach (var tool in server.GetProperty("tools").EnumerateArray())
             {
                 tools.Add(new ToolCapability(
@@ -94,10 +81,26 @@ internal sealed class CodexGatewayCatalogClient : IAgentToolCatalog, IAgentModel
                     tool.GetProperty("input_schema").GetRawText(),
                     true));
             }
+
+            servers.Add(new ToolServerCapability(
+                server.GetProperty("id").GetString()
+                    ?? throw new InvalidOperationException("A Gateway MCP server has no ID."),
+                server.GetProperty("name").GetString() ?? string.Empty,
+                server.GetProperty("version").GetString() ?? string.Empty,
+                server.GetProperty("required").GetBoolean(),
+                GetOptionalString(server, "title"),
+                GetOptionalString(server, "description"),
+                GetOptionalString(server, "website_url"),
+                tools));
         }
 
-        return new ToolCatalogSnapshot(catalogVersion, raw, tools);
+        return new ToolCatalogSnapshot(catalogVersion, raw, servers);
     }
+
+    private static string? GetOptionalString(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
 
     private static string GetHttpClientName(AgentStage stage) => stage switch
     {

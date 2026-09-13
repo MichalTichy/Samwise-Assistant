@@ -17,10 +17,14 @@ public partial class AgentSettings
     private string reasoningEffort = string.Empty;
     private IReadOnlyDictionary<AgentStage, IReadOnlyList<AgentModelDefinition>> modelsByStage =
         new Dictionary<AgentStage, IReadOnlyList<AgentModelDefinition>>();
+    private IReadOnlyDictionary<AgentStage, ToolCatalogSnapshot> toolsByStage =
+        new Dictionary<AgentStage, ToolCatalogSnapshot>();
+    private IReadOnlyDictionary<AgentStage, string> toolErrorsByStage =
+        new Dictionary<AgentStage, string>();
     private IReadOnlyList<AgentModelDefinition> availableModels = [];
     private IReadOnlyList<string> availableReasoningEfforts = [];
     private IReadOnlyList<string> errors = [];
-    private string? catalogError;
+    private string? modelCatalogError;
     private string? saveMessage;
     private bool saving;
 
@@ -36,6 +40,9 @@ public partial class AgentSettings
     [Inject]
     private IAgentModelCatalog ModelCatalog { get; set; } = default!;
 
+    [Inject]
+    private IAgentToolCatalog ToolCatalog { get; set; } = default!;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -44,8 +51,10 @@ public partial class AgentSettings
         }
         catch (Exception exception)
         {
-            catalogError = $"The Gateway model catalog could not be loaded: {exception.Message}";
+            modelCatalogError = $"The Gateway model catalog could not be loaded: {exception.Message}";
         }
+
+        await LoadToolCatalogsAsync();
 
         await LoadConfigurationsAsync();
         Select(configurations.FirstOrDefault(configuration => configuration.Stage == AgentStage.Planning) ?? configurations.FirstOrDefault());
@@ -103,7 +112,36 @@ public partial class AgentSettings
         modelsByStage = catalogs.ToDictionary(
             catalog => catalog.Stage,
             catalog => catalog.Models);
-        catalogError = null;
+        modelCatalogError = null;
+    }
+
+    private async Task LoadToolCatalogsAsync()
+    {
+        var results = await Task.WhenAll(Enum.GetValues<AgentStage>().Select(async stage =>
+        {
+            try
+            {
+                return new ToolCatalogLoadResult(
+                    stage,
+                    await ToolCatalog.GetToolsAsync(stage),
+                    null);
+            }
+            catch (Exception exception)
+            {
+                return new ToolCatalogLoadResult(stage, null, exception.Message);
+            }
+        }));
+
+        toolsByStage = results
+            .Where(result => result.Catalog is not null)
+            .ToDictionary(
+                result => result.Stage,
+                result => result.Catalog!);
+        toolErrorsByStage = results
+            .Where(result => result.Error is not null)
+            .ToDictionary(
+                result => result.Stage,
+                result => $"The Gateway MCP catalog could not be loaded: {result.Error}");
     }
 
     private async Task SaveAsync()
@@ -176,4 +214,24 @@ public partial class AgentSettings
         _ when effort.Length > 0 => char.ToUpperInvariant(effort[0]) + effort[1..],
         _ => string.Empty
     };
+
+    private ToolCatalogSnapshot? SelectedToolCatalog => selected is null
+        ? null
+        : toolsByStage.GetValueOrDefault(selected.Stage);
+
+    private string? SelectedToolCatalogError => selected is null
+        ? null
+        : toolErrorsByStage.GetValueOrDefault(selected.Stage);
+
+    private static string ServerTitle(ToolServerCapability server) =>
+        string.IsNullOrWhiteSpace(server.Title) ? server.Name : server.Title;
+
+    private static string FormatCatalogVersion(string version) => version.Length <= 23
+        ? version
+        : string.Concat(version.AsSpan(0, 15), "…", version.AsSpan(version.Length - 7));
+
+    private sealed record ToolCatalogLoadResult(
+        AgentStage Stage,
+        ToolCatalogSnapshot? Catalog,
+        string? Error);
 }

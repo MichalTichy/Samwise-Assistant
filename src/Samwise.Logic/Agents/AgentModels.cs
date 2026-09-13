@@ -27,6 +27,21 @@ public sealed record IntakeResult(
 public sealed record ToolCatalogSnapshot(
     string CatalogVersion,
     string RawJson,
+    IReadOnlyList<ToolServerCapability> Servers)
+{
+    public IReadOnlyList<ToolCapability> Tools { get; } = Servers
+        .SelectMany(server => server.Tools)
+        .ToList();
+}
+
+public sealed record ToolServerCapability(
+    string Id,
+    string Name,
+    string Version,
+    bool Required,
+    string? Title,
+    string? Description,
+    string? WebsiteUrl,
     IReadOnlyList<ToolCapability> Tools);
 
 public sealed record ToolCapability(

@@ -78,9 +78,91 @@
             @if (availableModels.Count == 0)
             {
                 <div class="inline-alert">
-                    @(catalogError ?? "The Gateway did not report any models for this stage.")
+                    @(modelCatalogError ?? "The Gateway did not report any models for this stage.")
                 </div>
             }
+
+            <section class="stage-tool-catalog">
+                <div class="stage-tool-catalog-heading">
+                    <div>
+                        <strong>Available MCP servers and tools</strong>
+                        <span>Capabilities granted to this stage's Gateway profile.</span>
+                    </div>
+                    @if (SelectedToolCatalog is { } headingCatalog)
+                    {
+                        <span title="@headingCatalog.CatalogVersion">
+                            @headingCatalog.Servers.Count servers · @headingCatalog.Tools.Count tools · @FormatCatalogVersion(headingCatalog.CatalogVersion)
+                        </span>
+                    }
+                </div>
+
+                @if (SelectedToolCatalogError is { } toolError)
+                {
+                    <div class="inline-alert">@toolError</div>
+                }
+                else if (SelectedToolCatalog is not { } toolCatalog)
+                {
+                    <p class="stage-tool-empty">Loading the Gateway MCP catalog…</p>
+                }
+                else if (toolCatalog.Servers.Count == 0)
+                {
+                    <p class="stage-tool-empty">No MCP servers or tools are granted to this stage.</p>
+                }
+                else
+                {
+                    <div class="stage-tool-servers">
+                        @foreach (var server in toolCatalog.Servers.OrderBy(server => ServerTitle(server), StringComparer.OrdinalIgnoreCase))
+                        {
+                            <details class="stage-tool-server">
+                                <summary>
+                                    <span>
+                                        <strong>@ServerTitle(server)</strong>
+                                        <code>@server.Id</code>
+                                    </span>
+                                    <span>
+                                        @if (!string.IsNullOrWhiteSpace(server.Version))
+                                        {
+                                            <small>v@server.Version</small>
+                                        }
+                                        @if (server.Required)
+                                        {
+                                            <small>Required</small>
+                                        }
+                                        <small>@server.Tools.Count tools</small>
+                                    </span>
+                                </summary>
+                                @if (!string.IsNullOrWhiteSpace(server.Description))
+                                {
+                                    <p>@server.Description</p>
+                                }
+                                <div class="stage-tool-list">
+                                    @foreach (var tool in server.Tools.OrderBy(tool => tool.Name, StringComparer.OrdinalIgnoreCase))
+                                    {
+                                        <article>
+                                            <div>
+                                                <strong>@tool.Name</strong>
+                                                <code>@tool.Id</code>
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(tool.Description))
+                                            {
+                                                <p>@tool.Description</p>
+                                            }
+                                        </article>
+                                    }
+                                </div>
+                            </details>
+                        }
+                    </div>
+                }
+
+                @if (selected.Stage == AgentStage.Intake)
+                {
+                    <p class="stage-tool-note">
+                        Intake can also receive the Planning and Execution catalogs as
+                        <code>{{planning_tools}}</code> and <code>{{execution_tools}}</code> prompt data.
+                    </p>
+                }
+            </section>
 
             <div class="configuration-field-heading">
                 <strong>Prompt</strong>

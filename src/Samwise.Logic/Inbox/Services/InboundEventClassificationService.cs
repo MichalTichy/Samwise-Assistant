@@ -23,6 +23,7 @@ internal sealed class InboundEventClassificationService(
     IRepository<DomainWorkItem> workItemRepository,
     IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
     IAgentRuntime runtime,
+    IAgentToolCatalog toolCatalog,
     IPromptRenderer promptRenderer,
     IAgentInvocationService invocationService,
     TimeProvider timeProvider,
@@ -45,10 +46,22 @@ internal sealed class InboundEventClassificationService(
             var stageConfiguration = agentConfiguration.GetStage(AgentStage.Intake);
             var candidates = await workItemRepository.ListAsync(
                 new ActiveWorkItemCandidatesSpecification(), cancellationToken);
+            var intakeCatalogTask = toolCatalog.GetToolsAsync(AgentStage.Intake, cancellationToken);
+            var planningCatalogTask = toolCatalog.GetToolsAsync(AgentStage.Planning, cancellationToken);
+            var executionCatalogTask = toolCatalog.GetToolsAsync(AgentStage.Execution, cancellationToken);
+            await Task.WhenAll(intakeCatalogTask, planningCatalogTask, executionCatalogTask);
+            var intakeCatalog = await intakeCatalogTask;
+            var planningCatalog = await planningCatalogTask;
+            var executionCatalog = await executionCatalogTask;
             var rendered = promptRenderer.Render(
                 AgentStage.Intake,
                 stageConfiguration.Prompt,
-                AgentWorkflowSupport.BuildIntakeValues(inboundEvent, candidates, timeProvider.GetUtcNow()));
+                AgentWorkflowSupport.BuildIntakeValues(
+                    inboundEvent,
+                    candidates,
+                    planningCatalog,
+                    executionCatalog,
+                    timeProvider.GetUtcNow()));
             if (!rendered.Succeeded)
             {
                 throw new InvalidOperationException(string.Join(" ", rendered.Errors));
@@ -61,7 +74,8 @@ internal sealed class InboundEventClassificationService(
                     inboundEvent.Id,
                     null,
                     0,
-                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
+                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort),
+                    intakeCatalog),
                 cancellationToken);
             var result = await runtime.ClassifyAsync(
                 new IntakeRequest(

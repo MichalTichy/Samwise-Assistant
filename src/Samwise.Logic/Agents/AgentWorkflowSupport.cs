@@ -16,6 +16,8 @@ internal static class AgentWorkflowSupport
     public static IReadOnlyDictionary<string, string?> BuildIntakeValues(
         InboundEvent inboundEvent,
         IReadOnlyList<DomainWorkItem> candidates,
+        ToolCatalogSnapshot planningCatalog,
+        ToolCatalogSnapshot executionCatalog,
         DateTimeOffset now) =>
         new Dictionary<string, string?>(StringComparer.Ordinal)
         {
@@ -31,6 +33,8 @@ internal static class AgentWorkflowSupport
                     updated_at = workItem.UpdatedAt
                 }),
                 JsonOptions),
+            ["planning_tools"] = planningCatalog.RawJson,
+            ["execution_tools"] = executionCatalog.RawJson,
             ["current_time"] = now.ToString("O")
         };
 

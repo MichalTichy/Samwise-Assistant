@@ -1,8 +1,10 @@
+using Samwise.Domain.Agents;
+
 namespace Samwise.Logic.Agents;
 
 public interface IAgentToolCatalog
 {
-    Task<ToolCatalogSnapshot> GetPlanningToolsAsync(CancellationToken cancellationToken = default);
-
-    Task<ToolCatalogSnapshot> GetExecutionToolsAsync(CancellationToken cancellationToken = default);
+    Task<ToolCatalogSnapshot> GetToolsAsync(
+        AgentStage stage,
+        CancellationToken cancellationToken = default);
 }

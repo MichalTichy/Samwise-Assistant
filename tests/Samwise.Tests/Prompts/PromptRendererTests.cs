@@ -67,4 +67,14 @@ public sealed class PromptRendererTests
 
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void IntakePromptAcceptsBothDownstreamToolCatalogPlaceholders()
+    {
+        var errors = _renderer.Validate(
+            AgentStage.Intake,
+            "Planning: {{planning_tools}} Execution: {{execution_tools}}");
+
+        Assert.Empty(errors);
+    }
 }

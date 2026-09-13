@@ -51,8 +51,11 @@ internal sealed class WorkItemPlanningService(
                 new PlaybooksSpecification(enabledOnly: true), cancellationToken);
             var comments = workItem.Comments;
             var previousPlan = workItem.FindLatestPlan();
-            var planningCatalog = await toolCatalog.GetPlanningToolsAsync(cancellationToken);
-            var executionCatalog = await toolCatalog.GetExecutionToolsAsync(cancellationToken);
+            var planningCatalogTask = toolCatalog.GetToolsAsync(AgentStage.Planning, cancellationToken);
+            var executionCatalogTask = toolCatalog.GetToolsAsync(AgentStage.Execution, cancellationToken);
+            await Task.WhenAll(planningCatalogTask, executionCatalogTask);
+            var planningCatalog = await planningCatalogTask;
+            var executionCatalog = await executionCatalogTask;
             var renderResult = promptRenderer.Render(
                 AgentStage.Planning,
                 stageConfiguration.Prompt,

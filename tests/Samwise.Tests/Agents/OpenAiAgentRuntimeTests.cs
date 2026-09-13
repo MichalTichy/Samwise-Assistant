@@ -113,7 +113,15 @@ public sealed class OpenAiAgentRuntimeTests
         var catalog = new ToolCatalogSnapshot(
             "catalog",
             "{}",
-            [new ToolCapability("accounting/create-draft", "create-draft", null, "{}", true)]);
+            [new ToolServerCapability(
+                "accounting",
+                "Accounting",
+                "1.0.0",
+                false,
+                null,
+                null,
+                null,
+                [new ToolCapability("accounting/create-draft", "create-draft", null, "{}", true)])]);
 
         var result = await runtime.PlanAsync(
             new PlannerRequest(

@@ -28,12 +28,20 @@ public sealed class AgentInvocationServiceTests
                 new ToolCatalogSnapshot(
                     "catalog-version",
                     "{\"catalog_version\":\"catalog-version\"}",
-                    [new ToolCapability(
-                        "mail/search",
-                        "Search mail",
-                        "Search messages.",
-                        "{\"type\":\"object\"}",
-                        true)])),
+                    [new ToolServerCapability(
+                        "mail",
+                        "Mail",
+                        "1.0.0",
+                        false,
+                        null,
+                        null,
+                        null,
+                        [new ToolCapability(
+                            "mail/search",
+                            "Search mail",
+                            "Search messages.",
+                            "{\"type\":\"object\"}",
+                            true)])])),
             CancellationToken.None);
 
         Assert.Equal(AgentInvocationStatus.Running, invocation.Status);

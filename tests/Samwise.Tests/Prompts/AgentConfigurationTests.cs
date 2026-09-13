@@ -23,6 +23,8 @@ public sealed class AgentConfigurationTests
         Assert.Empty(configuration.Planning.ReasoningEffort);
         Assert.Empty(configuration.Execution.ReasoningEffort);
         Assert.Contains("{{input.text}}", configuration.Intake.Prompt);
+        Assert.Contains("{{planning_tools}}", configuration.Intake.Prompt);
+        Assert.Contains("{{execution_tools}}", configuration.Intake.Prompt);
         Assert.Contains("{{playbooks}}", configuration.Planning.Prompt);
         Assert.Contains("{{approved_plan}}", configuration.Execution.Prompt);
     }

@@ -47,7 +47,7 @@ internal sealed class WorkItemExecutionService(
                 cancellationToken);
             var stageConfiguration = agentConfiguration.GetStage(AgentStage.Execution);
             var comments = workItem.Comments;
-            var catalog = await toolCatalog.GetExecutionToolsAsync(cancellationToken);
+            var catalog = await toolCatalog.GetToolsAsync(AgentStage.Execution, cancellationToken);
             if (!string.Equals(plan.ExecutionTools.CatalogVersion, catalog.CatalogVersion, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(

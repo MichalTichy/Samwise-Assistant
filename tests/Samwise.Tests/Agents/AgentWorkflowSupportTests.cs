@@ -71,7 +71,20 @@ public sealed class AgentWorkflowSupportTests
         var catalog = new ToolCatalogSnapshot(
             "sha256:catalog",
             "{\"catalog_version\":\"sha256:catalog\"}",
-            [new ToolCapability("documents/search", "search", "Search documents", "{\"type\":\"object\"}", true)]);
+            [new ToolServerCapability(
+                "documents",
+                "Documents",
+                "1.0.0",
+                false,
+                null,
+                null,
+                null,
+                [new ToolCapability(
+                    "documents/search",
+                    "search",
+                    "Search documents",
+                    "{\"type\":\"object\"}",
+                    true)])]);
 
         var snapshot = AgentWorkflowSupport.CreatePlanToolSnapshot(catalog);
 
@@ -81,6 +94,29 @@ public sealed class AgentWorkflowSupportTests
         Assert.Equal("documents/search", tool.Id);
         Assert.Equal("{\"type\":\"object\"}", tool.InputSchemaJson);
         Assert.True(tool.CanInvoke);
+    }
+
+    [Fact]
+    public void IntakeValuesExposePlanningAndExecutionCatalogsSeparately()
+    {
+        var inboundEvent = new ManualInboundEvent
+        {
+            Id = "inbound-1",
+            ManualInputId = "manual:1",
+            Input = "Prepare the release."
+        };
+        var planningCatalog = new ToolCatalogSnapshot("planning", "{\"stage\":\"planning\"}", []);
+        var executionCatalog = new ToolCatalogSnapshot("execution", "{\"stage\":\"execution\"}", []);
+
+        var values = AgentWorkflowSupport.BuildIntakeValues(
+            inboundEvent,
+            [],
+            planningCatalog,
+            executionCatalog,
+            new DateTimeOffset(2026, 9, 13, 8, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal(planningCatalog.RawJson, values["planning_tools"]);
+        Assert.Equal(executionCatalog.RawJson, values["execution_tools"]);
     }
 
     [Fact]

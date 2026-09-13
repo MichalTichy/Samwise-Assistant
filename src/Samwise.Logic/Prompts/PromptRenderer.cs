@@ -13,6 +13,8 @@ internal sealed partial class PromptRenderer : IPromptRenderer
             [
                 new("input.text", "Input text", "Normalized text received from the source.", "Please send the revised offer."),
                 new("active_work_items", "Active work items", "Compact JSON list of possible existing work items.", "[{...}]"),
+                new("planning_tools", "Planning tools", "Planning Gateway MCP catalog as untrusted JSON data.", "{...}"),
+                new("execution_tools", "Execution tools", "Execution Gateway MCP catalog as untrusted JSON data.", "{...}"),
                 new("current_time", "Current time", "Current UTC time in ISO 8601 format.", "2026-08-17T14:30:00Z")
             ],
             [AgentStage.Planning] =

@@ -24,7 +24,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. Both the timer and UI trigger `ProcessEmailsUsecase`: the timer selects `NewSinceCheckpoint`, while the UI selects `Unread`; both create `EmailInboundEvent` documents through the IMAP port.
 2. Both use `InboundEventCaptureService` to validate, deduplicate, persist, and continue pending inputs through `InboundEventProcessingService`.
-3. `InboundEventClassificationService` renders the intake prompt, records an invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the intake decision.
+3. `InboundEventClassificationService` loads all three stage-specific Gateway tool catalogs, renders the intake prompt with the Planning and Execution catalogs as optional steering data, records the Intake catalog with the invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the intake decision.
 4. `Ignore` and `NeedsReview` finish without a work item.
 5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
 6. `InboundEventProcessingService` calls `WorkItemPlanningService` for that work item.
@@ -40,7 +40,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 ## Shared services
 
-- `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when a planning or execution invocation starts.
+- `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when every invocation starts.
 - `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores, durable checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
 - `PromptRenderer` validates placeholders—including planning's `{{playbooks}}` value—and renders the full prompt stored with every invocation.
 - `AgentWorkflowSupport` assembles deterministic structured context for each stage.

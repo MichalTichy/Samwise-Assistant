@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
-using Samwise.Logic.Prompts;
+using Samwise.Logic.Prompts.Services;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
@@ -18,10 +18,8 @@ internal interface IWorkItemExecutionService
 
 internal sealed class WorkItemExecutionService(
     IRepository<DomainWorkItem> workItemRepository,
-    IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
     IAgentRuntime runtime,
-    IAgentToolCatalog toolCatalog,
-    IPromptRenderer promptRenderer,
+    IAgentPromptBuilder promptBuilder,
     IAgentInvocationService invocationService,
     TimeProvider timeProvider,
     ILogger<WorkItemExecutionService> logger) : IWorkItemExecutionService
@@ -42,41 +40,29 @@ internal sealed class WorkItemExecutionService(
         {
             var plan = workItem.FindCurrentPlan()
                 ?? throw new InvalidOperationException("The approved plan is missing from the work item document.");
-            var agentConfiguration = await agentConfigurationRepository.GetRequiredByIdAsync(
-                AgentConfiguration.DocumentId,
+            var prompt = await promptBuilder.BuildExecutionAsync(
+                workItem.Id,
+                request.WorkItemRevision,
+                plan.Id,
                 cancellationToken);
-            var stageConfiguration = agentConfiguration.GetStage(AgentStage.Execution);
-            var comments = workItem.Comments;
-            var catalog = await toolCatalog.GetToolsAsync(AgentStage.Execution, cancellationToken);
-            if (!string.Equals(plan.ExecutionTools.CatalogVersion, catalog.CatalogVersion, StringComparison.Ordinal))
+            if (!string.Equals(
+                    plan.ExecutionTools.CatalogVersion,
+                    prompt.ExecutionTools.CatalogVersion,
+                    StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
                     "The execution tool catalog changed after approval. Replanning is required.");
             }
 
-            var rendered = promptRenderer.Render(
-                AgentStage.Execution,
-                stageConfiguration.Prompt,
-                AgentWorkflowSupport.BuildExecutionValues(
-                    workItem,
-                    comments,
-                    plan,
-                    catalog,
-                    timeProvider.GetUtcNow()));
-            if (!rendered.Succeeded)
-            {
-                throw new InvalidOperationException(string.Join(" ", rendered.Errors));
-            }
-
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
                     "Execution",
-                    rendered.Text,
+                    prompt.Text,
                     null,
                     workItem.Id,
                     workItem.Revision,
-                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort),
-                    catalog),
+                    prompt.Configuration,
+                    prompt.ExecutionTools),
                 cancellationToken);
             workItem.StartExecution(plan.Id, request.WorkItemRevision, timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(workItem, cancellationToken);
@@ -87,9 +73,9 @@ internal sealed class WorkItemExecutionService(
                     workItem.Id,
                     workItem.Revision,
                     plan.Id,
-                    rendered.Text,
-                    catalog,
-                    new AgentRunConfiguration(stageConfiguration.Model, stageConfiguration.ReasoningEffort)),
+                    prompt.Text,
+                    prompt.ExecutionTools,
+                    prompt.Configuration),
                 cancellationToken);
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 

@@ -5,6 +5,7 @@ using Samwise.Logic.Inbox.Services;
 using Samwise.Logic.Inputs.Email.Services;
 using Samwise.Logic.Installers;
 using Samwise.Logic.Prompts;
+using Samwise.Logic.Prompts.Services;
 using Samwise.Logic.WorkItems.Services;
 
 namespace Samwise.Tests.Architecture;
@@ -30,6 +31,7 @@ public sealed class LogicInstallerTests
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IEmailAccountProcessingLock));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemPlanningService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IWorkItemExecutionService));
+        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IAgentPromptBuilder));
     }
 
     [Fact]

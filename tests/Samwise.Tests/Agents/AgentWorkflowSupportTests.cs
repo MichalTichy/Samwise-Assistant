@@ -97,60 +97,6 @@ public sealed class AgentWorkflowSupportTests
     }
 
     [Fact]
-    public void IntakeValuesExposePlanningAndExecutionCatalogsSeparately()
-    {
-        var inboundEvent = new ManualInboundEvent
-        {
-            Id = "inbound-1",
-            ManualInputId = "manual:1",
-            Input = "Prepare the release."
-        };
-        var planningCatalog = new ToolCatalogSnapshot("planning", "{\"stage\":\"planning\"}", []);
-        var executionCatalog = new ToolCatalogSnapshot("execution", "{\"stage\":\"execution\"}", []);
-
-        var values = AgentWorkflowSupport.BuildIntakeValues(
-            inboundEvent,
-            [],
-            planningCatalog,
-            executionCatalog,
-            new DateTimeOffset(2026, 9, 13, 8, 0, 0, TimeSpan.Zero));
-
-        Assert.Equal(planningCatalog.RawJson, values["planning_tools"]);
-        Assert.Equal(executionCatalog.RawJson, values["execution_tools"]);
-    }
-
-    [Fact]
-    public void PlanningValuesExposeConfiguredPlaybooksAsStructuredGuidance()
-    {
-        var now = new DateTimeOffset(2026, 9, 1, 8, 0, 0, TimeSpan.Zero);
-        var workItem = Samwise.Domain.WorkItems.WorkItem.CreateFromInbound(
-            "Process the attached invoice.",
-            "Process invoice",
-            now);
-        var playbook = new Playbook
-        {
-            Id = "invoice-processing",
-            Name = "Invoice processing",
-            Description = "Check duplicates and create only a draft entry.",
-            IsEnabled = true,
-            UpdatedAt = now
-        };
-        var catalog = new ToolCatalogSnapshot("catalog", "{}", []);
-
-        var values = AgentWorkflowSupport.BuildPlanningValues(
-            workItem,
-            [],
-            null,
-            [playbook],
-            catalog,
-            now);
-
-        var renderedPlaybooks = Assert.IsType<string>(values["playbooks"]);
-        Assert.Contains("invoice-processing", renderedPlaybooks, StringComparison.Ordinal);
-        Assert.Contains("create only a draft entry", renderedPlaybooks, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void SelectedPlaybookIsSnapshottedForThePlan()
     {
         var now = new DateTimeOffset(2026, 9, 1, 8, 0, 0, TimeSpan.Zero);

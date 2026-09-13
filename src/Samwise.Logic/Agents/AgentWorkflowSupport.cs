@@ -1,89 +1,10 @@
-using System.Text.Json;
-using Samwise.Domain.Inbox;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
-using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 
 namespace Samwise.Logic.Agents;
 
 internal static class AgentWorkflowSupport
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
-
-    public static IReadOnlyDictionary<string, string?> BuildIntakeValues(
-        InboundEvent inboundEvent,
-        IReadOnlyList<DomainWorkItem> candidates,
-        ToolCatalogSnapshot planningCatalog,
-        ToolCatalogSnapshot executionCatalog,
-        DateTimeOffset now) =>
-        new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            ["input.text"] = inboundEvent.GetIntakeText(),
-            ["active_work_items"] = JsonSerializer.Serialize(
-                candidates.Select(workItem => new
-                {
-                    id = workItem.Id,
-                    title = workItem.Title,
-                    description = Truncate(workItem.Description, 1_000),
-                    status = workItem.Status.ToString(),
-                    revision = workItem.Revision,
-                    updated_at = workItem.UpdatedAt
-                }),
-                JsonOptions),
-            ["planning_tools"] = planningCatalog.RawJson,
-            ["execution_tools"] = executionCatalog.RawJson,
-            ["current_time"] = now.ToString("O")
-        };
-
-    public static IReadOnlyDictionary<string, string?> BuildPlanningValues(
-        DomainWorkItem workItem,
-        IReadOnlyList<WorkItemComment> comments,
-        WorkItemPlan? previousPlan,
-        IReadOnlyList<Playbook> playbooks,
-        ToolCatalogSnapshot executionCatalog,
-        DateTimeOffset now) =>
-        new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            ["work_item.id"] = workItem.Id,
-            ["work_item.title"] = workItem.Title,
-            ["work_item.description"] = workItem.Description,
-            ["work_item.revision"] = workItem.Revision.ToString(),
-            ["work_item.comments"] = FormatComments(comments),
-            ["previous_plan"] = previousPlan is null ? string.Empty : JsonSerializer.Serialize(previousPlan, JsonOptions),
-            ["rejection_feedback"] = workItem.LatestPlanningFeedback,
-            ["playbooks"] = JsonSerializer.Serialize(
-                playbooks.Select(playbook => new
-                {
-                    id = playbook.Id,
-                    name = playbook.Name,
-                    description = playbook.Description
-                }),
-                JsonOptions),
-            ["execution_tools"] = executionCatalog.RawJson,
-            ["current_time"] = now.ToString("O")
-        };
-
-    public static IReadOnlyDictionary<string, string?> BuildExecutionValues(
-        DomainWorkItem workItem,
-        IReadOnlyList<WorkItemComment> comments,
-        WorkItemPlan plan,
-        ToolCatalogSnapshot executionCatalog,
-        DateTimeOffset now) =>
-        new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            ["work_item.id"] = workItem.Id,
-            ["work_item.title"] = workItem.Title,
-            ["work_item.description"] = workItem.Description,
-            ["work_item.revision"] = workItem.Revision.ToString(),
-            ["work_item.comments"] = FormatComments(comments),
-            ["approved_plan"] = JsonSerializer.Serialize(plan, JsonOptions),
-            ["execution_tools"] = executionCatalog.RawJson,
-            ["current_time"] = now.ToString("O")
-        };
-
     public static string FormatExecutionResult(ExecutionResult result) => result.Outputs.Count == 0
         ? result.Summary
         : string.Concat(
@@ -170,12 +91,4 @@ internal static class AgentWorkflowSupport
             }
         }
     }
-
-    private static string FormatComments(IReadOnlyList<WorkItemComment> comments) => comments.Count == 0
-        ? string.Empty
-        : string.Join(Environment.NewLine, comments.Select(comment => $"- [{comment.AuthorKind}] {comment.Body}"));
-
-    private static string Truncate(string value, int maximumLength) => value.Length <= maximumLength
-        ? value
-        : value[..maximumLength] + "…";
 }

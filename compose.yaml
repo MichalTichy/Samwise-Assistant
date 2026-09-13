@@ -43,6 +43,22 @@ services:
     networks:
       - gateway-backend
 
+  teams-mcp:
+    image: ${TEAMS_MCP_IMAGE:-registry.tichymichal.net/mcp-teams:latest}
+    restart: unless-stopped
+    ports:
+      - "${TEAMS_MCP_BIND_ADDRESS:-0.0.0.0}:${TEAMS_MCP_PORT:-5052}:8080"
+    environment:
+      TeamsMcp__TenantId: "${TEAMS_MCP_TENANT_ID:?Set TEAMS_MCP_TENANT_ID in an ignored .env file}"
+      TeamsMcp__ClientId: "${TEAMS_MCP_CLIENT_ID:?Set TEAMS_MCP_CLIENT_ID in an ignored .env file}"
+      TeamsMcp__ClientSecret: "${TEAMS_MCP_CLIENT_SECRET:-}"
+      TeamsMcp__AdminPassword: "${TEAMS_MCP_ADMIN_PASSWORD:?Set TEAMS_MCP_ADMIN_PASSWORD in an ignored .env file}"
+      TeamsMcp__DataPath: /app/data
+    volumes:
+      - teams-data:/app/data
+    networks:
+      - gateway-backend
+
   gateway:
     image: ${CODEX_GATEWAY_IMAGE:-registry.tichymichal.net/codex-gateway:latest}
     restart: unless-stopped
@@ -53,6 +69,8 @@ services:
         condition: service_started
       todoist-mcp:
         condition: service_healthy
+      teams-mcp:
+        condition: service_started
     ports:
       - "${CODEX_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${CODEX_GATEWAY_PORT:-5050}:8080"
     extra_hosts:
@@ -121,6 +139,8 @@ volumes:
   data-protection-keys:
   mail-calendar-contacts-data:
     name: ${MAIL_CALENDAR_CONTACTS_DATA_VOLUME:-mcp-mail-calendar-contacts-data}
+  teams-data:
+    name: ${TEAMS_MCP_DATA_VOLUME:-mcp-teams-data}
   gateway-data:
     name: ${CODEX_GATEWAY_DATA_VOLUME:-codex-gateway-data}
   codex-home:

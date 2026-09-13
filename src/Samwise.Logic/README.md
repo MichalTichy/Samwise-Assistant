@@ -11,8 +11,8 @@ Each feature is grouped by responsibility:
 - `Specifications/` contains named read definitions executed through `IReadOnlyRepository<T>`.
 - `Initialization/` contains feature-owned startup seeders.
 - `Agents/` contains separate `IAgentRuntime`, `IAgentModelCatalog`, and `IAgentToolCatalog` ports, stage-oriented request/result models under `Models/Intake`, `Models/Planning`, and `Models/Execution`, shared run/catalog models under `Models/Shared`, and invocation tracking.
-- `Prompts/` contains the attribute-driven placeholder catalogue, template validation/rendering, the single `AgentPromptBuilder` that retrieves and assembles every stage's prompt context, the startup initializer for the agent-configuration document, and the UI-triggered use case that updates one nested stage.
-- `Playbooks/` contains the UI-triggered save use case and public read specification for reusable planning guidance.
+- `Prompts/` contains the attribute-driven placeholder catalogue, template validation/rendering, the single `AgentPromptBuilder` that retrieves and assembles every stage's prompt context, the startup initializer for the agent-configuration document, the UI-triggered full stage-settings use case, and the MCP-triggered prompt-only use case.
+- `Playbooks/` contains the UI- or MCP-triggered save use case and public read specification for reusable intake-and-planning guidance.
 - `Inputs/Email/` contains the IMAP adapter contracts, email-account and settings commands, account reads, checkpoint-based automatic processing, manual unread processing, and the startup initializer for email settings.
 - `Installers/LogicInstaller` registers MediatR and application services.
 
@@ -20,13 +20,13 @@ Top-level types live in separate files named after the type. Related models are 
 
 There are intentionally no read-only `Get*Usecase` wrappers. Blazor pages call the read-only repository with public specifications directly.
 
-The fixed Intake, Planning, and Execution settings form one `AgentConfiguration` document. Startup creates the complete aggregate; workflow services load that root and select the required nested stage. Model and reasoning-effort IDs are stored as strings because `IAgentModelCatalog` reports a model-specific set of supported efforts. `SaveAgentStageConfigurationUsecase` requires the root to exist, validates that pair against the current catalog, and mutates only the selected stage, so normal commands never invent missing configuration structure.
+The fixed Intake, Planning, and Execution settings form one `AgentConfiguration` document. Startup creates the complete aggregate; workflow services load that root and select the required nested stage. Model and reasoning-effort IDs are stored as strings because `IAgentModelCatalog` reports a model-specific set of supported efforts. `SaveAgentStageConfigurationUsecase` requires the root to exist, validates that pair against the current catalog, and mutates only the selected stage. `SaveAgentPromptUsecase` is the narrower MCP command: it validates and replaces only the prompt while preserving that stage's model and effort.
 
 ## Intake and planning flow
 
 1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. Both the timer and UI trigger `ProcessEmailsUsecase`: the timer selects `NewSinceCheckpoint`, while the UI selects `Unread`; both create `EmailInboundEvent` documents through the IMAP port.
 2. Both use `InboundEventCaptureService` to validate, deduplicate, persist, and continue pending inputs through `InboundEventProcessingService`.
-3. `InboundEventClassificationService` asks `AgentPromptBuilder` for a ready Intake prompt. The builder retrieves the input, active work items, configuration, time, and all three tool catalogs; the service records the Intake catalog with the invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the decision.
+3. `InboundEventClassificationService` asks `AgentPromptBuilder` for a ready Intake prompt. The builder retrieves the input, active work items, enabled playbooks, configuration, time, and all three tool catalogs. Intake uses playbooks to recognize actionability but does not select one. The service records the Intake catalog with the invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the decision.
 4. `Ignore` and `NeedsReview` finish without a work item.
 5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
 6. `InboundEventProcessingService` calls `WorkItemPlanningService` for that work item.
@@ -38,7 +38,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 1. Context addition, plan rejection, and planning retry are external use cases. Each changes the aggregate and calls `WorkItemPlanningService` directly because replanning is an integral part of the requested operation.
 2. `ApproveWorkItemPlanUsecase` performs revision-bound approval and calls `WorkItemExecutionService` directly.
 3. Execution reloads the execution tool catalog and fails closed if it differs from the approved snapshot.
-4. A confirmed response completes or marks the work item for attention. An uncertain interrupted execution becomes `OutcomeUnknown` and is not automatically repeated.
+4. A confirmed successful response stores its summary, outputs, invocation ID, and completion time as a nested Work Item completion. A reported or interrupted uncertain execution becomes `OutcomeUnknown` and is not automatically repeated.
 
 ## Shared services
 

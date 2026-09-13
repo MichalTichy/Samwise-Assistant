@@ -36,6 +36,7 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - .NET Aspire for local orchestration
 - Microsoft Agent Framework `ChatClientAgent`
 - Official OpenAI .NET connector pointed at Codex CLI API Gateway
+- Official MCP C# SDK for Samwise's authenticated self-inspection and self-tuning endpoint
 
 ## Projects
 
@@ -45,6 +46,7 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - [Samwise.Infrastructure.AgentRuntimes](src/Samwise.Infrastructure.AgentRuntimes/README.md) — provider-neutral endpoint configuration plus the standard OpenAI/Agent Framework implementation of `IAgentRuntime`
 - [Samwise.Infrastructure.CodexGateway](src/Samwise.Infrastructure.CodexGateway/README.md) — only the Gateway-specific model-capability and versioned MCP tool catalogs
 - [Samwise.Infrastructure.Email.Imap](src/Samwise.Infrastructure.Email.Imap/README.md) — read-only MailKit adapter, Data Protection credential encryption, and in-process polling trigger
+- [Samwise.Infrastructure.Mcp](src/Samwise.Infrastructure.Mcp/README.md) — authenticated first-party MCP read tools plus prompt and Playbook commands
 - [Samwise.Infrastructure.Persistence.Identity](src/Samwise.Infrastructure.Persistence.Identity/README.md) — ASP.NET Core Identity storage, migration, and owner initializer
 - [Samwise.Web](src/Samwise.Web/README.md) — authenticated Blazor composition root and presentation
 - [Samwise.AppHost](src/Samwise.AppHost/README.md) — local PostgreSQL and web orchestration
@@ -93,6 +95,12 @@ corresponding keys. The planning project should have no MCP tools, or only read-
 safe during planning. The execution project owns the exact approved execution allowlist. Samwise
 retrieves that execution catalog separately and gives its metadata to the planner.
 
+Samwise also serves its own authenticated MCP endpoint at `/mcp`. Configure it in Gateway as
+`http://web:8080/mcp` with the environment-header mapping `X-Api-Key=SAMWISE_MCP_API_KEY`. Grant its read tools
+to planning so the agent can inspect Work Items, input events, Playbooks, and agent settings. Grant
+`save_agent_prompt` and `save_playbook` only to execution so configuration changes remain part of an
+approved plan.
+
 The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts)
 and the official [Todoist MCP](https://github.com/Doist/todoist-mcp) server on the private
 `codex-gateway-backend` network. Their tools remain behind the Gateway: only tools explicitly
@@ -103,9 +111,10 @@ Version 1 must leave `send_email` and `unsubscribe_from_email` ungranted.
 dotnet user-secrets set "AgentEndpoints:Intake:ApiKey" "..." --project src/Samwise.Web
 dotnet user-secrets set "AgentEndpoints:Planning:ApiKey" "..." --project src/Samwise.Web
 dotnet user-secrets set "AgentEndpoints:Execution:ApiKey" "..." --project src/Samwise.Web
+dotnet user-secrets set "SamwiseMcp:ApiKey" "..." --project src/Samwise.Web
 ```
 
-Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to give the planning agent reusable workload guidance.
+Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to help intake recognize actionable scenarios and steer the planning agent.
 
 Configure one or more password/app-password IMAP accounts under **Configuration → Inputs → Emails**. Account creation records the current INBOX UID as a starting checkpoint, so historical mail is not imported automatically. Samwise then polls enabled accounts at the UI-configured interval and captures every newly delivered message even if you read it first, without changing message flags. The manual action searches unread mail regardless of age. When an imported message was answered, Samwise attempts to include matching sent replies in the intake context. Account passwords are encrypted with the persisted Data Protection key ring.
 

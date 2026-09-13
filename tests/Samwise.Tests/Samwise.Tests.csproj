@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\src\Samwise.Domain\Samwise.Domain.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.CodexGateway\Samwise.Infrastructure.CodexGateway.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Email.Imap\Samwise.Infrastructure.Email.Imap.csproj" />
+    <ProjectReference Include="..\..\src\Samwise.Infrastructure.Mcp\Samwise.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Persistence.Marten\Samwise.Infrastructure.Persistence.Marten.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Persistence.Identity\Samwise.Infrastructure.Persistence.Identity.csproj" />

@@ -1,10 +1,10 @@
 # Samwise.Web
 
-This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and presents the manual-input, inbox, board, work-item, agent-settings, playbook, email-input, and account experiences.
+This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and presents the manual-input, inbox, board, work-item, agent-settings, playbook, email-input, and account experiences. The board shows active and completed Work Items; discarded Work Items stay out of its Done column.
 
 ## Structure
 
-- `Program.cs` is only the host composition and HTTP pipeline entry point.
+- `Program.cs` is only the host composition and HTTP pipeline entry point, including the first-party `/mcp` route.
 - `Installers/WebInstaller` registers Razor components, LumexUI, and server authentication state.
 - `Components/App.razor` defines the HTML document, generated stylesheets, LumexUI script, and Blazor boot script.
 - `Components/Routes.razor` applies authorization and redirects anonymous users to login.
@@ -26,9 +26,9 @@ This is the single deployable Samwise process and the Blazor Interactive Server 
 ## Composition flow
 
 1. Service defaults are registered.
-2. Installer discovery composes logic, persistence, the standard OpenAI runtime, Gateway catalog extensions, Identity, and web services.
+2. Installer discovery composes logic, persistence, the standard OpenAI runtime, Gateway catalog extensions, the first-party MCP adapter, Identity, and web services.
 3. Initializers migrate Identity, ensure the owner, and seed the complete agent-configuration document.
-4. Authentication, authorization, antiforgery, static assets, health endpoints, Razor components, and the logout endpoint are mapped.
+4. Authentication, authorization, antiforgery, static assets, health endpoints, Razor components, logout, and the API-key-protected MCP endpoint are mapped.
 5. Startup runs before the server accepts normal use, and application-ready initializers run after the server starts.
 
 ## Authentication flow

@@ -7,6 +7,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using OpenAI;
 using Samwise.Domain.Agents;
+using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 
 namespace Samwise.Infrastructure.AgentRuntimes.Agents;
@@ -65,6 +66,8 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
             result.Summary,
             result.Assumptions,
             result.Risks,
+            ParseCompletionMode(result.CompletionMode),
+            result.ExpectedFollowUp,
             result.Steps.Select(step => new PlanStepDraft(
                 step.Order,
                 step.Title,
@@ -215,6 +218,16 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         return value.Trim();
     }
 
+    private static PlanCompletionMode ParseCompletionMode(string value) => value
+        .Replace("_", string.Empty, StringComparison.Ordinal)
+        .Replace("-", string.Empty, StringComparison.Ordinal)
+        .ToLowerInvariant() switch
+    {
+        "complete" => PlanCompletionMode.Complete,
+        "waitforfollowup" => PlanCompletionMode.WaitForFollowUp,
+        _ => throw new InvalidOperationException($"Unknown plan completion mode '{value}'.")
+    };
+
     private sealed class PlannerWireResult
     {
         [JsonRequired]
@@ -223,6 +236,11 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         public required string Summary { get; init; }
         public required List<string> Assumptions { get; init; }
         public required List<string> Risks { get; init; }
+        public required string CompletionMode { get; init; }
+
+        [JsonRequired]
+        public string? ExpectedFollowUp { get; init; }
+
         public required List<PlanStepWireResult> Steps { get; init; }
     }
 

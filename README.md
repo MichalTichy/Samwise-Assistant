@@ -93,11 +93,11 @@ corresponding keys. The planning project should have no MCP tools, or only read-
 safe during planning. The execution project owns the exact approved execution allowlist. Samwise
 retrieves that execution catalog separately and gives its metadata to the planner.
 
-The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts)
-and the official [Todoist MCP](https://github.com/Doist/todoist-mcp) server on the private
+The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts),
+the official [Todoist MCP](https://github.com/Doist/todoist-mcp), and [Microsoft Teams MCP](https://github.com/MichalTichy/MCP.Teams) on the private
 `codex-gateway-backend` network. Their tools remain behind the Gateway: only tools explicitly
 enabled on each trusted server and granted to `samwise-execution` can be planned and invoked.
-Version 1 must leave `send_email` and `unsubscribe_from_email` ungranted.
+Outbound messages, replies, meetings, and other mutations belong only in the execution grant.
 
 ```powershell
 dotnet user-secrets set "AgentEndpoints:Intake:ApiKey" "..." --project src/Samwise.Web
@@ -119,7 +119,7 @@ dotnet test tests/Samwise.Tests/Samwise.Tests.csproj --no-build --no-restore
 
 ## Deploy with Docker Compose
 
-The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, and Todoist MCP, using an existing PostgreSQL instance. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
+The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, Todoist MCP, and Teams MCP, using an existing PostgreSQL instance. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
 
 Copy `.env.example` to the ignored `.env`, replace every secret placeholder, then run:
 

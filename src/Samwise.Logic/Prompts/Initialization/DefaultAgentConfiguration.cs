@@ -68,6 +68,8 @@ internal static class DefaultAgentConfiguration
 
                      Current UTC time: {{current_time}}
 
+                     Return completion_mode as complete when successful execution finishes the work item. Return wait_for_follow_up when execution sends a proposal, question, or request and the work item must remain open for a later email or Teams message. When waiting, describe the expected external follow-up precisely in expected_follow_up; otherwise return null.
+
                      Make every step understandable to the user. Identify tools by their qualified IDs, call out external side effects, and give a clear success criterion for each step.
                      """
         },
@@ -96,6 +98,8 @@ internal static class DefaultAgentConfiguration
                      {{execution_tools}}
 
                      Current UTC time: {{current_time}}
+
+                     A successful execution may either complete the work item or leave it waiting for the follow-up specified by the approved plan. Do not claim the work item is complete when that follow-up is still outstanding.
                      """
         }
     };

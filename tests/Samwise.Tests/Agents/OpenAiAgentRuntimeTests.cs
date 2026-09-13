@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Samwise.Infrastructure.AgentRuntimes.Agents;
+using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 
 namespace Samwise.Tests.Agents;
@@ -96,6 +97,8 @@ public sealed class OpenAiAgentRuntimeTests
             summary = "Process the invoice safely.",
             assumptions = Array.Empty<string>(),
             risks = Array.Empty<string>(),
+            completion_mode = "complete",
+            expected_follow_up = (string?)null,
             steps = new[]
             {
                 new
@@ -140,6 +143,7 @@ public sealed class OpenAiAgentRuntimeTests
         Assert.Equal("max", document.RootElement.GetProperty("reasoning_effort").GetString());
         Assert.Equal("invoice-processing", result.Plan.PlaybookId);
         Assert.Equal("Process the invoice safely.", result.Plan.Summary);
+        Assert.Equal(PlanCompletionMode.Complete, result.Plan.CompletionMode);
         Assert.Equal("accounting/create-draft", Assert.Single(result.Plan.Steps).ToolIds.Single());
     }
 

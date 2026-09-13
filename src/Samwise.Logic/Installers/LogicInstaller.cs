@@ -24,6 +24,7 @@ public sealed class LogicInstaller : IInstaller
         services.AddScoped<IWorkItemPlanningService, WorkItemPlanningService>();
         services.AddScoped<IWorkItemExecutionService, WorkItemExecutionService>();
         services.AddScoped<IAgentPromptBuilder, AgentPromptBuilder>();
+        services.AddSingleton<IAgentPromptPlaceholderCatalog, AgentPromptPlaceholderCatalog>();
         services.AddSingleton<IPromptRenderer, PromptRenderer>();
         services.AddSingleton(TimeProvider.System);
     }

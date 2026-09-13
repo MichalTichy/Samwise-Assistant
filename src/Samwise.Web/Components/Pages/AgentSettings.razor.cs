@@ -35,7 +35,7 @@ public partial class AgentSettings
     private IReadOnlyRepository<AgentConfiguration> AgentConfigurationRepository { get; set; } = default!;
 
     [Inject]
-    private IPromptRenderer PromptRenderer { get; set; } = default!;
+    private IAgentPromptPlaceholderCatalog PlaceholderCatalog { get; set; } = default!;
 
     [Inject]
     private IAgentModelCatalog ModelCatalog { get; set; } = default!;
@@ -195,7 +195,7 @@ public partial class AgentSettings
                     stageConfiguration.Model,
                     stageConfiguration.ReasoningEffort,
                     stageConfiguration.UpdatedAt,
-                    PromptRenderer.GetPlaceholders(stage));
+                    PlaceholderCatalog.GetForStage(stage));
             })
             .ToList();
     }

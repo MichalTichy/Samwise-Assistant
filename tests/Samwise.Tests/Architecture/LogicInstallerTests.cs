@@ -23,6 +23,8 @@ public sealed class LogicInstallerTests
 
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetService<MediatR.ISender>());
+        Assert.IsType<AgentPromptPlaceholderCatalog>(
+            provider.GetRequiredService<IAgentPromptPlaceholderCatalog>());
         Assert.IsType<PromptRenderer>(provider.GetRequiredService<IPromptRenderer>());
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IAgentInvocationService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventClassificationService));

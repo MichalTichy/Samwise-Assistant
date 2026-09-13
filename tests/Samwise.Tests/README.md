@@ -7,7 +7,7 @@ This project verifies domain invariants, application workflow boundaries, Gatewa
 - `WorkItems/` tests aggregate transitions, revision-bound approval, invalidation, and execution outcomes.
 - `Inbox/` tests inbound-event state, computed manual/email intake text, stable IMAP identity, and the classification-to-planning processing flow.
 - `Inputs/Email/` tests polling configuration, exact ignored-sender normalization, and account checkpoint initialization.
-- `Prompts/` tests the single agent-configuration aggregate, stage-save behavior, placeholder validation, deterministic rendering, and the centralized builder's repository/catalog retrieval for all three stages.
+- `Prompts/` tests the single agent-configuration aggregate, attribute-derived placeholder metadata and stage assignments, template validation, deterministic rendering, and the centralized builder's repository/catalog retrieval for all three stages.
 - `Agents/` tests invocation lifecycle, playbook steering/snapshots, per-stage model and effort propagation, standard OpenAI runtime registration and captured requests, plus the isolated Gateway catalog extensions.
 - `Architecture/` protects installer composition and application-layer conventions.
 - `Persistence/` verifies the nested work-item and agent-configuration document shapes plus work-item optimistic concurrency against real PostgreSQL when enabled.

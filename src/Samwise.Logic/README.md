@@ -11,7 +11,7 @@ Each feature is grouped by responsibility:
 - `Specifications/` contains named read definitions executed through `IReadOnlyRepository<T>`.
 - `Initialization/` contains feature-owned startup seeders.
 - `Agents/` contains separate `IAgentRuntime`, `IAgentModelCatalog`, and `IAgentToolCatalog` ports, structured request/result models, and invocation tracking.
-- `Prompts/` contains template validation/rendering, the single `AgentPromptBuilder` that retrieves and assembles every stage's prompt context, the startup initializer for the agent-configuration document, and the UI-triggered use case that updates one nested stage.
+- `Prompts/` contains the attribute-driven placeholder catalogue, template validation/rendering, the single `AgentPromptBuilder` that retrieves and assembles every stage's prompt context, the startup initializer for the agent-configuration document, and the UI-triggered use case that updates one nested stage.
 - `Playbooks/` contains the UI-triggered save use case and public read specification for reusable planning guidance.
 - `Inputs/Email/` contains the IMAP adapter contracts, email-account and settings commands, account reads, checkpoint-based automatic processing, manual unread processing, and the startup initializer for email settings.
 - `Installers/LogicInstaller` registers MediatR and application services.
@@ -41,10 +41,10 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 ## Shared services
 
 - `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when every invocation starts.
-- `AgentPromptBuilder` is the only component that renders runtime prompts. Workflow services pass identifiers rather than placeholder values; the builder retrieves each stage's data and returns the rendered prompt, run configuration, and exact catalogs or playbooks required for validation and snapshots.
+- `AgentPromptPlaceholders` declares every placeholder key once as a constant with its label, description, example, and applicable stages in `PromptPlaceholderAttribute`. The settings UI, builder, and renderer all consume that catalogue.
+- `AgentPromptBuilder` is the only component that renders runtime prompts. Workflow services pass identifiers rather than placeholder values; the builder retrieves each stage's data, uses catalogue constants for its value maps, and returns the rendered prompt, run configuration, and exact catalogs or playbooks required for validation and snapshots.
 - `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores, durable checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
-- `PromptRenderer` validates placeholders—including planning's `{{playbooks}}` value—and renders the full prompt stored with every invocation.
-- `AgentWorkflowSupport` assembles deterministic structured context for each stage.
+- `PromptRenderer` validates templates against the catalogue and performs the final token replacement. `AgentWorkflowSupport` contains plan validation and snapshot helpers only.
 
 ## Architectural rules
 

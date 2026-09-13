@@ -54,6 +54,7 @@ internal sealed class AgentPromptBuilder(
     IReadOnlyRepository<AgentConfiguration> agentConfigurationRepository,
     IReadOnlyRepository<Playbook> playbookRepository,
     IAgentToolCatalog toolCatalog,
+    IAgentPromptPlaceholderCatalog placeholderCatalog,
     IPromptRenderer renderer,
     TimeProvider timeProvider) : IAgentPromptBuilder
 {
@@ -81,10 +82,10 @@ internal sealed class AgentPromptBuilder(
         var text = Render(
             AgentStage.Intake,
             stageConfiguration.Prompt,
-            new Dictionary<string, string?>(StringComparer.Ordinal)
-            {
-                ["input.text"] = inboundEvent.GetIntakeText(),
-                ["active_work_items"] = JsonSerializer.Serialize(
+            CreateValues(
+                AgentStage.Intake,
+                (AgentPromptPlaceholders.InputText, inboundEvent.GetIntakeText()),
+                (AgentPromptPlaceholders.ActiveWorkItems, JsonSerializer.Serialize(
                     activeWorkItems.Select(workItem => new
                     {
                         id = workItem.Id,
@@ -94,11 +95,10 @@ internal sealed class AgentPromptBuilder(
                         revision = workItem.Revision,
                         updated_at = workItem.UpdatedAt
                     }),
-                    JsonOptions),
-                ["planning_tools"] = planningTools.RawJson,
-                ["execution_tools"] = executionTools.RawJson,
-                ["current_time"] = timeProvider.GetUtcNow().ToString("O")
-            });
+                    JsonOptions)),
+                (AgentPromptPlaceholders.PlanningTools, planningTools.RawJson),
+                (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
+                (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
 
         return new IntakeAgentPrompt(
             text,
@@ -124,28 +124,27 @@ internal sealed class AgentPromptBuilder(
         var text = Render(
             AgentStage.Planning,
             stageConfiguration.Prompt,
-            new Dictionary<string, string?>(StringComparer.Ordinal)
-            {
-                ["work_item.id"] = workItem.Id,
-                ["work_item.title"] = workItem.Title,
-                ["work_item.description"] = workItem.Description,
-                ["work_item.revision"] = workItem.Revision.ToString(),
-                ["work_item.comments"] = FormatComments(workItem.Comments),
-                ["previous_plan"] = workItem.FindLatestPlan() is { } previousPlan
+            CreateValues(
+                AgentStage.Planning,
+                (AgentPromptPlaceholders.WorkItemId, workItem.Id),
+                (AgentPromptPlaceholders.WorkItemTitle, workItem.Title),
+                (AgentPromptPlaceholders.WorkItemDescription, workItem.Description),
+                (AgentPromptPlaceholders.WorkItemRevision, workItem.Revision.ToString()),
+                (AgentPromptPlaceholders.WorkItemComments, FormatComments(workItem.Comments)),
+                (AgentPromptPlaceholders.PreviousPlan, workItem.FindLatestPlan() is { } previousPlan
                     ? JsonSerializer.Serialize(previousPlan, JsonOptions)
-                    : string.Empty,
-                ["rejection_feedback"] = workItem.LatestPlanningFeedback,
-                ["playbooks"] = JsonSerializer.Serialize(
+                    : string.Empty),
+                (AgentPromptPlaceholders.RejectionFeedback, workItem.LatestPlanningFeedback),
+                (AgentPromptPlaceholders.Playbooks, JsonSerializer.Serialize(
                     playbooks.Select(playbook => new
                     {
                         id = playbook.Id,
                         name = playbook.Name,
                         description = playbook.Description
                     }),
-                    JsonOptions),
-                ["execution_tools"] = executionTools.RawJson,
-                ["current_time"] = timeProvider.GetUtcNow().ToString("O")
-            });
+                    JsonOptions)),
+                (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
+                (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
 
         return new PlanningAgentPrompt(
             text,
@@ -178,17 +177,16 @@ internal sealed class AgentPromptBuilder(
         var text = Render(
             AgentStage.Execution,
             stageConfiguration.Prompt,
-            new Dictionary<string, string?>(StringComparer.Ordinal)
-            {
-                ["work_item.id"] = workItem.Id,
-                ["work_item.title"] = workItem.Title,
-                ["work_item.description"] = workItem.Description,
-                ["work_item.revision"] = workItem.Revision.ToString(),
-                ["work_item.comments"] = FormatComments(workItem.Comments),
-                ["approved_plan"] = JsonSerializer.Serialize(plan, JsonOptions),
-                ["execution_tools"] = executionTools.RawJson,
-                ["current_time"] = timeProvider.GetUtcNow().ToString("O")
-            });
+            CreateValues(
+                AgentStage.Execution,
+                (AgentPromptPlaceholders.WorkItemId, workItem.Id),
+                (AgentPromptPlaceholders.WorkItemTitle, workItem.Title),
+                (AgentPromptPlaceholders.WorkItemDescription, workItem.Description),
+                (AgentPromptPlaceholders.WorkItemRevision, workItem.Revision.ToString()),
+                (AgentPromptPlaceholders.WorkItemComments, FormatComments(workItem.Comments)),
+                (AgentPromptPlaceholders.ApprovedPlan, JsonSerializer.Serialize(plan, JsonOptions)),
+                (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
+                (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
 
         return new ExecutionAgentPrompt(
             text,
@@ -213,6 +211,26 @@ internal sealed class AgentPromptBuilder(
         }
 
         return result.Text;
+    }
+
+    private IReadOnlyDictionary<string, string?> CreateValues(
+        AgentStage stage,
+        params (string Placeholder, string? Value)[] values)
+    {
+        var allowed = placeholderCatalog.GetForStage(stage)
+            .Select(placeholder => placeholder.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        var unavailable = values.FirstOrDefault(value => !allowed.Contains(value.Placeholder));
+        if (unavailable.Placeholder is not null)
+        {
+            throw new InvalidOperationException(
+                $"Prompt placeholder '{unavailable.Placeholder}' is not available for the {stage} stage.");
+        }
+
+        return values.ToDictionary(
+            value => value.Placeholder,
+            value => value.Value,
+            StringComparer.Ordinal);
     }
 
     private static AgentRunConfiguration CreateRunConfiguration(AgentStageConfiguration configuration) =>

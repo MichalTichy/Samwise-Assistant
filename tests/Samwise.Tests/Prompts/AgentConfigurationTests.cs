@@ -38,7 +38,7 @@ public sealed class AgentConfigurationTests
         var handler = new SaveAgentStageConfigurationUsecaseHandler(
             repository,
             new StaticAgentModelCatalog(),
-            new PromptRenderer(),
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
             new FixedTimeProvider(updatedAt));
 
         var result = await handler.Handle(
@@ -67,7 +67,7 @@ public sealed class AgentConfigurationTests
         var handler = new SaveAgentStageConfigurationUsecaseHandler(
             repository,
             new StaticAgentModelCatalog(),
-            new PromptRenderer(),
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
             new FixedTimeProvider(InitialTime));
 
         await Assert.ThrowsAsync<Exception>(() => handler.Handle(
@@ -90,7 +90,7 @@ public sealed class AgentConfigurationTests
             repository,
             new StaticAgentModelCatalog(
                 new AgentModelDefinition("fixed-effort-model", ["high"], "high")),
-            new PromptRenderer(),
+            new PromptRenderer(new AgentPromptPlaceholderCatalog()),
             new FixedTimeProvider(InitialTime));
 
         var result = await handler.Handle(

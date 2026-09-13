@@ -60,7 +60,7 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 
 ## Agent settings and playbook flow
 
-1. `AgentSettings` reads the single `AgentConfiguration` through `IReadOnlyRepository<AgentConfiguration>`, expands its three nested stages for display, and combines them with the placeholder legend from `IPromptRenderer`.
+1. `AgentSettings` reads the single `AgentConfiguration` through `IReadOnlyRepository<AgentConfiguration>`, expands its three nested stages for display, and obtains each stage's placeholder legend from `IAgentPromptPlaceholderCatalog`.
 2. It loads the Gateway model and MCP tool catalogs separately for each stage. The selected stage shows its granted MCP servers and grouped tools without exposing the profile credential to the browser.
 3. It presents model and model-specific reasoning-effort dropdowns and selects the Gateway-reported default when the model changes.
 4. Saving sends `SaveAgentStageConfigurationUsecase`, which validates the model/effort pair and prompt before updating the selected nested stage in that document.

@@ -6,7 +6,8 @@ public sealed record PromptPlaceholder(
     string Key,
     string Label,
     string Description,
-    string Example);
+    string Example,
+    IReadOnlyList<AgentStage> Stages);
 
 public sealed record AgentStageConfigurationEditor(
     AgentStage Stage,

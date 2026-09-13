@@ -111,15 +111,19 @@ public sealed class AgentPromptBuilderTests
         IAgentToolCatalog toolCatalog,
         IReadOnlyList<InboundEvent> inboundEvents,
         IReadOnlyList<DomainWorkItem> workItems,
-        IReadOnlyList<Playbook> playbooks) =>
-        new(
+        IReadOnlyList<Playbook> playbooks)
+    {
+        var placeholderCatalog = new AgentPromptPlaceholderCatalog();
+        return new AgentPromptBuilder(
             new ReadOnlyRepository<InboundEvent>(inboundEvents),
             new ReadOnlyRepository<DomainWorkItem>(workItems),
             new ReadOnlyRepository<AgentConfiguration>([configuration]),
             new ReadOnlyRepository<Playbook>(playbooks),
             toolCatalog,
-            new PromptRenderer(),
+            placeholderCatalog,
+            new PromptRenderer(placeholderCatalog),
             new FixedTimeProvider(Now));
+    }
 
     private sealed class RecordingToolCatalog : IAgentToolCatalog
     {

@@ -1,50 +1,11 @@
 using System.Text.RegularExpressions;
-using Samwise.Logic.Prompts;
 using Samwise.Domain.Agents;
 
 namespace Samwise.Logic.Prompts;
 
-internal sealed partial class PromptRenderer : IPromptRenderer
+internal sealed partial class PromptRenderer(
+    IAgentPromptPlaceholderCatalog placeholderCatalog) : IPromptRenderer
 {
-    private static readonly IReadOnlyDictionary<AgentStage, IReadOnlyList<PromptPlaceholder>> Definitions =
-        new Dictionary<AgentStage, IReadOnlyList<PromptPlaceholder>>
-        {
-            [AgentStage.Intake] =
-            [
-                new("input.text", "Input text", "Normalized text received from the source.", "Please send the revised offer."),
-                new("active_work_items", "Active work items", "Compact JSON list of possible existing work items.", "[{...}]"),
-                new("planning_tools", "Planning tools", "Planning Gateway MCP catalog as untrusted JSON data.", "{...}"),
-                new("execution_tools", "Execution tools", "Execution Gateway MCP catalog as untrusted JSON data.", "{...}"),
-                new("current_time", "Current time", "Current UTC time in ISO 8601 format.", "2026-08-17T14:30:00Z")
-            ],
-            [AgentStage.Planning] =
-            [
-                new("work_item.id", "Work item ID", "Stable Samwise work item identifier.", "8b07..."),
-                new("work_item.title", "Work item title", "Short work item title.", "Prepare revised offer"),
-                new("work_item.description", "Work item description", "The complete current work item statement.", "Prepare the offer..."),
-                new("work_item.revision", "Work item revision", "Revision the generated plan must match.", "2"),
-                new("work_item.comments", "Work item comments", "User context and planning feedback as Markdown.", "- Add delivery dates"),
-                new("previous_plan", "Previous plan", "Previous plan JSON, or an empty string.", "{...}"),
-                new("rejection_feedback", "Rejection feedback", "Latest user feedback, or an empty string.", "Use the new price list"),
-                new("playbooks", "Playbooks", "Enabled playbooks as trusted planning guidance in JSON format.", "[{...}]"),
-                new("execution_tools", "Execution tools", "Execution Gateway tool catalog as untrusted JSON data.", "{...}"),
-                new("current_time", "Current time", "Current UTC time in ISO 8601 format.", "2026-08-17T14:30:00Z")
-            ],
-            [AgentStage.Execution] =
-            [
-                new("work_item.id", "Work item ID", "Stable Samwise work item identifier.", "8b07..."),
-                new("work_item.title", "Work item title", "Short work item title.", "Prepare revised offer"),
-                new("work_item.description", "Work item description", "The complete approved work item statement.", "Prepare the offer..."),
-                new("work_item.revision", "Work item revision", "Revision approved by the user.", "2"),
-                new("work_item.comments", "Work item comments", "User context as Markdown.", "- Add delivery dates"),
-                new("approved_plan", "Approved plan", "Exact approved plan JSON.", "{...}"),
-                new("execution_tools", "Execution tools", "Current execution tool catalog as untrusted JSON data.", "{...}"),
-                new("current_time", "Current time", "Current UTC time in ISO 8601 format.", "2026-08-17T14:30:00Z")
-            ]
-        };
-
-    public IReadOnlyList<PromptPlaceholder> GetPlaceholders(AgentStage stage) => Definitions[stage];
-
     public IReadOnlyList<string> Validate(AgentStage stage, string template)
     {
         var errors = new List<string>();
@@ -54,7 +15,9 @@ internal sealed partial class PromptRenderer : IPromptRenderer
             return errors;
         }
 
-        var allowed = Definitions[stage].Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+        var allowed = placeholderCatalog.GetForStage(stage)
+            .Select(item => item.Key)
+            .ToHashSet(StringComparer.Ordinal);
         var matches = PlaceholderRegex().Matches(template);
         foreach (var unknown in matches
                      .Select(match => match.Groups["key"].Value)

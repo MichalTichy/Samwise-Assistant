@@ -34,10 +34,13 @@ internal sealed class AgentPromptBuilder(
         var configuration = await GetConfigurationAsync(cancellationToken);
         var activeWorkItems = await workItemRepository.ListAsync(
             new ActiveWorkItemCandidatesSpecification(), cancellationToken);
+        var playbooksTask = playbookRepository.ListAsync(
+            new PlaybooksSpecification(enabledOnly: true), cancellationToken);
         var intakeToolsTask = toolCatalog.GetToolsAsync(AgentStage.Intake, cancellationToken);
         var planningToolsTask = toolCatalog.GetToolsAsync(AgentStage.Planning, cancellationToken);
         var executionToolsTask = toolCatalog.GetToolsAsync(AgentStage.Execution, cancellationToken);
-        await Task.WhenAll(intakeToolsTask, planningToolsTask, executionToolsTask);
+        await Task.WhenAll(playbooksTask, intakeToolsTask, planningToolsTask, executionToolsTask);
+        var playbooks = await playbooksTask;
         var intakeTools = await intakeToolsTask;
         var planningTools = await planningToolsTask;
         var executionTools = await executionToolsTask;
@@ -59,6 +62,7 @@ internal sealed class AgentPromptBuilder(
                         updated_at = workItem.UpdatedAt
                     }),
                     JsonOptions)),
+                (AgentPromptPlaceholders.Playbooks, SerializePlaybooks(playbooks)),
                 (AgentPromptPlaceholders.PlanningTools, planningTools.RawJson),
                 (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
                 (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
@@ -98,14 +102,7 @@ internal sealed class AgentPromptBuilder(
                     ? JsonSerializer.Serialize(previousPlan, JsonOptions)
                     : string.Empty),
                 (AgentPromptPlaceholders.RejectionFeedback, workItem.LatestPlanningFeedback),
-                (AgentPromptPlaceholders.Playbooks, JsonSerializer.Serialize(
-                    playbooks.Select(playbook => new
-                    {
-                        id = playbook.Id,
-                        name = playbook.Name,
-                        description = playbook.Description
-                    }),
-                    JsonOptions)),
+                (AgentPromptPlaceholders.Playbooks, SerializePlaybooks(playbooks)),
                 (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
                 (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
 
@@ -202,6 +199,16 @@ internal sealed class AgentPromptBuilder(
     private static string FormatComments(IReadOnlyList<WorkItemComment> comments) => comments.Count == 0
         ? string.Empty
         : string.Join(Environment.NewLine, comments.Select(comment => $"- [{comment.AuthorKind}] {comment.Body}"));
+
+    private static string SerializePlaybooks(IReadOnlyList<Playbook> playbooks) =>
+        JsonSerializer.Serialize(
+            playbooks.Select(playbook => new
+            {
+                id = playbook.Id,
+                name = playbook.Name,
+                description = playbook.Description
+            }),
+            JsonOptions);
 
     private static string Truncate(string value, int maximumLength) => value.Length <= maximumLength
         ? value

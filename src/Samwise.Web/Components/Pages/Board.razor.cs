@@ -16,7 +16,7 @@ public partial class Board
         new("Draft", "dot-draft", [WorkItemStatus.Planning, WorkItemStatus.NeedsAttention, WorkItemStatus.OutcomeUnknown]),
         new("Approval", "dot-approval", [WorkItemStatus.AwaitingApproval]),
         new("In progress", "dot-running", [WorkItemStatus.Approved, WorkItemStatus.Executing]),
-        new("Done", "dot-complete", [WorkItemStatus.Completed, WorkItemStatus.Discarded])
+        new("Done", "dot-complete", [WorkItemStatus.Completed])
     ];
 
     private IReadOnlyList<WorkItemCard> workItems = [];
@@ -33,7 +33,7 @@ public partial class Board
         try
         {
             var documents = await WorkItemRepository.ListAsync(
-                new BoardWorkItemsSpecification(includeArchived: true));
+                new BoardWorkItemsSpecification());
             workItems = documents.Select(workItem =>
             {
                 var plan = workItem.FindCurrentPlan();

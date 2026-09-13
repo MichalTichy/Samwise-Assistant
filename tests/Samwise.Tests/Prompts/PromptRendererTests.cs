@@ -23,6 +23,9 @@ public sealed class PromptRendererTests
         Assert.Equal(
             [AgentStage.Intake, AgentStage.Planning, AgentStage.Execution],
             executionTools.Stages);
+        var playbooks = _catalog.GetForStage(AgentStage.Intake)
+            .Single(placeholder => placeholder.Key == AgentPromptPlaceholders.Playbooks);
+        Assert.Equal([AgentStage.Intake, AgentStage.Planning], playbooks.Stages);
         Assert.DoesNotContain(
             _catalog.GetForStage(AgentStage.Intake),
             placeholder => placeholder.Key == AgentPromptPlaceholders.WorkItemDescription);
@@ -85,11 +88,13 @@ public sealed class PromptRendererTests
     }
 
     [Fact]
-    public void PlanningPromptAcceptsThePlaybooksPlaceholder()
+    public void IntakeAndPlanningPromptsAcceptThePlaybooksPlaceholder()
     {
-        var errors = _renderer.Validate(AgentStage.Planning, "Playbooks: {{playbooks}}");
+        var intakeErrors = _renderer.Validate(AgentStage.Intake, "Playbooks: {{playbooks}}");
+        var planningErrors = _renderer.Validate(AgentStage.Planning, "Playbooks: {{playbooks}}");
 
-        Assert.Empty(errors);
+        Assert.Empty(intakeErrors);
+        Assert.Empty(planningErrors);
     }
 
     [Fact]

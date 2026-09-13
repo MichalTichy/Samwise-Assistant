@@ -8,7 +8,7 @@
     <div>
         <span class="page-kicker">Configuration</span>
         <h1>Playbooks</h1>
-        <p>Give the planning agent reusable guidance for recurring kinds of work.</p>
+        <p>Give intake and planning reusable guidance for recurring kinds of work.</p>
     </div>
     <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewPlaybook">New playbook</LumexButton>
 </div>
@@ -27,7 +27,7 @@
                          Class="@($"prompt-tab {(playbook.Id == selectedId ? "active" : null)}")"
                          OnClick="() => Select(playbook)">
                 <strong>@playbook.Name</strong>
-                <span>@(playbook.IsEnabled ? "Available to planning" : "Disabled")</span>
+                <span>@(playbook.IsEnabled ? "Available to intake and planning" : "Disabled")</span>
             </LumexButton>
         }
     </aside>
@@ -37,7 +37,7 @@
             <div class="prompt-editor-heading">
                 <div>
                     <h2>@(selectedId is null ? "New playbook" : "Edit playbook")</h2>
-                    <p>The description tells the planner when and how to use this playbook.</p>
+                    <p>The description tells intake when the scenario is actionable and tells planning how it should be handled.</p>
                 </div>
                 <span class="save-state">@saveMessage</span>
             </div>
@@ -58,7 +58,7 @@
                                    MaxRows="24"
                                    Behavior="@InputBehavior.OnInput"
                                    Variant="@InputVariant.Outlined"
-                                   Placeholder="Describe when this applies and how Samwise should plan the work…"
+                                   Placeholder="Describe when this is actionable and how Samwise should plan the work…"
                                    @bind-Value="description" />
                 </label>
 
@@ -66,7 +66,7 @@
                     <input type="checkbox" @bind="isEnabled" />
                     <span>
                         <strong>Enabled</strong>
-                        <small>Include this playbook in future planning prompts.</small>
+                        <small>Include this playbook in future intake and planning prompts.</small>
                     </span>
                 </label>
             </div>

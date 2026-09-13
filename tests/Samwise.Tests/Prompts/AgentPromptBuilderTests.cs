@@ -19,7 +19,7 @@ public sealed class AgentPromptBuilderTests
         new(2026, 9, 13, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task IntakePromptRetrievesItsInputCandidatesAndAllToolCatalogs()
+    public async Task IntakePromptRetrievesItsInputCandidatesPlaybooksAndAllToolCatalogs()
     {
         var inboundEvent = new ManualInboundEvent
         {
@@ -31,13 +31,23 @@ public sealed class AgentPromptBuilderTests
         var configuration = DefaultAgentConfiguration.Create(Now);
         configuration.Intake.Model = "intake-model";
         configuration.Intake.ReasoningEffort = "high";
+        var playbook = new Playbook
+        {
+            Id = "marketing-unsubscribe",
+            Name = "Marketing unsubscribe",
+            Description = "Marketing messages with a safe unsubscribe method are actionable.",
+            IsEnabled = true,
+            UpdatedAt = Now
+        };
         var catalogs = new RecordingToolCatalog();
-        var builder = CreateBuilder(configuration, catalogs, [inboundEvent], [workItem], []);
+        var builder = CreateBuilder(configuration, catalogs, [inboundEvent], [workItem], [playbook]);
 
         var result = await builder.BuildIntakeAsync(inboundEvent.Id, CancellationToken.None);
 
         Assert.Contains(inboundEvent.Input, result.Text, StringComparison.Ordinal);
         Assert.Contains(workItem.Id, result.Text, StringComparison.Ordinal);
+        Assert.Contains(playbook.Id, result.Text, StringComparison.Ordinal);
+        Assert.Contains(playbook.Description, result.Text, StringComparison.Ordinal);
         Assert.Contains(catalogs[AgentStage.Planning].RawJson, result.Text, StringComparison.Ordinal);
         Assert.Contains(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
         Assert.Equal("intake-model", result.Configuration.Model);

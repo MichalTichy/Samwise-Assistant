@@ -11,14 +11,17 @@ public sealed record SaveEmailAccountUsecase(
     string Host,
     int Port,
     EmailConnectionSecurity Security,
+    EmailAuthenticationMethod AuthenticationMethod,
     string Username,
     string? Password,
+    string? MicrosoftAuthorizationId,
     bool IsEnabled) : IRequest<EmailAccountSaveResult>;
 
 internal sealed class SaveEmailAccountUsecaseHandler(
     IRepository<EmailAccount> repository,
     IEmailCredentialProtector credentialProtector,
     IEmailInboxReader inboxReader,
+    IMicrosoftEmailAuthorizationService microsoftAuthorizationService,
     TimeProvider timeProvider) : IRequestHandler<SaveEmailAccountUsecase, EmailAccountSaveResult>
 {
     public async Task<EmailAccountSaveResult> Handle(
@@ -26,7 +29,7 @@ internal sealed class SaveEmailAccountUsecaseHandler(
         CancellationToken cancellationToken)
     {
         var isNew = string.IsNullOrWhiteSpace(request.EmailAccountId);
-        var errors = Validate(request, isNew);
+        var errors = Validate(request);
         if (errors.Count > 0)
         {
             return new EmailAccountSaveResult(false, request.EmailAccountId, errors);
@@ -40,7 +43,49 @@ internal sealed class SaveEmailAccountUsecaseHandler(
             return new EmailAccountSaveResult(false, request.EmailAccountId, ["The email account no longer exists."]);
         }
 
-        var connectionChanged = account is null || ConnectionChanged(account, request);
+        var changingAuthenticationMethod = account is not null
+            && account.AuthenticationMethod != request.AuthenticationMethod;
+        if (request.AuthenticationMethod == EmailAuthenticationMethod.Password
+            && string.IsNullOrWhiteSpace(request.Password)
+            && (isNew || changingAuthenticationMethod || string.IsNullOrWhiteSpace(account?.ProtectedPassword)))
+        {
+            return new EmailAccountSaveResult(
+                false,
+                request.EmailAccountId,
+                ["The password or app password is required for password authentication."]);
+        }
+
+        MicrosoftEmailAuthorizationCompletion? microsoftAuthorization = null;
+        if (request.AuthenticationMethod == EmailAuthenticationMethod.Microsoft365OAuth)
+        {
+            if (!string.IsNullOrWhiteSpace(request.MicrosoftAuthorizationId))
+            {
+                microsoftAuthorization = await microsoftAuthorizationService.CompleteAsync(
+                    request.MicrosoftAuthorizationId,
+                    cancellationToken);
+                if (microsoftAuthorization.State != MicrosoftEmailAuthorizationState.Succeeded)
+                {
+                    var message = microsoftAuthorization.State == MicrosoftEmailAuthorizationState.Pending
+                        ? "Microsoft sign-in has not finished yet. Complete it in the Microsoft window, then try again."
+                        : microsoftAuthorization.Error ?? "Microsoft sign-in did not complete.";
+                    return new EmailAccountSaveResult(false, request.EmailAccountId, [message]);
+                }
+            }
+            else if (isNew
+                || changingAuthenticationMethod
+                || string.IsNullOrWhiteSpace(account?.ProtectedOAuthTokenCache))
+            {
+                return new EmailAccountSaveResult(
+                    false,
+                    request.EmailAccountId,
+                    ["Connect the account to Microsoft 365 before saving it."]);
+            }
+        }
+
+        var connectionChanged = account is null
+            || ConnectionChanged(account, request)
+            || !string.IsNullOrWhiteSpace(request.Password)
+            || microsoftAuthorization is not null;
         var now = timeProvider.GetUtcNow();
         if (account is null)
         {
@@ -56,12 +101,29 @@ internal sealed class SaveEmailAccountUsecaseHandler(
         account.Host = request.Host.Trim();
         account.Port = request.Port;
         account.Security = request.Security;
+        account.AuthenticationMethod = request.AuthenticationMethod;
         account.Username = request.Username.Trim();
         account.IsEnabled = request.IsEnabled;
         account.UpdatedAt = now;
-        if (!string.IsNullOrWhiteSpace(request.Password))
+        if (request.AuthenticationMethod == EmailAuthenticationMethod.Password)
         {
-            account.ProtectedPassword = credentialProtector.Protect(request.Password);
+            if (!string.IsNullOrWhiteSpace(request.Password))
+            {
+                account.ProtectedPassword = credentialProtector.Protect(request.Password);
+            }
+
+            account.ProtectedOAuthTokenCache = string.Empty;
+            account.OAuthHomeAccountId = null;
+        }
+        else if (microsoftAuthorization is not null)
+        {
+            account.ProtectedPassword = string.Empty;
+            account.ProtectedOAuthTokenCache = credentialProtector.Protect(microsoftAuthorization.TokenCache!);
+            account.OAuthHomeAccountId = microsoftAuthorization.HomeAccountId;
+            if (!string.IsNullOrWhiteSpace(microsoftAuthorization.Username))
+            {
+                account.Username = microsoftAuthorization.Username;
+            }
         }
 
         if (connectionChanged || account.InboxCheckpoint is null)
@@ -90,6 +152,11 @@ internal sealed class SaveEmailAccountUsecaseHandler(
             await repository.UpdateAsync(account, cancellationToken);
         }
 
+        if (microsoftAuthorization is not null)
+        {
+            microsoftAuthorizationService.Finish(request.MicrosoftAuthorizationId!);
+        }
+
         return new EmailAccountSaveResult(true, account.Id, []);
     }
 
@@ -97,9 +164,10 @@ internal sealed class SaveEmailAccountUsecaseHandler(
         !string.Equals(account.Host, request.Host.Trim(), StringComparison.OrdinalIgnoreCase)
         || account.Port != request.Port
         || account.Security != request.Security
+        || account.AuthenticationMethod != request.AuthenticationMethod
         || !string.Equals(account.Username, request.Username.Trim(), StringComparison.Ordinal);
 
-    private static List<string> Validate(SaveEmailAccountUsecase request, bool isNew)
+    private static List<string> Validate(SaveEmailAccountUsecase request)
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(request.DisplayName))
@@ -126,11 +194,6 @@ internal sealed class SaveEmailAccountUsecaseHandler(
         if (string.IsNullOrWhiteSpace(request.Username))
         {
             errors.Add("The IMAP username cannot be empty.");
-        }
-
-        if (isNew && string.IsNullOrWhiteSpace(request.Password))
-        {
-            errors.Add("The password or app password is required for a new account.");
         }
 
         return errors;

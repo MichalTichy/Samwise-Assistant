@@ -8,7 +8,7 @@
     <div>
         <span class="page-kicker">Configuration · Inputs</span>
         <h1>Emails</h1>
-        <p>Connect IMAP inboxes and choose how often Samwise looks for newly delivered messages.</p>
+        <p>Connect IMAP inboxes with a password or Microsoft 365 sign-in and choose how often Samwise looks for new messages.</p>
     </div>
     <div class="heading-actions">
         <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
@@ -112,7 +112,7 @@
     <div class="email-accounts-heading">
         <div>
             <h2>Email accounts</h2>
-            <p>Each account uses its own encrypted password or app password.</p>
+            <p>Credentials and Microsoft sessions are encrypted with Samwise's persisted data-protection keys.</p>
         </div>
         <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewAccount">Add account</LumexButton>
     </div>
@@ -140,7 +140,7 @@
                             </LumexChip>
                         </div>
                         <p>@account.EmailAddress</p>
-                        <small>@account.Host:@account.Port · @FormatSecurity(account.Security)</small>
+                        <small>@account.Host:@account.Port · @FormatSecurity(account.Security) · @FormatAuthentication(account.AuthenticationMethod)</small>
                         @if (!string.IsNullOrWhiteSpace(account.LastError))
                         {
                             <div class="email-account-error">@account.LastError</div>
@@ -203,13 +203,47 @@
                         </select>
                     </label>
                     <label class="email-field email-field-wide">
+                        <span>Authentication</span>
+                        <select class="configuration-input" @bind="authenticationMethod" @bind:after="AuthenticationMethodChanged">
+                            <option value="@EmailAuthenticationMethod.Password">Password or app password</option>
+                            <option value="@EmailAuthenticationMethod.Microsoft365OAuth">Microsoft 365 sign-in</option>
+                        </select>
+                    </label>
+                    <label class="email-field email-field-wide">
                         <span>Username</span>
                         <input class="configuration-input" autocomplete="username" @bind="username" @bind:event="oninput" />
                     </label>
-                    <label class="email-field email-field-wide">
-                        <span>Password or app password</span>
-                        <input class="configuration-input" type="password" autocomplete="new-password" placeholder="@(selectedAccountId is null ? "Required" : "Leave blank to keep the saved password")" @bind="password" @bind:event="oninput" />
-                    </label>
+                    @if (authenticationMethod == EmailAuthenticationMethod.Password)
+                    {
+                        <label class="email-field email-field-wide">
+                            <span>Password or app password</span>
+                            <input class="configuration-input" type="password" autocomplete="new-password" placeholder="@(selectedAccountId is null ? "Required" : "Leave blank to keep the saved password")" @bind="password" @bind:event="oninput" />
+                        </label>
+                    }
+                    else
+                    {
+                        <div class="email-field-wide microsoft-email-authorization">
+                            <div>
+                                <strong>Microsoft 365 authorization</strong>
+                                <p>Use your normal work-account sign-in. Samwise stores a refreshable session, not your Microsoft password.</p>
+                            </div>
+                            @if (microsoftAuthorizationChallenge is null)
+                            {
+                                <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="StartMicrosoftAuthorizationAsync" Disabled="@startingMicrosoftAuthorization">
+                                    @(startingMicrosoftAuthorization ? "Starting sign-in…" : selectedAccountId is null ? "Connect Microsoft 365" : "Connect or reconnect")
+                                </LumexButton>
+                            }
+                            else
+                            {
+                                <div class="microsoft-device-code">
+                                    <span>Open Microsoft sign-in and enter this code</span>
+                                    <code>@microsoftAuthorizationChallenge.UserCode</code>
+                                    <a href="@microsoftAuthorizationChallenge.VerificationUrl" target="_blank" rel="noopener noreferrer">Open Microsoft sign-in ↗</a>
+                                    <small>Expires @microsoftAuthorizationChallenge.ExpiresAt.ToLocalTime().ToString("t"). After signing in, choose Save account.</small>
+                                </div>
+                            }
+                        </div>
+                    }
 
                     <label class="configuration-toggle email-field-wide">
                         <input type="checkbox" @bind="accountEnabled" />

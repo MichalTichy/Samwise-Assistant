@@ -20,6 +20,7 @@ public sealed class EmailAccountUsecaseTests
             repository,
             new StubCredentialProtector(),
             reader,
+            new StubMicrosoftEmailAuthorizationService(),
             new FixedTimeProvider(Now));
 
         var result = await handler.Handle(CreateRequest(), CancellationToken.None);
@@ -54,6 +55,7 @@ public sealed class EmailAccountUsecaseTests
             repository,
             new StubCredentialProtector(),
             reader,
+            new StubMicrosoftEmailAuthorizationService(),
             new FixedTimeProvider(Now));
 
         var result = await handler.Handle(
@@ -71,6 +73,122 @@ public sealed class EmailAccountUsecaseTests
         Assert.Equal("Personal mail", repository.Account?.DisplayName);
     }
 
+    [Fact]
+    public async Task NewMicrosoft365AccountStoresAuthorizedSessionAndInitializesCheckpoint()
+    {
+        var repository = new EmailAccountRepository();
+        var reader = new StubEmailInboxReader(new EmailInboxCheckpoint(42, 173, Now));
+        var authorization = new StubMicrosoftEmailAuthorizationService(
+            new MicrosoftEmailAuthorizationCompletion(
+                MicrosoftEmailAuthorizationState.Succeeded,
+                "serialized-cache",
+                "home-account",
+                "sam@work.example",
+                null));
+        var handler = new SaveEmailAccountUsecaseHandler(
+            repository,
+            new StubCredentialProtector(),
+            reader,
+            authorization,
+            new FixedTimeProvider(Now));
+
+        var result = await handler.Handle(
+            CreateRequest() with
+            {
+                AuthenticationMethod = EmailAuthenticationMethod.Microsoft365OAuth,
+                Username = "sam@work.example",
+                Password = null,
+                MicrosoftAuthorizationId = "authorization"
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var account = Assert.IsType<EmailAccount>(repository.Account);
+        Assert.Equal(EmailAuthenticationMethod.Microsoft365OAuth, account.AuthenticationMethod);
+        Assert.Equal("protected:serialized-cache", account.ProtectedOAuthTokenCache);
+        Assert.Equal("home-account", account.OAuthHomeAccountId);
+        Assert.Empty(account.ProtectedPassword);
+        Assert.Equal(1, reader.CheckpointReadCount);
+    }
+
+    [Fact]
+    public async Task PendingMicrosoft365SignInDoesNotSaveAccount()
+    {
+        var repository = new EmailAccountRepository();
+        var authorization = new StubMicrosoftEmailAuthorizationService(
+            new MicrosoftEmailAuthorizationCompletion(
+                MicrosoftEmailAuthorizationState.Pending,
+                null,
+                null,
+                null,
+                null));
+        var handler = new SaveEmailAccountUsecaseHandler(
+            repository,
+            new StubCredentialProtector(),
+            new StubEmailInboxReader(new EmailInboxCheckpoint(42, 173, Now)),
+            authorization,
+            new FixedTimeProvider(Now));
+
+        var result = await handler.Handle(
+            CreateRequest() with
+            {
+                AuthenticationMethod = EmailAuthenticationMethod.Microsoft365OAuth,
+                Password = null,
+                MicrosoftAuthorizationId = "authorization"
+            },
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Null(repository.Account);
+        Assert.Contains("not finished", Assert.Single(result.Errors), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExistingMicrosoft365AccountCanSaveMetadataWithoutSigningInAgain()
+    {
+        var checkpoint = new EmailInboxCheckpoint(7, 99, Now.AddDays(-1));
+        var existing = new EmailAccount
+        {
+            Id = "work",
+            DisplayName = "Work",
+            EmailAddress = "sam@work.example",
+            Host = "outlook.office365.com",
+            Port = 993,
+            Security = EmailConnectionSecurity.SslOnConnect,
+            AuthenticationMethod = EmailAuthenticationMethod.Microsoft365OAuth,
+            Username = "sam@work.example",
+            ProtectedOAuthTokenCache = "protected:serialized-cache",
+            OAuthHomeAccountId = "home-account",
+            InboxCheckpoint = checkpoint
+        };
+        var repository = new EmailAccountRepository(existing);
+        var reader = new StubEmailInboxReader(new EmailInboxCheckpoint(42, 173, Now));
+        var handler = new SaveEmailAccountUsecaseHandler(
+            repository,
+            new StubCredentialProtector(),
+            reader,
+            new StubMicrosoftEmailAuthorizationService(),
+            new FixedTimeProvider(Now));
+
+        var result = await handler.Handle(
+            CreateRequest() with
+            {
+                EmailAccountId = existing.Id,
+                DisplayName = "Work mailbox",
+                EmailAddress = existing.EmailAddress,
+                Host = existing.Host,
+                AuthenticationMethod = EmailAuthenticationMethod.Microsoft365OAuth,
+                Username = existing.Username,
+                Password = null
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(0, reader.CheckpointReadCount);
+        Assert.Same(checkpoint, repository.Account?.InboxCheckpoint);
+        Assert.Equal("protected:serialized-cache", repository.Account?.ProtectedOAuthTokenCache);
+    }
+
     private static SaveEmailAccountUsecase CreateRequest() => new(
         null,
         "Personal",
@@ -78,8 +196,10 @@ public sealed class EmailAccountUsecaseTests
         "imap.example.com",
         993,
         EmailConnectionSecurity.SslOnConnect,
+        EmailAuthenticationMethod.Password,
         "sam@example.com",
         "secret",
+        null,
         true);
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
@@ -121,6 +241,22 @@ public sealed class EmailAccountUsecaseTests
             IReadOnlyCollection<string> ignoredSenderAddresses,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class StubMicrosoftEmailAuthorizationService(
+        MicrosoftEmailAuthorizationCompletion? completion = null) : IMicrosoftEmailAuthorizationService
+    {
+        public void Finish(string authorizationId)
+        {
+        }
+
+        public Task<MicrosoftEmailAuthorizationChallenge> StartAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<MicrosoftEmailAuthorizationCompletion> CompleteAsync(
+            string authorizationId,
+            CancellationToken cancellationToken) => Task.FromResult(
+                completion ?? throw new NotSupportedException());
     }
 
     private sealed class EmailAccountRepository(EmailAccount? account = null) : IRepository<EmailAccount>

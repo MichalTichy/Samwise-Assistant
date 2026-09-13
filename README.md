@@ -45,7 +45,8 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - [Samwise.Infrastructure.Persistence.Marten](src/Samwise.Infrastructure.Persistence.Marten/README.md) — only Marten registration and Samwise document mappings
 - [Samwise.Infrastructure.AgentRuntimes](src/Samwise.Infrastructure.AgentRuntimes/README.md) — provider-neutral endpoint configuration plus the standard OpenAI/Agent Framework implementation of `IAgentRuntime`
 - [Samwise.Infrastructure.CodexGateway](src/Samwise.Infrastructure.CodexGateway/README.md) — only the Gateway-specific model-capability and versioned MCP tool catalogs
-- [Samwise.Infrastructure.Email.Imap](src/Samwise.Infrastructure.Email.Imap/README.md) — read-only MailKit adapter, Data Protection credential encryption, and in-process polling trigger
+- [Samwise.Infrastructure.Email.Imap](src/Samwise.Infrastructure.Email.Imap/README.md) — provider-neutral read-only MailKit transport, password authentication, credential protection, and polling trigger
+- [Samwise.Infrastructure.Email.Microsoft365](src/Samwise.Infrastructure.Email.Microsoft365/README.md) — Microsoft device-code authorization, protected MSAL sessions, token refresh, and XOAUTH2 authentication
 - [Samwise.Infrastructure.Mcp](src/Samwise.Infrastructure.Mcp/README.md) — authenticated first-party MCP read tools plus prompt and Playbook commands
 - [Samwise.Infrastructure.Persistence.Identity](src/Samwise.Infrastructure.Persistence.Identity/README.md) — ASP.NET Core Identity storage, migration, and owner initializer
 - [Samwise.Web](src/Samwise.Web/README.md) — authenticated Blazor composition root and presentation
@@ -116,7 +117,7 @@ dotnet user-secrets set "SamwiseMcp:ApiKey" "..." --project src/Samwise.Web
 
 Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to help intake recognize actionable scenarios and steer the planning agent.
 
-Configure one or more password/app-password IMAP accounts under **Configuration → Inputs → Emails**. Account creation records the current INBOX UID as a starting checkpoint, so historical mail is not imported automatically. Samwise then polls enabled accounts at the UI-configured interval and captures every newly delivered message even if you read it first, without changing message flags. The manual action searches unread mail regardless of age. When an imported message was answered, Samwise attempts to include matching sent replies in the intake context. Account passwords are encrypted with the persisted Data Protection key ring.
+Configure one or more IMAP accounts under **Configuration → Inputs → Emails**. Generic providers may use a password/app password. Exchange Online requires Microsoft 365 OAuth: configure `SAMWISE_MICROSOFT365_CLIENT_ID` and `SAMWISE_MICROSOFT365_TENANT_ID`, select **Microsoft 365 sign-in**, and complete the displayed device-code login. Account creation records the current INBOX UID as a starting checkpoint, so historical mail is not imported automatically. Samwise then polls enabled accounts at the UI-configured interval and captures every newly delivered message even if you read it first, without changing message flags. The manual action searches unread mail regardless of age. When an imported message was answered, Samwise attempts to include matching sent replies in the intake context. Passwords and Microsoft token caches are encrypted with the persisted Data Protection key ring.
 
 ## Verify
 

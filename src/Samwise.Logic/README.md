@@ -46,6 +46,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 - `AgentPromptPlaceholders` declares every placeholder key once as a constant with its label, description, example, and applicable stages in `PromptPlaceholderAttribute`. The settings UI, builder, and renderer all consume that catalogue.
 - `AgentPromptBuilder` is the only component that renders runtime prompts. Workflow services pass identifiers rather than placeholder values; the builder retrieves each stage's data, uses catalogue constants for its value maps, and returns the rendered prompt, run configuration, and exact catalogs or playbooks required for validation and snapshots.
 - `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores, durable checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
+- `StartMicrosoftEmailAuthorizationUsecase` starts an explicit user-triggered Microsoft device-code sign-in. `SaveEmailAccountUsecase` consumes the completed authorization, protects the reusable token cache, verifies INBOX access, and then persists the account.
 - `PromptRenderer` validates templates against the catalogue and performs the final token replacement. `AgentWorkflowSupport` contains plan validation and snapshot helpers only.
 
 ## Architectural rules

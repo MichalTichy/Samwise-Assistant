@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Samwise.Infrastructure.Email.Imap.Authentication;
 using Samwise.Infrastructure.Email.Imap.Credentials;
 using Samwise.Infrastructure.Email.Imap.Mailboxes;
 using Samwise.Infrastructure.Email.Imap.Polling;
@@ -13,6 +14,7 @@ public sealed class EmailImapInstaller : IInstaller
     public void Install(IServiceCollection services, IConfiguration configuration, bool isProduction)
     {
         services.AddSingleton<IEmailCredentialProtector, DataProtectionEmailCredentialProtector>();
+        services.AddSingleton<IEmailAuthenticationHandler, PasswordEmailAuthenticationHandler>();
         services.AddScoped<IEmailInboxReader, MailKitEmailInboxReader>();
         services.AddHostedService<EmailPollingBackgroundService>();
     }

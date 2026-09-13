@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using MimeKit;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Inputs.Email;
+using Samwise.Infrastructure.Email.Imap.Authentication;
 using Samwise.Logic.Inputs.Email;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -13,7 +14,7 @@ using System.Text.RegularExpressions;
 namespace Samwise.Infrastructure.Email.Imap.Mailboxes;
 
 internal sealed partial class MailKitEmailInboxReader(
-    IEmailCredentialProtector credentialProtector,
+    IEnumerable<IEmailAuthenticationHandler> authenticationHandlers,
     TimeProvider timeProvider,
     ILogger<MailKitEmailInboxReader> logger) : IEmailInboxReader
 {
@@ -284,10 +285,12 @@ internal sealed partial class MailKitEmailInboxReader(
                     _ => throw new InvalidOperationException($"Unsupported email security mode '{account.Security}'.")
                 },
                 cancellationToken);
-            await client.AuthenticateAsync(
-                account.Username,
-                credentialProtector.Unprotect(account.ProtectedPassword),
-                cancellationToken);
+            var authenticationHandler = authenticationHandlers.SingleOrDefault(
+                handler => handler.Method == account.AuthenticationMethod)
+                ?? throw new InvalidOperationException(
+                    $"Email authentication method '{account.AuthenticationMethod}' is not installed.");
+            await authenticationHandler.AuthenticateAsync(client, account, cancellationToken);
+
             return client;
         }
         catch

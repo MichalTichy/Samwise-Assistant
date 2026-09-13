@@ -31,8 +31,11 @@ public partial class EmailInputs
     private string host = string.Empty;
     private int port = 993;
     private EmailConnectionSecurity security = EmailConnectionSecurity.SslOnConnect;
+    private EmailAuthenticationMethod authenticationMethod = EmailAuthenticationMethod.Password;
     private string username = string.Empty;
     private string password = string.Empty;
+    private MicrosoftEmailAuthorizationChallenge? microsoftAuthorizationChallenge;
+    private bool startingMicrosoftAuthorization;
     private bool accountEnabled = true;
     private bool savingAccount;
     private IReadOnlyList<string> accountErrors = [];
@@ -66,6 +69,7 @@ public partial class EmailInputs
                 Host = account.Host,
                 Port = account.Port,
                 Security = account.Security,
+                AuthenticationMethod = account.AuthenticationMethod,
                 Username = account.Username,
                 IsEnabled = account.IsEnabled,
                 LastSuccessfulCheckAt = account.LastSuccessfulCheckAt,
@@ -143,8 +147,10 @@ public partial class EmailInputs
         host = string.Empty;
         port = 993;
         security = EmailConnectionSecurity.SslOnConnect;
+        authenticationMethod = EmailAuthenticationMethod.Password;
         username = string.Empty;
         password = string.Empty;
+        microsoftAuthorizationChallenge = null;
         accountEnabled = true;
         accountErrors = [];
         editingAccount = true;
@@ -158,8 +164,10 @@ public partial class EmailInputs
         host = account.Host;
         port = account.Port;
         security = account.Security;
+        authenticationMethod = account.AuthenticationMethod;
         username = account.Username;
         password = string.Empty;
+        microsoftAuthorizationChallenge = null;
         accountEnabled = account.IsEnabled;
         accountErrors = [];
         editingAccount = true;
@@ -168,6 +176,7 @@ public partial class EmailInputs
     private void CancelAccountEdit()
     {
         password = string.Empty;
+        microsoftAuthorizationChallenge = null;
         editingAccount = false;
         accountErrors = [];
     }
@@ -185,8 +194,10 @@ public partial class EmailInputs
                 host,
                 port,
                 security,
+                authenticationMethod,
                 username,
                 password,
+                microsoftAuthorizationChallenge?.AuthorizationId,
                 accountEnabled));
             accountErrors = result.Errors;
             if (!result.Succeeded)
@@ -201,6 +212,49 @@ public partial class EmailInputs
         finally
         {
             savingAccount = false;
+        }
+    }
+
+    private void AuthenticationMethodChanged()
+    {
+        accountErrors = [];
+        microsoftAuthorizationChallenge = null;
+    }
+
+    private async Task StartMicrosoftAuthorizationAsync()
+    {
+        startingMicrosoftAuthorization = true;
+        accountErrors = [];
+        try
+        {
+            ApplyMicrosoft365Defaults();
+            var result = await Sender.Send(new StartMicrosoftEmailAuthorizationUsecase());
+            if (!result.Succeeded || result.Challenge is null)
+            {
+                accountErrors = result.Errors;
+                return;
+            }
+
+            microsoftAuthorizationChallenge = result.Challenge;
+        }
+        finally
+        {
+            startingMicrosoftAuthorization = false;
+        }
+    }
+
+    private void ApplyMicrosoft365Defaults()
+    {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            host = "outlook.office365.com";
+        }
+
+        port = 993;
+        security = EmailConnectionSecurity.SslOnConnect;
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            username = accountEmailAddress.Trim();
         }
     }
 
@@ -258,6 +312,13 @@ public partial class EmailInputs
         _ => value.ToString()
     };
 
+    private static string FormatAuthentication(EmailAuthenticationMethod value) => value switch
+    {
+        EmailAuthenticationMethod.Password => "Password",
+        EmailAuthenticationMethod.Microsoft365OAuth => "Microsoft 365",
+        _ => value.ToString()
+    };
+
     private sealed record EmailAccountItem
     {
         public string Id { get; init; } = string.Empty;
@@ -266,6 +327,7 @@ public partial class EmailInputs
         public string Host { get; init; } = string.Empty;
         public int Port { get; init; }
         public EmailConnectionSecurity Security { get; init; }
+        public EmailAuthenticationMethod AuthenticationMethod { get; init; }
         public string Username { get; init; } = string.Empty;
         public bool IsEnabled { get; init; }
         public DateTimeOffset? LastSuccessfulCheckAt { get; init; }

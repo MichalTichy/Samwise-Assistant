@@ -6,7 +6,7 @@
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, Mail/Calendar/Contacts MCP admin token, and `TODOIST_API_KEY`. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, Mail/Calendar/Contacts MCP admin token, and `TODOIST_API_KEY`. To ingest Exchange Online mail, also configure the Microsoft 365 public-client application described below. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -23,6 +23,17 @@
 Samwise listens on plain HTTP port `8080` inside its container and the Gateway listens on `8080` inside its container. Their default published host ports are `8080` and `5050`. The Compose default `SAMWISE_REQUIRE_HTTPS=false` allows login when Samwise is opened directly over HTTP on a trusted network. For any internet-accessible deployment, terminate HTTPS in the host reverse proxy and set `SAMWISE_REQUIRE_HTTPS=true`; `ASPNETCORE_FORWARDEDHEADERS_ENABLED` lets Samwise honor the proxy's forwarded scheme.
 
 The Gateway control plane and Mail/Calendar/Contacts MCP container intentionally do not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start .NET processes under that option. The MCP containers run as dedicated non-root users and remain isolated on the private backend network, while dynamically created runner containers retain the Gateway's stricter runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
+
+## Microsoft 365 email ingestion
+
+Exchange Online does not accept IMAP username/password or app-password authentication. Create a public-client application in Microsoft Entra ID for Samwise:
+
+1. Add the delegated **Office 365 Exchange Online → IMAP.AccessAsUser.All** API permission and grant any consent required by the organization.
+2. Under **Authentication → Advanced settings**, enable **Allow public client flows**. No client secret or callback URL is needed for device-code sign-in.
+3. Set `SAMWISE_MICROSOFT365_CLIENT_ID` to the application's client ID. Set `SAMWISE_MICROSOFT365_TENANT_ID` to the organization's tenant ID for a single-tenant registration, or keep `organizations` for a compatible multi-tenant registration.
+4. Recreate the `web` container. In **Configuration → Inputs → Emails**, select **Microsoft 365 sign-in**, open the displayed Microsoft URL, enter the code, and then save the account.
+
+Samwise requests delegated IMAP access only. Its refreshable MSAL token cache is encrypted in the `EmailAccount` document using the persisted Data Protection key ring.
 
 ## Mail, calendar, and contacts MCP
 

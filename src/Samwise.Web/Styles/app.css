@@ -391,6 +391,13 @@
     .email-field-wide { grid-column: 1 / -1; }
     .email-account-baseline-note { padding: .75rem .85rem; border: 1px solid #eadbc7; border-radius: .75rem; color: #796b5d; background: #f8f0e4; font-size: .68rem; line-height: 1.5; }
     .email-account-baseline-note strong { color: #67584b; }
+    .microsoft-email-authorization { padding: .9rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid #dcc8aa; border-radius: .85rem; background: #fbf3e6; }
+    .microsoft-email-authorization strong { color: #53463b; font-size: .78rem; }
+    .microsoft-email-authorization p { max-width: 410px; margin: .25rem 0 0; color: #827468; font-size: .68rem; line-height: 1.5; }
+    .microsoft-device-code { min-width: 230px; display: grid; justify-items: end; gap: .25rem; }
+    .microsoft-device-code span, .microsoft-device-code small { color: #8d7c6c; font-size: .62rem; }
+    .microsoft-device-code code { color: #5f431f; font-size: 1.05rem; font-weight: 800; letter-spacing: .12em; }
+    .microsoft-device-code a { color: #98601f; font-size: .7rem; font-weight: 750; text-decoration: underline; text-underline-offset: 2px; }
     .email-editor-actions { margin-top: 1.1rem; padding-top: 1rem; display: flex; justify-content: flex-end; gap: .55rem; border-top: 1px solid #eee3d6; }
 
     /* Authentication and settings */
@@ -618,7 +625,9 @@
     .settings-page { margin-top: 0; }
     .email-account-card { grid-template-columns: 38px minmax(0, 1fr); align-items: start; }
     .email-account-actions { grid-column: 1 / -1; justify-content: flex-start; }
-    .email-account-form { grid-template-columns: 1fr; }
+        .email-account-form { grid-template-columns: 1fr; }
+        .microsoft-email-authorization { align-items: stretch; flex-direction: column; }
+        .microsoft-device-code { justify-items: start; }
     .email-field-wide { grid-column: auto; }
 }
 

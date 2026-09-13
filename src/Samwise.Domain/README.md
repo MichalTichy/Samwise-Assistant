@@ -10,7 +10,7 @@ This project contains Samwise's durable business state and transition rules. It 
 - `WorkItems/PlanReview` records the single approval or rejection outcome owned by its plan.
 - `WorkItems/WorkItemStatus` defines the draft, approval, execution, completion, attention, uncertainty, and discarded states.
 - `Inbox/InboundEvent` is the common handling lifecycle for every received input. `ManualInboundEvent` and `EmailInboundEvent` store source-specific immutable data and compute the text passed to intake instead of duplicating a generic text field. Email events snapshot mailbox flags and any matching sent replies so intake can consider what the owner already communicated.
-- `Inputs/Email/EmailAccount` stores one IMAP connection, its encrypted credential value, nested INBOX UID checkpoint, enabled state, and last-check outcome.
+- `Inputs/Email/EmailAccount` stores one IMAP connection, its authentication method, encrypted password or Microsoft token cache, nested INBOX UID checkpoint, enabled state, and last-check outcome. Existing documents default to password authentication.
 - `Inputs/Email/EmailInputConfiguration` is the singleton email-input configuration containing the polling interval and nested exact-address ignore list.
 - `Agents/AgentInvocation` records one intake, planning, or execution call, including its rendered prompt, model settings, exact available-tool snapshot, raw response, timing, and final outcome.
 - `Agents/AgentConfiguration` is the single current-settings document. It owns fixed nested Intake, Planning, and Execution settings, each with its model ID, exact Gateway reasoning-effort ID, prompt, and update timestamp. Reasoning effort is deliberately not an enum because supported values belong to the selected model.

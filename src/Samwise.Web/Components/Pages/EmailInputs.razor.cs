@@ -21,6 +21,7 @@ public partial class EmailInputs
     private bool savingSettings;
     private string? settingsSaveMessage;
     private string? pageMessage;
+    private bool pageMessageIsSuccess;
     private string? processingAccountId;
     private string? testingAccountId;
 
@@ -119,6 +120,7 @@ public partial class EmailInputs
         savingSettings = true;
         settingsSaveMessage = null;
         pageMessage = null;
+        pageMessageIsSuccess = false;
         try
         {
             var result = await Sender.Send(new SaveEmailInputConfigurationUsecase(
@@ -208,6 +210,7 @@ public partial class EmailInputs
             CancelAccountEdit();
             await LoadAsync();
             pageMessage = "Email account saved.";
+            pageMessageIsSuccess = true;
         }
         finally
         {
@@ -262,10 +265,12 @@ public partial class EmailInputs
     {
         testingAccountId = accountId;
         pageMessage = null;
+        pageMessageIsSuccess = false;
         try
         {
             var result = await Sender.Send(new TestEmailAccountConnectionUsecase(accountId));
             pageMessage = result.Message;
+            pageMessageIsSuccess = result.Succeeded;
         }
         finally
         {
@@ -281,10 +286,12 @@ public partial class EmailInputs
     {
         processingAccountId = accountId ?? AllAccountsMarker;
         pageMessage = null;
+        pageMessageIsSuccess = false;
         try
         {
             var result = await Sender.Send(new ProcessEmailsUsecase(EmailSelection.Unread, accountId));
             pageMessage = FormatProcessingResult(result);
+            pageMessageIsSuccess = result.Errors.Count == 0;
             await LoadAsync();
         }
         finally

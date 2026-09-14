@@ -20,7 +20,7 @@
 
 @if (!string.IsNullOrWhiteSpace(pageMessage))
 {
-    <div class="inline-alert email-page-message">@pageMessage</div>
+    <div class="inline-alert email-page-message @(pageMessageIsSuccess ? "inline-success" : null)">@pageMessage</div>
 }
 
 <div class="email-settings-grid">

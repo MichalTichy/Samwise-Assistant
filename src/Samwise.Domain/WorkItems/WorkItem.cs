@@ -211,6 +211,23 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         }
     }
 
+    public void PrepareExecutionRetry(DateTimeOffset now)
+    {
+        if (Status != WorkItemStatus.OutcomeUnknown)
+        {
+            throw new InvalidOperationException("Only an execution with an unknown outcome can be retried.");
+        }
+
+        var plan = FindCurrentPlan();
+        if (plan?.Review?.Kind != PlanReviewKind.Approved)
+        {
+            throw new InvalidOperationException("The approved plan for this execution could not be found.");
+        }
+
+        Status = WorkItemStatus.Approved;
+        UpdatedAt = now;
+    }
+
     public void MarkApprovedExecutionFailed(DateTimeOffset now)
     {
         if (Status == WorkItemStatus.Approved)

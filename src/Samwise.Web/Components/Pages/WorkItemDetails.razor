@@ -57,7 +57,13 @@ else
                         <span class="state-symbol state-warning">!</span>
                         <div>
                             <h2>Execution outcome is unknown</h2>
-                            <p>Samwise may already have made external changes. Inspect the agent activity and the affected system before deciding what to do. This execution will not be retried automatically.</p>
+                            <p>Samwise may already have made external changes. Inspect the agent activity and the affected system before retrying. A retry runs the same approved plan again and may repeat those changes.</p>
+                            <LumexButton Color="@ThemeColor.Danger"
+                                         Variant="@Variant.Shadow"
+                                         OnClick="RetryExecutionAsync"
+                                         Disabled="@actionBusy">
+                                @(actionBusy ? "Retrying execution…" : "Retry execution")
+                            </LumexButton>
                         </div>
                     </section>
                 }

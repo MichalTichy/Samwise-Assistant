@@ -104,7 +104,7 @@ public sealed class WorkItemTests
     }
 
     [Fact]
-    public void InterruptedExecutionIsNotRetryableOrEditable()
+    public void InterruptedExecutionCanBeExplicitlyRetriedButNotEdited()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Send the revised offer.", null, InitialTime);
         var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
@@ -118,6 +118,25 @@ public sealed class WorkItemTests
         Assert.Equal(plan.Id, workItem.CurrentPlanId);
         Assert.Throws<InvalidOperationException>(() => workItem.AddContext("Try again.", InitialTime.AddMinutes(7)));
         Assert.Throws<InvalidOperationException>(() => workItem.Replan(InitialTime.AddMinutes(7)));
+
+        workItem.PrepareExecutionRetry(InitialTime.AddMinutes(8));
+
+        Assert.Equal(WorkItemStatus.Approved, workItem.Status);
+        Assert.Equal(plan.Id, workItem.CurrentPlanId);
+        Assert.Equal(InitialTime.AddMinutes(8), workItem.UpdatedAt);
+        workItem.StartExecution(plan.Id, workItem.Revision, InitialTime.AddMinutes(9));
+        Assert.Equal(WorkItemStatus.Executing, workItem.Status);
+    }
+
+    [Fact]
+    public void ExecutionRetryIsRejectedUnlessOutcomeIsUnknown()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Send the revised offer.", null, InitialTime);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => workItem.PrepareExecutionRetry(InitialTime.AddMinutes(1)));
+
+        Assert.Equal("Only an execution with an unknown outcome can be retried.", exception.Message);
     }
 
     [Fact]

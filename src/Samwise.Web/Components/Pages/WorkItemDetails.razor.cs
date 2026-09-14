@@ -107,6 +107,9 @@ public partial class WorkItemDetails
 
     private Task ReplanAsync() => RunActionAsync(() => Sender.Send(new ReplanWorkItemUsecase(WorkItemId)));
 
+    private Task RetryExecutionAsync() =>
+        RunActionAsync(() => Sender.Send(new RetryWorkItemExecutionUsecase(WorkItemId)));
+
     private async Task RunActionAsync(Func<Task> action)
     {
         actionBusy = true;

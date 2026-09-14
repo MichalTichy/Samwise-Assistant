@@ -239,7 +239,16 @@ else
                             else if (workItem.Status == WorkItemStatus.Discarded)
                             {
                                 <span class="state-symbol">×</span>
-                                <div><h2>Work Item discarded</h2><p>This Work Item will not be planned or executed.</p></div>
+                                <div>
+                                    <h2>Work Item discarded</h2>
+                                    <p>This Work Item will not be planned or executed unless you restore it.</p>
+                                    <LumexButton Color="@ThemeColor.Primary"
+                                                 Variant="@Variant.Shadow"
+                                                 OnClick="RestoreAsync"
+                                                 Disabled="@actionBusy">
+                                        @(actionBusy ? "Restoring…" : "Restore & replan")
+                                    </LumexButton>
+                                </div>
                             }
                         </section>
                     }
@@ -335,7 +344,7 @@ else
                         }
                         @if (workItem.DiscardedAt is { } discardedAt)
                         {
-                            <div><dt>Discarded</dt><dd>@discardedAt.ToLocalTime().ToString("g") · @workItem.DiscardedFrom</dd></div>
+                            <div><dt>@(workItem.Status == WorkItemStatus.Discarded ? "Discarded" : "Previously discarded")</dt><dd>@discardedAt.ToLocalTime().ToString("g") · @workItem.DiscardedFrom</dd></div>
                         }
                     </dl>
                 </section>

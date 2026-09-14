@@ -24,6 +24,7 @@ This project contains Samwise's durable business state and transition rules. It 
 4. Approval succeeds only for the exact plan ID and revision shown to the user.
 5. Execution moves through `Executing` to `Completed`, `NeedsAttention`, or `OutcomeUnknown`.
 6. A potentially interrupted side-effecting execution is never silently retried. The user can explicitly retry the same approved plan after checking the affected systems and accepting the duplicate-action risk.
+7. A discarded Work Item can be explicitly restored. Restoration retains its plan and discard history, advances the revision, and starts fresh planning.
 
 ## Aggregate boundary
 

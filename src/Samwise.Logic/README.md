@@ -40,6 +40,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 3. Execution reloads the execution tool catalog and fails closed if it differs from the approved snapshot.
 4. A confirmed successful response stores its summary, outputs, invocation ID, and completion time as a nested Work Item completion. A reported or interrupted uncertain execution becomes `OutcomeUnknown` and is not automatically repeated.
 5. `RetryWorkItemExecutionUsecase` is the explicit user action that reruns the same approved plan from `OutcomeUnknown`; the previous uncertain invocation remains in the activity history.
+6. `RestoreWorkItemUsecase` is the explicit user or MCP action that moves only a discarded Work Item into a new planning revision and calls `WorkItemPlanningService`; previous plans and discard metadata remain available.
 
 ## Shared services
 

@@ -55,7 +55,7 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards.
 2. `WorkItemDetails` loads the aggregate plus recent invocations through repositories and `WorkItemInvocationsSpecification`.
 3. Selecting an agent-activity row opens its full invocation record in a Lumex dialog, including the prompt, output, model metadata, error, and available-tool snapshot.
-4. Approve, reject, add-context, replan, retry-execution, and discard buttons send their corresponding external use cases. Replan is available before execution and keeps prior plans in history. Retry execution is available only for `OutcomeUnknown`, retains the uncertain invocation, and warns that the same approved plan can repeat external changes.
+4. Approve, reject, add-context, replan, retry-execution, discard, and restore buttons send their corresponding external use cases. Replan is available before execution and keeps prior plans in history. Restore is available only for discarded Work Items and starts a new planning revision. Retry execution is available only for `OutcomeUnknown`, retains the uncertain invocation, and warns that the same approved plan can repeat external changes.
 5. Each command reloads the authoritative stored state after it completes.
 
 ## Agent settings and playbook flow

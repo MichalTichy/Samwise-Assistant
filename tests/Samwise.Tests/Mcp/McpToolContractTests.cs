@@ -31,6 +31,7 @@ public sealed class McpToolContractTests
                 "list_playbooks",
                 "list_work_items",
                 "replan_work_item",
+                "restore_work_item",
                 "save_agent_prompt",
                 "save_playbook"
             ],

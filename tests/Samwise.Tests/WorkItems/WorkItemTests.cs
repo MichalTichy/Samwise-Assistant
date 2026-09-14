@@ -207,6 +207,44 @@ public sealed class WorkItemTests
         Assert.Empty(executed.Comments);
     }
 
+    [Fact]
+    public void DiscardedWorkItemCanBeRestoredForANewPlanningRevision()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Add Saturnin to the calendar.", null, InitialTime);
+        var plan = CreatePlan(
+            workItem,
+            workItem.ReservePlanNumber(InitialTime.AddMinutes(1)),
+            InitialTime.AddMinutes(2));
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
+        workItem.Discard(InitialTime.AddMinutes(4), "Web");
+
+        workItem.Restore(InitialTime.AddMinutes(5), "MCP");
+
+        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
+        Assert.Equal(2, workItem.Revision);
+        Assert.Null(workItem.CurrentPlanId);
+        Assert.Null(workItem.LatestPlanningFeedback);
+        Assert.Same(plan, Assert.Single(workItem.Plans));
+        Assert.Equal(InitialTime.AddMinutes(4), workItem.DiscardedAt);
+        Assert.Equal("Web", workItem.DiscardedFrom);
+        var comment = Assert.Single(workItem.Comments);
+        Assert.Equal(CommentAuthorKind.System, comment.AuthorKind);
+        Assert.Equal(WorkItemCommentKind.Context, comment.Kind);
+        Assert.Equal("Restored from the discarded state through MCP.", comment.Body);
+        Assert.Equal(InitialTime.AddMinutes(5), workItem.UpdatedAt);
+    }
+
+    [Fact]
+    public void RestoreIsRejectedUnlessWorkItemIsDiscarded()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Add Saturnin to the calendar.", null, InitialTime);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => workItem.Restore(InitialTime.AddMinutes(1)));
+
+        Assert.Equal("Only a discarded work item can be restored.", exception.Message);
+    }
+
     private static WorkItemPlan CreatePlan(DomainWorkItem workItem, int planNumber, DateTimeOffset createdAt) =>
         new()
         {

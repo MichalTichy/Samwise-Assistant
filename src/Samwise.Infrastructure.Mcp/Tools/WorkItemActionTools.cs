@@ -23,4 +23,19 @@ public sealed class WorkItemActionTools(ISender sender)
             replanCompleted = true
         });
     }
+
+    [McpServerTool(Name = "restore_work_item")]
+    [Description("Restores a discarded Work Item and immediately generates a new plan. Existing plans and discard history remain available for audit.")]
+    public async Task<string> RestoreWorkItemAsync(
+        [Description("The discarded Work Item ID returned by list_work_items.")]
+        string workItemId,
+        CancellationToken cancellationToken = default)
+    {
+        await sender.Send(new RestoreWorkItemUsecase(workItemId, "MCP"), cancellationToken);
+        return SamwiseMcpJson.Serialize(new
+        {
+            workItemId,
+            restoreCompleted = true
+        });
+    }
 }

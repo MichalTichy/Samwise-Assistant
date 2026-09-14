@@ -256,6 +256,25 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         UpdatedAt = now;
     }
 
+    public void Restore(DateTimeOffset now, string source = "Web")
+    {
+        if (Status != WorkItemStatus.Discarded)
+        {
+            throw new InvalidOperationException("Only a discarded work item can be restored.");
+        }
+
+        Status = WorkItemStatus.Planning;
+        Revision++;
+        CurrentPlanId = null;
+        LatestPlanningFeedback = null;
+        Comments.Add(CreateComment(
+            $"Restored from the discarded state through {source}.",
+            CommentAuthorKind.System,
+            WorkItemCommentKind.Context,
+            now));
+        UpdatedAt = now;
+    }
+
     public void AddExecutionUpdate(string body, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(body);

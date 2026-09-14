@@ -48,7 +48,7 @@ internal sealed partial class MailKitEmailInboxReader(
         CancellationToken cancellationToken)
     {
         using var client = await ConnectAsync(account, cancellationToken);
-        var sent = TryGetSentFolder(client);
+        var sent = await TryGetSentFolderAsync(client, account.Id, cancellationToken);
         if (sent is null)
         {
             await client.DisconnectAsync(true, cancellationToken);
@@ -112,7 +112,7 @@ internal sealed partial class MailKitEmailInboxReader(
         CancellationToken cancellationToken)
     {
         using var client = await ConnectAsync(account, cancellationToken);
-        var sent = TryGetSentFolder(client);
+        var sent = await TryGetSentFolderAsync(client, account.Id, cancellationToken);
         if (sent is null)
         {
             await client.DisconnectAsync(true, cancellationToken);
@@ -351,7 +351,7 @@ internal sealed partial class MailKitEmailInboxReader(
 
         try
         {
-            var sent = client.GetFolder(SpecialFolder.Sent);
+            var sent = await TryGetSentFolderAsync(client, emailAccountId, cancellationToken);
             if (sent is null)
             {
                 return messages;
@@ -444,16 +444,84 @@ internal sealed partial class MailKitEmailInboxReader(
         }
     }
 
-    private static IMailFolder? TryGetSentFolder(ImapClient client)
+    private async Task<IMailFolder?> TryGetSentFolderAsync(
+        ImapClient client,
+        string emailAccountId,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return client.GetFolder(SpecialFolder.Sent);
+            var specialFolder = client.GetFolder(SpecialFolder.Sent);
+            if (specialFolder is not null)
+            {
+                return specialFolder;
+            }
         }
-        catch (FolderNotFoundException)
+        catch (Exception exception) when (exception is FolderNotFoundException or NotSupportedException)
         {
+            logger.LogDebug(
+                exception,
+                "Email account {EmailAccountId} does not advertise a Sent special-use folder; "
+                + "falling back to folder-name discovery",
+                emailAccountId);
+        }
+
+        try
+        {
+            var folders = new List<IMailFolder>();
+            foreach (var folderNamespace in client.PersonalNamespaces)
+            {
+                folders.AddRange(await client.GetFoldersAsync(
+                    folderNamespace,
+                    subscribedOnly: false,
+                    cancellationToken));
+            }
+
+            var sent = folders.FirstOrDefault(folder => folder.Attributes.HasFlag(FolderAttributes.Sent))
+                ?? folders.FirstOrDefault(folder => IsSentFolderName(folder.Name));
+            if (sent is not null)
+            {
+                logger.LogDebug(
+                    "Using IMAP folder {SentFolder} as Sent mail for email account {EmailAccountId}",
+                    sent.FullName,
+                    emailAccountId);
+            }
+
+            return sent;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                exception,
+                "Sent folder discovery failed for email account {EmailAccountId}; "
+                + "incoming mail will continue without Sent mail ingestion",
+                emailAccountId);
             return null;
         }
+    }
+
+    internal static bool IsSentFolderName(string folderName)
+    {
+        var normalized = string.Concat(folderName
+                .Normalize(System.Text.NormalizationForm.FormD)
+                .Where(character => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character)
+                    != System.Globalization.UnicodeCategory.NonSpacingMark))
+            .Normalize(System.Text.NormalizationForm.FormC);
+        normalized = new string(normalized
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+
+        return normalized is "sent"
+            or "sentitems"
+            or "sentmail"
+            or "odeslane"
+            or "odeslanaposta"
+            or "odeslanezpravy"
+            or "odeslanepolozky"
+            or "gesendet"
+            or "envoyes"
+            or "enviados";
     }
 
     private static async Task<string> ReadBodyTextAsync(

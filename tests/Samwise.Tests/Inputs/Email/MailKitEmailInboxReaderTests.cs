@@ -35,4 +35,25 @@ public sealed class MailKitEmailInboxReaderTests
     {
         Assert.Equal("UNSEEN", MailKitEmailInboxReader.UnreadSearchQuery);
     }
+
+    [Theory]
+    [InlineData("Sent")]
+    [InlineData("Sent Items")]
+    [InlineData("Sent Mail")]
+    [InlineData("Odeslaná pošta")]
+    [InlineData("Odeslané zprávy")]
+    [InlineData("Gesendet")]
+    public void CommonSentFolderNamesAreRecognized(string folderName)
+    {
+        Assert.True(MailKitEmailInboxReader.IsSentFolderName(folderName));
+    }
+
+    [Theory]
+    [InlineData("Outbox")]
+    [InlineData("Drafts")]
+    [InlineData("Spam")]
+    public void OtherMailboxNamesAreNotTreatedAsSent(string folderName)
+    {
+        Assert.False(MailKitEmailInboxReader.IsSentFolderName(folderName));
+    }
 }

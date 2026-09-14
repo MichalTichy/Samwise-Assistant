@@ -478,7 +478,23 @@
     .suggested-tool-heading span, .suggested-parameters > strong, .success-criteria > span { color: #9a7a50; font-size: .61rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
     .suggested-tool-heading code { color: #76501f; font-size: .69rem; overflow-wrap: anywhere; }
     .suggested-parameters { padding: .7rem .75rem .75rem; }
-    .suggested-parameters pre { max-height: 18rem; margin: .45rem 0 0; padding: .75rem; overflow: auto; border-radius: .55rem; color: #493a2c; background: #fffaf0; font: .7rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .tool-parameter-list { margin: .55rem 0 0; display: grid; gap: .55rem; }
+    .tool-parameter-row { min-width: 0; padding: .6rem .7rem; border: 1px solid #ecdfca; border-radius: .58rem; background: #fffaf0; }
+    .tool-parameter-row > dt { margin-bottom: .22rem; color: #9a7a50; font-size: .62rem; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }
+    .tool-parameter-row > dd { min-width: 0; margin: 0; color: #493a2c; font-size: .76rem; line-height: 1.55; overflow-wrap: anywhere; }
+    .tool-parameter-nested { margin-top: .35rem; padding-left: .65rem; border-left: 2px solid #ead5b4; }
+    .tool-parameter-array { margin: .25rem 0 0; padding-left: 1.35rem; display: grid; gap: .45rem; }
+    .tool-parameter-array > li { padding-left: .15rem; }
+    .tool-parameter-array > li::marker { color: #bd7a18; font-weight: 800; }
+    .tool-parameter-text { white-space: pre-wrap; }
+    .tool-parameter-long-text { display: grid; gap: .55rem; }
+    .tool-parameter-long-text p { margin: 0; white-space: pre-line; }
+    .tool-parameter-boolean { display: inline-flex; padding: .12rem .42rem; border-radius: 999px; color: #715f4d; background: #eee4d7; font-size: .68rem; font-weight: 750; }
+    .tool-parameter-true { color: #4b642a; background: #e5ecd9; }
+    .tool-parameter-empty { color: #9b8d7e; font-style: italic; }
+    .tool-parameter-fallback { margin-top: .55rem; padding: .65rem .7rem; border: 1px dashed #ddbda0; border-radius: .58rem; color: #754f36; background: #fff8ee; }
+    .tool-parameter-fallback > span { font-size: .65rem; font-weight: 800; text-transform: uppercase; }
+    .tool-parameter-fallback p { margin: .35rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
     .success-criteria { margin-top: .9rem; padding-top: .75rem; border-top: 1px dashed #e4d7c7; }
     .success-criteria p { margin: .3rem 0 0; color: #76695e; font-size: .73rem; line-height: 1.55; }
     .approval-panel { margin: .9rem -.6rem -.6rem; padding: 1.15rem; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .8rem; border: 1px solid #e7cf9f; border-radius: .9rem; background: #fdf6e8; }

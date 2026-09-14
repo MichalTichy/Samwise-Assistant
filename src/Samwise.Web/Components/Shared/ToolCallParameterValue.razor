@@ -1,0 +1,11 @@
+@if (!string.IsNullOrWhiteSpace(Name))
+{
+    <div class="tool-parameter-row">
+        <dt>@Humanize(Name)</dt>
+        <dd><ToolCallParameterValueContent Value="@Value" /></dd>
+    </div>
+}
+else
+{
+    <ToolCallParameterValueContent Value="@Value" />
+}

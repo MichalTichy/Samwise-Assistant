@@ -1,0 +1,33 @@
+@using System.Text.Json
+
+@if (!string.IsNullOrWhiteSpace(parseError))
+{
+    <div class="tool-parameter-fallback">
+        <span>Parameters could not be formatted</span>
+        <p>@ArgumentsJson</p>
+    </div>
+}
+else if (root is { } value)
+{
+    @if (value.ValueKind == JsonValueKind.Object)
+    {
+        var properties = value.EnumerateObject().ToList();
+        @if (properties.Count == 0)
+        {
+            <p class="tool-parameter-empty">No parameters</p>
+        }
+        else
+        {
+            <dl class="tool-parameter-list">
+                @foreach (var property in properties)
+                {
+                    <ToolCallParameterValue Name="@property.Name" Value="@property.Value" />
+                }
+            </dl>
+        }
+    }
+    else
+    {
+        <ToolCallParameterValue Value="@value" />
+    }
+}

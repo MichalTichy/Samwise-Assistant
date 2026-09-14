@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using MediatR;
 using Microsoft.AspNetCore.Components;
@@ -261,22 +260,6 @@ public partial class WorkItemDetails
         }
 
         return paragraphs;
-    }
-
-    private static string PrettyPrintJson(string value)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(value);
-            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-        }
-        catch (JsonException)
-        {
-            return value;
-        }
     }
 
     private sealed record CompletionDisplay(

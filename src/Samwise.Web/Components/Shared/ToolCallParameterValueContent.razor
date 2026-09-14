@@ -1,0 +1,76 @@
+@using System.Text.Json
+
+@switch (Value.ValueKind)
+{
+    case JsonValueKind.Object:
+    {
+        var properties = Value.EnumerateObject().ToList();
+        if (properties.Count == 0)
+        {
+            <span class="tool-parameter-empty">Empty object</span>
+        }
+        else
+        {
+            <dl class="tool-parameter-list tool-parameter-nested">
+                @foreach (var property in properties)
+                {
+                    <ToolCallParameterValue Name="@property.Name" Value="@property.Value" />
+                }
+            </dl>
+        }
+        break;
+    }
+    case JsonValueKind.Array:
+    {
+        var items = Value.EnumerateArray().ToList();
+        if (items.Count == 0)
+        {
+            <span class="tool-parameter-empty">None</span>
+        }
+        else
+        {
+            <ol class="tool-parameter-array">
+                @foreach (var item in items)
+                {
+                    <li><ToolCallParameterValue Value="@item" /></li>
+                }
+            </ol>
+        }
+        break;
+    }
+    case JsonValueKind.String:
+    {
+        var text = Value.GetString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            <span class="tool-parameter-empty">Empty</span>
+        }
+        else if (text.Contains('\n'))
+        {
+            <div class="tool-parameter-long-text">
+                @foreach (var paragraph in Paragraphs(text))
+                {
+                    <p>@paragraph</p>
+                }
+            </div>
+        }
+        else
+        {
+            <span class="tool-parameter-text">@text</span>
+        }
+        break;
+    }
+    case JsonValueKind.True:
+        <span class="tool-parameter-boolean tool-parameter-true">Yes</span>
+        break;
+    case JsonValueKind.False:
+        <span class="tool-parameter-boolean">No</span>
+        break;
+    case JsonValueKind.Null:
+    case JsonValueKind.Undefined:
+        <span class="tool-parameter-empty">Not set</span>
+        break;
+    default:
+        <span class="tool-parameter-text">@Value.GetRawText()</span>
+        break;
+}

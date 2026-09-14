@@ -2,12 +2,6 @@ using Shared.Infrastructure.Persistence;
 
 namespace Samwise.Domain.Inputs.Email;
 
-public enum EmailConnectionSecurity
-{
-    SslOnConnect,
-    StartTls
-}
-
 public sealed class EmailAccount : IItemWithId
 {
     public string Id { get; set; } = string.Empty;
@@ -22,7 +16,8 @@ public sealed class EmailAccount : IItemWithId
     public string ProtectedOAuthTokenCache { get; set; } = string.Empty;
     public string? OAuthHomeAccountId { get; set; }
     public bool IsEnabled { get; set; }
-    public EmailInboxCheckpoint? InboxCheckpoint { get; set; }
+    public EmailMailboxCheckpoint? InboxCheckpoint { get; set; }
+    public EmailMailboxCheckpoint? SentCheckpoint { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? LastCheckStartedAt { get; set; }
@@ -48,8 +43,3 @@ public sealed class EmailAccount : IItemWithId
             : error.Trim();
     }
 }
-
-public sealed record EmailInboxCheckpoint(
-    uint UidValidity,
-    uint NextUid,
-    DateTimeOffset UpdatedAt);

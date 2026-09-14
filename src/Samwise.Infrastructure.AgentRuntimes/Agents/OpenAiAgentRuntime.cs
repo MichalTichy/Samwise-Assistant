@@ -75,7 +75,11 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
                 step.HasExternalSideEffects,
                 step.SuccessCriteria)).ToList());
 
-        return new PlannerResult(plan, CreateReceipt(response));
+        return new PlannerResult(
+            ParsePlanningDisposition(result.Disposition),
+            ParseResolutionReason(result.ResolutionReason),
+            plan,
+            CreateReceipt(response));
     }
 
     public async Task<ExecutionResult> ExecuteAsync(
@@ -217,8 +221,28 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         return value.Trim();
     }
 
+    private static PlanningDisposition ParsePlanningDisposition(string value) => value
+        .Replace("_", string.Empty, StringComparison.Ordinal)
+        .Replace("-", string.Empty, StringComparison.Ordinal)
+        .ToLowerInvariant() switch
+    {
+        "planrequired" => PlanningDisposition.PlanRequired,
+        "alreadyresolved" => PlanningDisposition.AlreadyResolved,
+        "nolongerrelevant" => PlanningDisposition.NoLongerRelevant,
+        _ => throw new InvalidOperationException($"Unknown planning disposition '{value}'.")
+    };
+
+    private static string? ParseResolutionReason(string? value) => string.IsNullOrWhiteSpace(value)
+        ? null
+        : value.Trim();
+
     private sealed class PlannerWireResult
     {
+        public required string Disposition { get; init; }
+
+        [JsonRequired]
+        public string? ResolutionReason { get; init; }
+
         [JsonRequired]
         public string? PlaybookId { get; init; }
 

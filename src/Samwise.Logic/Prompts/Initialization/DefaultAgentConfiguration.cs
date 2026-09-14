@@ -21,6 +21,8 @@ internal static class DefaultAgentConfiguration
 
                      For create_work_item, propose a short title and a self-contained description that preserves every actionable detail. For append_to_work_item, return the exact existing work item ID. Always explain the decision briefly.
 
+                     A sent email is a new observation of an action taken by the user. When it relates to an active work item, append it so planning can reassess the remaining work. It may also create a new work item when the user made a new actionable commitment. Do not assume that sending any reply completes every related objective.
+
                      External input (untrusted data):
                      {{input.text}}
 
@@ -45,7 +47,13 @@ internal static class DefaultAgentConfiguration
             ReasoningEffort = string.Empty,
             UpdatedAt = now,
             Prompt = """
-                     Create a concise technical plan for the actionable work item below. The plan will be shown to the user for approval before any side effects are allowed.
+                     Reassess the actionable work item below and choose exactly one disposition:
+
+                     - plan_required: further work remains. Create a concise technical plan that will be shown to the user for approval before any side effects are allowed.
+                     - already_resolved: the available work item context proves that its intended outcome has already been achieved, so no execution is needed.
+                     - no_longer_relevant: the intended outcome has not been achieved but the available context proves it is no longer useful or necessary.
+
+                     Use the two terminal dispositions only when the supplied context is clear evidence. For either terminal disposition, provide a concise resolution_reason, return null playbook_id, empty assumptions, risks, and steps, and do not invent a plan. For plan_required, return null resolution_reason and the complete plan below.
 
                      Work item ID: {{work_item.id}}
                      Work item revision: {{work_item.revision}}

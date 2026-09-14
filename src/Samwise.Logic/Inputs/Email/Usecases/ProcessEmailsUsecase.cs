@@ -61,7 +61,8 @@ internal sealed class ProcessEmailsUsecaseHandler(
 
                 foreach (var message in readResult.Messages)
                 {
-                    var isIgnored = configuration.IsIgnored(message.FromAddress);
+                    var isIgnored = message.Direction == EmailMessageDirection.Incoming
+                        && configuration.IsIgnored(message.FromAddress);
                     var now = timeProvider.GetUtcNow();
                     var inboundEvent = CreateInboundEvent(account, message, isIgnored, now);
                     var result = await captureService.CaptureAsync(inboundEvent, cancellationToken);
@@ -79,13 +80,25 @@ internal sealed class ProcessEmailsUsecaseHandler(
                     }
                 }
 
-                if (readResult.NextCheckpoint is not null)
+                if (readResult.NextInboxCheckpoint is not null)
                 {
-                    account.InboxCheckpoint = readResult.NextCheckpoint;
-                    if (readResult.CheckpointWasReset)
+                    account.InboxCheckpoint = readResult.NextInboxCheckpoint;
+                    if (readResult.InboxCheckpointWasReset)
                     {
                         logger.LogWarning(
                             "The INBOX UID validity changed for email account {EmailAccountId}; "
+                            + "Samwise established a new checkpoint without importing existing mail",
+                            account.Id);
+                    }
+                }
+
+                if (readResult.NextSentCheckpoint is not null)
+                {
+                    account.SentCheckpoint = readResult.NextSentCheckpoint;
+                    if (readResult.SentCheckpointWasReset)
+                    {
+                        logger.LogWarning(
+                            "The Sent mailbox UID validity changed for email account {EmailAccountId}; "
                             + "Samwise established a new checkpoint without importing existing mail",
                             account.Id);
                     }
@@ -120,14 +133,20 @@ internal sealed class ProcessEmailsUsecaseHandler(
     {
         if (selection == EmailSelection.NewSinceCheckpoint)
         {
-            var result = await inboxReader.ReadNewAsync(
+            var incoming = await inboxReader.ReadNewAsync(
                 account,
                 ignoredSenderAddresses,
                 cancellationToken);
+            var sent = await inboxReader.ReadNewSentAsync(account, cancellationToken);
             return new EmailReadResult(
-                result.Messages,
-                result.NextCheckpoint,
-                result.CheckpointWasReset);
+                incoming.Messages
+                    .Concat(sent.Messages)
+                    .OrderBy(message => message.ReceivedAt ?? message.SentAt ?? DateTimeOffset.MinValue)
+                    .ToList(),
+                incoming.NextCheckpoint,
+                sent.NextCheckpoint,
+                incoming.CheckpointWasReset,
+                sent.CheckpointWasReset);
         }
 
         if (selection == EmailSelection.Unread)
@@ -136,7 +155,7 @@ internal sealed class ProcessEmailsUsecaseHandler(
                 account,
                 ignoredSenderAddresses,
                 cancellationToken);
-            return new EmailReadResult(messages, null, false);
+            return new EmailReadResult(messages, null, null, false, false);
         }
 
         throw new ArgumentOutOfRangeException(nameof(selection), selection, null);
@@ -157,7 +176,18 @@ internal sealed class ProcessEmailsUsecaseHandler(
         return [account];
     }
 
-    private static EmailInboundEvent CreateInboundEvent(
+    private static InboundEvent CreateInboundEvent(
+        EmailAccount account,
+        EmailMessageSnapshot message,
+        bool isIgnored,
+        DateTimeOffset now) => message.Direction switch
+        {
+            EmailMessageDirection.Incoming => CreateReceivedEmailInboundEvent(account, message, isIgnored, now),
+            EmailMessageDirection.Sent => CreateSentEmailInboundEvent(account, message),
+            _ => throw new ArgumentOutOfRangeException(nameof(message), message.Direction, null)
+        };
+
+    private static EmailInboundEvent CreateReceivedEmailInboundEvent(
         EmailAccount account,
         EmailMessageSnapshot message,
         bool isIgnored,
@@ -188,8 +218,32 @@ internal sealed class ProcessEmailsUsecaseHandler(
                 : "Waiting for intake classification."
         };
 
+    private static SentEmailInboundEvent CreateSentEmailInboundEvent(
+        EmailAccount account,
+        EmailMessageSnapshot message) => new()
+        {
+            EmailAccountId = account.Id,
+            AccountName = account.DisplayName,
+            AccountEmailAddress = account.EmailAddress,
+            Mailbox = message.Mailbox,
+            UidValidity = message.UidValidity,
+            Uid = message.Uid,
+            MessageId = message.MessageId,
+            Subject = message.Subject,
+            FromAddress = message.FromAddress,
+            FromDisplayName = message.FromDisplayName,
+            ToAddresses = message.ToAddresses,
+            SentAt = message.SentAt,
+            BodyText = message.BodyText,
+            Attachments = message.Attachments,
+            Handling = InboundHandlingKind.Pending,
+            Explanation = "Waiting for intake classification."
+        };
+
     private sealed record EmailReadResult(
         IReadOnlyList<EmailMessageSnapshot> Messages,
-        EmailInboxCheckpoint? NextCheckpoint,
-        bool CheckpointWasReset);
+        EmailMailboxCheckpoint? NextInboxCheckpoint,
+        EmailMailboxCheckpoint? NextSentCheckpoint,
+        bool InboxCheckpointWasReset,
+        bool SentCheckpointWasReset);
 }

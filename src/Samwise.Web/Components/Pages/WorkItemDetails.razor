@@ -73,7 +73,7 @@ else
                         <div class="detail-card-heading">
                             <div>
                                 <span class="page-kicker">Input</span>
-                                <h2>What Samwise received</h2>
+                                <h2>What Samwise observed</h2>
                             </div>
                             <time>@workItem.CreatedAt.ToLocalTime().ToString("g")</time>
                         </div>
@@ -259,7 +259,7 @@ else
                     <section class="detail-card completion-card">
                         <div class="detail-card-heading completion-heading">
                             <div>
-                                <span class="page-kicker">Completed</span>
+                                <span class="page-kicker">@(workItem.Completion?.Kind == WorkItemCompletionKind.PlanningResolution ? "Resolved during planning" : "Completed")</span>
                                 <h2>@(completion?.Summary ?? "Work Item completed")</h2>
                             </div>
                             <time>@((completion?.CompletedAt ?? workItem.CompletedAt ?? workItem.UpdatedAt).ToLocalTime().ToString("g"))</time>
@@ -275,6 +275,10 @@ else
                                     }
                                 </ol>
                             </div>
+                        }
+                        else if (workItem.Completion?.Kind == WorkItemCompletionKind.PlanningResolution)
+                        {
+                            <p class="completion-no-execution">No execution was needed because the latest context already resolved the intended outcome.</p>
                         }
                         else
                         {

@@ -55,16 +55,63 @@ internal sealed class WorkItemPlanningService(
                     prompt.ExecutionTools,
                     prompt.Configuration),
                 cancellationToken);
-            AgentWorkflowSupport.ValidatePlan(result.Plan, prompt.ExecutionTools);
-            var playbook = AgentWorkflowSupport.ResolvePlaybookSnapshot(
-                result.Plan.PlaybookId,
-                prompt.AvailablePlaybooks);
+            PlanPlaybookSnapshot? playbook = null;
+            if (result.Disposition == PlanningDisposition.PlanRequired)
+            {
+                if (result.ResolutionReason is not null)
+                {
+                    throw new InvalidOperationException(
+                        "A plan-required result cannot include a terminal resolution reason.");
+                }
+
+                AgentWorkflowSupport.ValidatePlan(result.Plan, prompt.ExecutionTools);
+                playbook = AgentWorkflowSupport.ResolvePlaybookSnapshot(
+                    result.Plan.PlaybookId,
+                    prompt.AvailablePlaybooks);
+            }
+            else if (string.IsNullOrWhiteSpace(result.ResolutionReason))
+            {
+                throw new InvalidOperationException(
+                    $"Planning disposition '{result.Disposition}' requires a resolution reason.");
+            }
+            else if (result.Plan.PlaybookId is not null || result.Plan.Steps.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Planning disposition '{result.Disposition}' cannot include an executable plan.");
+            }
+
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
             if (currentWorkItem.Revision != revision || currentWorkItem.Status != WorkItemStatus.Planning)
             {
                 return;
+            }
+
+            if (result.Disposition == PlanningDisposition.AlreadyResolved)
+            {
+                currentWorkItem.CompleteDuringPlanning(
+                    result.ResolutionReason!,
+                    invocation.Id,
+                    timeProvider.GetUtcNow());
+                await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+                return;
+            }
+
+            if (result.Disposition == PlanningDisposition.NoLongerRelevant)
+            {
+                currentWorkItem.DiscardDuringPlanning(
+                    result.ResolutionReason!,
+                    invocation.Id,
+                    timeProvider.GetUtcNow());
+                await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+                return;
+            }
+
+            if (result.Disposition != PlanningDisposition.PlanRequired)
+            {
+                throw new InvalidOperationException(
+                    $"Unsupported planning disposition '{result.Disposition}'.");
             }
 
             var plan = new WorkItemPlan

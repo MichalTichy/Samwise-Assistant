@@ -15,7 +15,9 @@ internal sealed class ActiveWorkItemCandidatesSpecification(int limit = 100) : I
         await queryable
             .Where(workItem =>
                 workItem.Status != WorkItemStatus.Completed &&
-                workItem.Status != WorkItemStatus.Discarded)
+                workItem.Status != WorkItemStatus.Discarded &&
+                workItem.Status != WorkItemStatus.Executing &&
+                workItem.Status != WorkItemStatus.OutcomeUnknown)
             .OrderByDescending(workItem => workItem.UpdatedAt)
             .Take(limit)
             .ToListAsync(cancellationToken);

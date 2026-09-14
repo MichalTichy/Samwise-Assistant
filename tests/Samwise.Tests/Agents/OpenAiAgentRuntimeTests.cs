@@ -92,6 +92,8 @@ public sealed class OpenAiAgentRuntimeTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var responseBody = CreateChatCompletion(model, new
         {
+            disposition = "plan_required",
+            resolution_reason = (string?)null,
             playbook_id = "invoice-processing",
             summary = "Process the invoice safely.",
             assumptions = Array.Empty<string>(),
@@ -145,12 +147,62 @@ public sealed class OpenAiAgentRuntimeTests
         using var document = JsonDocument.Parse(request.Body);
         Assert.Equal(model, document.RootElement.GetProperty("model").GetString());
         Assert.Equal("max", document.RootElement.GetProperty("reasoning_effort").GetString());
+        var planningSchemaProperties = document.RootElement
+            .GetProperty("response_format")
+            .GetProperty("json_schema")
+            .GetProperty("schema")
+            .GetProperty("properties");
+        Assert.True(planningSchemaProperties.TryGetProperty("disposition", out _));
+        Assert.True(planningSchemaProperties.TryGetProperty("resolution_reason", out _));
+        Assert.Equal(PlanningDisposition.PlanRequired, result.Disposition);
+        Assert.Null(result.ResolutionReason);
         Assert.Equal("invoice-processing", result.Plan.PlaybookId);
         Assert.Equal("Process the invoice safely.", result.Plan.Summary);
         var step = Assert.Single(result.Plan.Steps);
         var toolCall = Assert.Single(step.ToolCalls);
         Assert.Equal("accounting/create-draft", toolCall.ToolId);
         Assert.Equal("{\"invoice_id\":\"invoice-1\"}", toolCall.ArgumentsJson);
+    }
+
+    [Theory]
+    [InlineData("already_resolved", PlanningDisposition.AlreadyResolved)]
+    [InlineData("no_longer_relevant", PlanningDisposition.NoLongerRelevant)]
+    public async Task PlanningParsesTerminalDisposition(
+        string wireDisposition,
+        PlanningDisposition expectedDisposition)
+    {
+        await using var server = new LoopbackServer();
+        const string model = "planning-model";
+        var runtime = CreateRuntime(server.BaseAddress, "planning-test-key");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responseBody = CreateChatCompletion(model, new
+        {
+            disposition = wireDisposition,
+            resolution_reason = "The latest sent email resolved the objective.",
+            playbook_id = (string?)null,
+            summary = string.Empty,
+            assumptions = Array.Empty<string>(),
+            risks = Array.Empty<string>(),
+            steps = Array.Empty<object>()
+        });
+        var capturedRequestTask = server.CaptureAndRespondAsync(responseBody, timeout.Token);
+        var emptyCatalog = new ToolCatalogSnapshot("catalog", "{}", []);
+
+        var result = await runtime.PlanAsync(
+            new PlannerRequest(
+                "work-item-1",
+                2,
+                2,
+                "Reassess this work item.",
+                emptyCatalog,
+                emptyCatalog,
+                new AgentRunConfiguration(model, "medium")),
+            timeout.Token);
+        await capturedRequestTask;
+
+        Assert.Equal(expectedDisposition, result.Disposition);
+        Assert.Equal("The latest sent email resolved the objective.", result.ResolutionReason);
+        Assert.Empty(result.Plan.Steps);
     }
 
     private static OpenAiAgentRuntime CreateRuntime(Uri baseAddress, string apiKey)

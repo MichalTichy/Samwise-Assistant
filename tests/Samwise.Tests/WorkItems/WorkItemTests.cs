@@ -202,7 +202,8 @@ public sealed class WorkItemTests
         var completion = Assert.IsType<WorkItemCompletion>(executed.Completion);
         Assert.Equal("Created and sent the revised offer.", completion.Summary);
         Assert.Equal(2, completion.Outputs.Count);
-        Assert.Equal("execution-invocation-id", completion.ExecutionInvocationId);
+        Assert.Equal(WorkItemCompletionKind.Execution, completion.Kind);
+        Assert.Equal("execution-invocation-id", completion.AgentInvocationId);
         Assert.Equal(InitialTime.AddMinutes(6), completion.CompletedAt);
         Assert.Empty(executed.Comments);
     }
@@ -243,6 +244,42 @@ public sealed class WorkItemTests
             () => workItem.Restore(InitialTime.AddMinutes(1)));
 
         Assert.Equal("Only a discarded work item can be restored.", exception.Message);
+    }
+
+    [Fact]
+    public void PlanningCanCompleteAWorkItemWhenNewContextProvesItIsResolved()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Reply to Rosie.", null, InitialTime);
+        workItem.AddContext("Email sent to Rosie: I will be there.", InitialTime.AddMinutes(1));
+
+        workItem.CompleteDuringPlanning(
+            "The sent reply completed the requested response.",
+            "planning-invocation-id",
+            InitialTime.AddMinutes(2));
+
+        Assert.Equal(WorkItemStatus.Completed, workItem.Status);
+        Assert.Null(workItem.CurrentPlanId);
+        var completion = Assert.IsType<WorkItemCompletion>(workItem.Completion);
+        Assert.Equal(WorkItemCompletionKind.PlanningResolution, completion.Kind);
+        Assert.Equal("planning-invocation-id", completion.AgentInvocationId);
+        Assert.Equal("The sent reply completed the requested response.", completion.Summary);
+    }
+
+    [Fact]
+    public void PlanningCanDiscardAWorkItemThatIsNoLongerRelevant()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Arrange the optional meeting.", null, InitialTime);
+
+        workItem.DiscardDuringPlanning(
+            "The other participant cancelled the request.",
+            "planning-invocation-id",
+            InitialTime.AddMinutes(1));
+
+        Assert.Equal(WorkItemStatus.Discarded, workItem.Status);
+        Assert.Equal("Planning agent", workItem.DiscardedFrom);
+        Assert.Equal("The other participant cancelled the request.", workItem.DiscardReason);
+        Assert.Equal("planning-invocation-id", workItem.DiscardInvocationId);
+        Assert.Contains("cancelled", Assert.Single(workItem.Comments).Body, StringComparison.Ordinal);
     }
 
     private static WorkItemPlan CreatePlan(DomainWorkItem workItem, int planNumber, DateTimeOffset createdAt) =>

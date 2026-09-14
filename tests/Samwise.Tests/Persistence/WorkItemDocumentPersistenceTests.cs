@@ -20,7 +20,7 @@ namespace Samwise.Tests.Persistence;
 public sealed class WorkItemDocumentPersistenceTests
 {
     [Fact]
-    public async Task EmailAccountStoresNestedInboxCheckpoint()
+    public async Task EmailAccountStoresNestedMailboxCheckpoints()
     {
         var connectionString = Environment.GetEnvironmentVariable("SAMWISE_TEST_POSTGRES");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -46,7 +46,8 @@ public sealed class WorkItemDocumentPersistenceTests
             Port = 993,
             Username = "sam@example.com",
             ProtectedPassword = "protected",
-            InboxCheckpoint = new EmailInboxCheckpoint(42, 173, now),
+            InboxCheckpoint = new EmailMailboxCheckpoint(42, 173, now),
+            SentCheckpoint = new EmailMailboxCheckpoint(43, 271, now),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -56,6 +57,8 @@ public sealed class WorkItemDocumentPersistenceTests
         var persisted = await repository.GetRequiredByIdAsync(account.Id);
         Assert.Equal(42u, persisted.InboxCheckpoint?.UidValidity);
         Assert.Equal(173u, persisted.InboxCheckpoint?.NextUid);
+        Assert.Equal(43u, persisted.SentCheckpoint?.UidValidity);
+        Assert.Equal(271u, persisted.SentCheckpoint?.NextUid);
 
         await repository.DeleteByIdAsync(account.Id);
     }
@@ -120,16 +123,35 @@ public sealed class WorkItemDocumentPersistenceTests
             DedupeKey = Guid.NewGuid().ToString("N"),
             ReceivedAt = DateTimeOffset.UtcNow
         };
+        var sentEmail = new SentEmailInboundEvent
+        {
+            Id = $"test-{Guid.NewGuid():N}",
+            EmailAccountId = "personal",
+            AccountName = "Personal",
+            AccountEmailAddress = "sam@example.com",
+            Mailbox = "Sent",
+            UidValidity = 7,
+            Uid = 12,
+            Subject = "Re: Supper",
+            FromAddress = "sam@example.com",
+            ToAddresses = ["rosie@example.com"],
+            BodyText = "On my way.",
+            DedupeKey = Guid.NewGuid().ToString("N"),
+            ReceivedAt = DateTimeOffset.UtcNow
+        };
 
-        await repository.AddAsync([manual, email]);
+        await repository.AddAsync([manual, email, sentEmail]);
 
         Assert.IsType<ManualInboundEvent>(await repository.GetRequiredByIdAsync(manual.Id));
         var storedEmail = Assert.IsType<EmailInboundEvent>(
             await repository.GetRequiredByIdAsync(email.Id));
         Assert.Contains("Subject: Supper", storedEmail.GetIntakeText(), StringComparison.Ordinal);
         Assert.Equal("On my way.", Assert.Single(storedEmail.Replies).BodyText);
+        var storedSentEmail = Assert.IsType<SentEmailInboundEvent>(
+            await repository.GetRequiredByIdAsync(sentEmail.Id));
+        Assert.Contains("Email sent from: sam@example.com", storedSentEmail.GetIntakeText(), StringComparison.Ordinal);
 
-        await repository.DeleteRangeByIdsAsync([manual.Id, email.Id]);
+        await repository.DeleteRangeByIdsAsync([manual.Id, email.Id, sentEmail.Id]);
     }
 
     [Fact]
@@ -265,7 +287,7 @@ public sealed class WorkItemDocumentPersistenceTests
         var completion = Assert.IsType<WorkItemCompletion>(persisted.Completion);
         Assert.Equal("Execution completed.", completion.Summary);
         Assert.Equal("Created the revised offer document.", Assert.Single(completion.Outputs));
-        Assert.Equal("execution-invocation-id", completion.ExecutionInvocationId);
+        Assert.Equal("execution-invocation-id", completion.AgentInvocationId);
         var persistedPlan = Assert.Single(persisted.Plans);
         Assert.Equal(PlanReviewKind.Approved, Assert.IsType<PlanReview>(persistedPlan.Review).Kind);
         Assert.Equal("offer-preparation", Assert.IsType<PlanPlaybookSnapshot>(persistedPlan.Playbook).Id);

@@ -22,6 +22,7 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
         options.Schema.For<InboundEvent>()
             .AddSubClass<ManualInboundEvent>()
             .AddSubClass<EmailInboundEvent>()
+            .AddSubClass<SentEmailInboundEvent>()
             .Index(item => item.ReceivedAt)
             .UniqueIndex("ux_inbound_event_dedupe_key", item => item.DedupeKey);
         options.Schema.For<EmailInputConfiguration>();

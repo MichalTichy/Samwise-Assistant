@@ -54,7 +54,9 @@ public sealed class WorkItemTools(IReadOnlyRepository<DomainWorkItem> repository
                 workItem.CreatedAt,
                 workItem.UpdatedAt,
                 workItem.CompletedAt,
-                workItem.DiscardedAt
+                completionKind = workItem.Completion?.Kind,
+                workItem.DiscardedAt,
+                workItem.DiscardReason
             })
         });
     }

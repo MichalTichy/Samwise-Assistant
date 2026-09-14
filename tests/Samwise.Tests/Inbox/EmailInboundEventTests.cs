@@ -70,4 +70,32 @@ public sealed class EmailInboundEventTests
             inboundEvent.GetIntakeText(),
             StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void SentEmailIntakeTextIsComputedFromStoredFields()
+    {
+        var inboundEvent = new SentEmailInboundEvent
+        {
+            EmailAccountId = "work",
+            Mailbox = "Sent Items",
+            UidValidity = 17,
+            Uid = 42,
+            FromDisplayName = "Sam Gamgee",
+            FromAddress = "sam@example.com",
+            ToAddresses = ["rosie@example.com"],
+            Subject = "Re: The Green Dragon",
+            SentAt = new DateTimeOffset(2026, 9, 12, 8, 45, 0, TimeSpan.Zero),
+            BodyText = "I will be there.",
+            Attachments = [new EmailAttachmentSummary("directions.pdf", "application/pdf", 512)]
+        };
+
+        var text = inboundEvent.GetIntakeText();
+
+        Assert.Equal("Sent email", inboundEvent.Source);
+        Assert.Equal("work:Sent Items:17:42", inboundEvent.ExternalId);
+        Assert.Contains("Email sent from: Sam Gamgee <sam@example.com>", text, StringComparison.Ordinal);
+        Assert.Contains("To: rosie@example.com", text, StringComparison.Ordinal);
+        Assert.Contains("I will be there.", text, StringComparison.Ordinal);
+        Assert.Contains("directions.pdf (application/pdf)", text, StringComparison.Ordinal);
+    }
 }

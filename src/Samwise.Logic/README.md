@@ -24,14 +24,14 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 ## Intake and planning flow
 
-1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. Both the timer and UI trigger `ProcessEmailsUsecase`: the timer selects `NewSinceCheckpoint`, while the UI selects `Unread`; both create `EmailInboundEvent` documents through the IMAP port.
+1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. Both the timer and UI trigger `ProcessEmailsUsecase`: the timer selects `NewSinceCheckpoint` and captures new INBOX and Sent messages, while the UI selects `Unread` and checks only INBOX. The IMAP port supplies either `EmailInboundEvent` or `SentEmailInboundEvent` data.
 2. Both use `InboundEventCaptureService` to validate, deduplicate, persist, and continue pending inputs through `InboundEventProcessingService`.
 3. `InboundEventClassificationService` asks `AgentPromptBuilder` for a ready Intake prompt. The builder retrieves the input, active work items, enabled playbooks, configuration, time, and all three tool catalogs. Intake uses playbooks to recognize actionability but does not select one. The service records the Intake catalog with the invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the decision.
 4. `Ignore` and `NeedsReview` finish without a work item.
 5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
 6. `InboundEventProcessingService` calls `WorkItemPlanningService` for that work item.
 7. Planning asks `AgentPromptBuilder` for a ready prompt. The builder retrieves the work item, enabled playbooks, configuration, time, and both required catalogs before the configured planning model is called through `IAgentRuntime`.
-8. Samwise validates the selected playbook ID and referenced execution tools, snapshots any selected playbook into the plan, attaches it, and leaves the work item awaiting approval.
+8. Planning returns an explicit disposition. `PlanRequired` validates and snapshots the selected playbook and referenced execution tools before leaving the work item awaiting approval. `AlreadyResolved` completes work proven finished by new context; `NoLongerRelevant` discards work proven unnecessary. Both terminal outcomes retain the planner's reason and invocation ID without fabricating an empty plan.
 
 ## Approval and execution flow
 
@@ -47,7 +47,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 - `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when every invocation starts.
 - `AgentPromptPlaceholders` declares every placeholder key once as a constant with its label, description, example, and applicable stages in `PromptPlaceholderAttribute`. The settings UI, builder, and renderer all consume that catalogue.
 - `AgentPromptBuilder` is the only component that renders runtime prompts. Workflow services pass identifiers rather than placeholder values; the builder retrieves each stage's data, uses catalogue constants for its value maps, and returns the rendered prompt, run configuration, and exact catalogs or playbooks required for validation and snapshots.
-- `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores, durable checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
+- `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores for incoming mail, independent durable INBOX/Sent checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
 - `StartMicrosoftEmailAuthorizationUsecase` starts an explicit user-triggered Microsoft device-code sign-in. `SaveEmailAccountUsecase` consumes the completed authorization, protects the reusable token cache, verifies INBOX access, and then persists the account.
 - `PromptRenderer` validates templates against the catalogue and performs the final token replacement. `AgentWorkflowSupport` contains plan validation and snapshot helpers only.
 

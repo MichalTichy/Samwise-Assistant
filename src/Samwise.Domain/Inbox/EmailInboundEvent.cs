@@ -101,19 +101,3 @@ public sealed class EmailInboundEvent : InboundEvent
         ? FromAddress
         : $"{FromDisplayName} <{FromAddress}>";
 }
-
-public sealed record EmailAttachmentSummary(string FileName, string ContentType, long? Size);
-
-public sealed record EmailReplySnapshot(
-    string? MessageId,
-    string Subject,
-    string FromAddress,
-    string FromDisplayName,
-    IReadOnlyList<string> ToAddresses,
-    DateTimeOffset? SentAt,
-    string BodyText)
-{
-    public string FormatSender() => string.IsNullOrWhiteSpace(FromDisplayName)
-        ? FromAddress
-        : $"{FromDisplayName} <{FromAddress}>";
-}

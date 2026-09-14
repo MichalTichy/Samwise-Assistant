@@ -20,6 +20,8 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public WorkItemCompletion? Completion { get; set; }
     public DateTimeOffset? DiscardedAt { get; set; }
     public string? DiscardedFrom { get; set; }
+    public string? DiscardReason { get; set; }
+    public string? DiscardInvocationId { get; set; }
     public List<WorkItemPlan> Plans { get; set; } = [];
     public List<WorkItemComment> Comments { get; set; } = [];
 
@@ -190,12 +192,13 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         Status = WorkItemStatus.Completed;
         Completion = new WorkItemCompletion
         {
+            Kind = WorkItemCompletionKind.Execution,
             Summary = summary.Trim(),
             Outputs = outputs
                 .Where(output => !string.IsNullOrWhiteSpace(output))
                 .Select(output => output.Trim())
                 .ToList(),
-            ExecutionInvocationId = executionInvocationId.Trim(),
+            AgentInvocationId = executionInvocationId.Trim(),
             CompletedAt = now
         };
         CompletedAt = now;
@@ -209,6 +212,53 @@ public sealed class WorkItem : IItemWithId, IRevisioned
             Status = WorkItemStatus.OutcomeUnknown;
             UpdatedAt = now;
         }
+    }
+
+    public void CompleteDuringPlanning(
+        string reason,
+        string planningInvocationId,
+        DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        ArgumentException.ThrowIfNullOrWhiteSpace(planningInvocationId);
+        if (Status != WorkItemStatus.Planning)
+        {
+            throw new InvalidOperationException("Only a work item being planned can be resolved by planning.");
+        }
+
+        Status = WorkItemStatus.Completed;
+        CurrentPlanId = null;
+        Completion = new WorkItemCompletion
+        {
+            Kind = WorkItemCompletionKind.PlanningResolution,
+            Summary = reason.Trim(),
+            AgentInvocationId = planningInvocationId.Trim(),
+            CompletedAt = now
+        };
+        CompletedAt = now;
+        UpdatedAt = now;
+    }
+
+    public void DiscardDuringPlanning(
+        string reason,
+        string planningInvocationId,
+        DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        ArgumentException.ThrowIfNullOrWhiteSpace(planningInvocationId);
+        if (Status != WorkItemStatus.Planning)
+        {
+            throw new InvalidOperationException("Only a work item being planned can be discarded by planning.");
+        }
+
+        Discard(now, "Planning agent");
+        DiscardReason = reason.Trim();
+        DiscardInvocationId = planningInvocationId.Trim();
+        Comments.Add(CreateComment(
+            $"Discarded during planning: {DiscardReason}",
+            CommentAuthorKind.System,
+            WorkItemCommentKind.Context,
+            now));
     }
 
     public void PrepareExecutionRetry(DateTimeOffset now)
@@ -253,6 +303,8 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         CurrentPlanId = null;
         DiscardedAt = now;
         DiscardedFrom = source;
+        DiscardReason = null;
+        DiscardInvocationId = null;
         UpdatedAt = now;
     }
 

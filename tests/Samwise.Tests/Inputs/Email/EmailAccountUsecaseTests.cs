@@ -15,7 +15,7 @@ public sealed class EmailAccountUsecaseTests
     {
         var repository = new EmailAccountRepository();
         var reader = new StubEmailInboxReader(
-            new EmailInboxCheckpoint(42, 173, Now));
+            new EmailMailboxCheckpoint(42, 173, Now));
         var handler = new SaveEmailAccountUsecaseHandler(
             repository,
             new StubCredentialProtector(),
@@ -26,7 +26,8 @@ public sealed class EmailAccountUsecaseTests
         var result = await handler.Handle(CreateRequest(), CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(1, reader.CheckpointReadCount);
+        Assert.Equal(1, reader.InboxCheckpointReadCount);
+        Assert.Equal(1, reader.SentCheckpointReadCount);
         var account = Assert.IsType<EmailAccount>(repository.Account);
         Assert.Equal(42u, account.InboxCheckpoint?.UidValidity);
         Assert.Equal(173u, account.InboxCheckpoint?.NextUid);
@@ -36,7 +37,7 @@ public sealed class EmailAccountUsecaseTests
     [Fact]
     public async Task EditingAccountMetadataPreservesItsInboxCheckpoint()
     {
-        var originalCheckpoint = new EmailInboxCheckpoint(7, 99, Now.AddDays(-1));
+        var originalCheckpoint = new EmailMailboxCheckpoint(7, 99, Now.AddDays(-1));
         var existing = new EmailAccount
         {
             Id = "personal",
@@ -47,10 +48,11 @@ public sealed class EmailAccountUsecaseTests
             Security = EmailConnectionSecurity.SslOnConnect,
             Username = "sam@example.com",
             ProtectedPassword = "protected:secret",
-            InboxCheckpoint = originalCheckpoint
+            InboxCheckpoint = originalCheckpoint,
+            SentCheckpoint = originalCheckpoint
         };
         var repository = new EmailAccountRepository(existing);
-        var reader = new StubEmailInboxReader(new EmailInboxCheckpoint(42, 173, Now));
+        var reader = new StubEmailInboxReader(new EmailMailboxCheckpoint(42, 173, Now));
         var handler = new SaveEmailAccountUsecaseHandler(
             repository,
             new StubCredentialProtector(),
@@ -68,7 +70,8 @@ public sealed class EmailAccountUsecaseTests
             CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(0, reader.CheckpointReadCount);
+        Assert.Equal(0, reader.InboxCheckpointReadCount);
+        Assert.Equal(0, reader.SentCheckpointReadCount);
         Assert.Same(originalCheckpoint, repository.Account?.InboxCheckpoint);
         Assert.Equal("Personal mail", repository.Account?.DisplayName);
     }
@@ -77,7 +80,7 @@ public sealed class EmailAccountUsecaseTests
     public async Task NewMicrosoft365AccountStoresAuthorizedSessionAndInitializesCheckpoint()
     {
         var repository = new EmailAccountRepository();
-        var reader = new StubEmailInboxReader(new EmailInboxCheckpoint(42, 173, Now));
+        var reader = new StubEmailInboxReader(new EmailMailboxCheckpoint(42, 173, Now));
         var authorization = new StubMicrosoftEmailAuthorizationService(
             new MicrosoftEmailAuthorizationCompletion(
                 MicrosoftEmailAuthorizationState.Succeeded,
@@ -108,7 +111,8 @@ public sealed class EmailAccountUsecaseTests
         Assert.Equal("protected:serialized-cache", account.ProtectedOAuthTokenCache);
         Assert.Equal("home-account", account.OAuthHomeAccountId);
         Assert.Empty(account.ProtectedPassword);
-        Assert.Equal(1, reader.CheckpointReadCount);
+        Assert.Equal(1, reader.InboxCheckpointReadCount);
+        Assert.Equal(1, reader.SentCheckpointReadCount);
     }
 
     [Fact]
@@ -125,7 +129,7 @@ public sealed class EmailAccountUsecaseTests
         var handler = new SaveEmailAccountUsecaseHandler(
             repository,
             new StubCredentialProtector(),
-            new StubEmailInboxReader(new EmailInboxCheckpoint(42, 173, Now)),
+            new StubEmailInboxReader(new EmailMailboxCheckpoint(42, 173, Now)),
             authorization,
             new FixedTimeProvider(Now));
 
@@ -146,7 +150,7 @@ public sealed class EmailAccountUsecaseTests
     [Fact]
     public async Task ExistingMicrosoft365AccountCanSaveMetadataWithoutSigningInAgain()
     {
-        var checkpoint = new EmailInboxCheckpoint(7, 99, Now.AddDays(-1));
+        var checkpoint = new EmailMailboxCheckpoint(7, 99, Now.AddDays(-1));
         var existing = new EmailAccount
         {
             Id = "work",
@@ -159,10 +163,11 @@ public sealed class EmailAccountUsecaseTests
             Username = "sam@work.example",
             ProtectedOAuthTokenCache = "protected:serialized-cache",
             OAuthHomeAccountId = "home-account",
-            InboxCheckpoint = checkpoint
+            InboxCheckpoint = checkpoint,
+            SentCheckpoint = checkpoint
         };
         var repository = new EmailAccountRepository(existing);
-        var reader = new StubEmailInboxReader(new EmailInboxCheckpoint(42, 173, Now));
+        var reader = new StubEmailInboxReader(new EmailMailboxCheckpoint(42, 173, Now));
         var handler = new SaveEmailAccountUsecaseHandler(
             repository,
             new StubCredentialProtector(),
@@ -184,7 +189,8 @@ public sealed class EmailAccountUsecaseTests
             CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(0, reader.CheckpointReadCount);
+        Assert.Equal(0, reader.InboxCheckpointReadCount);
+        Assert.Equal(0, reader.SentCheckpointReadCount);
         Assert.Same(checkpoint, repository.Account?.InboxCheckpoint);
         Assert.Equal("protected:serialized-cache", repository.Account?.ProtectedOAuthTokenCache);
     }
@@ -215,24 +221,38 @@ public sealed class EmailAccountUsecaseTests
             protectedPassword.Replace("protected:", string.Empty, StringComparison.Ordinal);
     }
 
-    private sealed class StubEmailInboxReader(EmailInboxCheckpoint checkpoint) : IEmailInboxReader
+    private sealed class StubEmailInboxReader(EmailMailboxCheckpoint checkpoint) : IEmailInboxReader
     {
-        public int CheckpointReadCount { get; private set; }
+        public int InboxCheckpointReadCount { get; private set; }
+        public int SentCheckpointReadCount { get; private set; }
 
         public Task TestConnectionAsync(EmailAccount account, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task<EmailInboxCheckpoint> GetCurrentInboxCheckpointAsync(
+        public Task<EmailMailboxCheckpoint> GetCurrentInboxCheckpointAsync(
             EmailAccount account,
             CancellationToken cancellationToken)
         {
-            CheckpointReadCount++;
+            InboxCheckpointReadCount++;
             return Task.FromResult(checkpoint);
+        }
+
+        public Task<EmailMailboxCheckpoint?> GetCurrentSentCheckpointAsync(
+            EmailAccount account,
+            CancellationToken cancellationToken)
+        {
+            SentCheckpointReadCount++;
+            return Task.FromResult<EmailMailboxCheckpoint?>(checkpoint);
         }
 
         public Task<NewEmailReadResult> ReadNewAsync(
             EmailAccount account,
             IReadOnlyCollection<string> ignoredSenderAddresses,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<NewEmailReadResult> ReadNewSentAsync(
+            EmailAccount account,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

@@ -13,12 +13,13 @@ Each source has an external use case and creates its own typed inbound event:
 ```text
 SubmitManualInputUsecase -> ManualInboundEvent
 ProcessEmailsUsecase(NewSinceCheckpoint) -> EmailInboundEvent
+ProcessEmailsUsecase(NewSinceCheckpoint) -> SentEmailInboundEvent
 ProcessEmailsUsecase(Unread) -> EmailInboundEvent
 ```
 
 Both operations call `InboundEventCaptureService`, which uses `Source + ExternalId` for connector-level deduplication. A deterministic key has a database unique constraint. The service stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.
 
-Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapter stores account and message metadata plus a normalized body on `EmailInboundEvent`; its stable external identity is account ID, mailbox, UIDVALIDITY, and UID. Each derived event computes its intake text from its source fields. Future Teams and Todoist sources follow the same rule. Connectors do not create or modify work items themselves.
+Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapter stores account and message metadata plus a normalized body on `EmailInboundEvent` or `SentEmailInboundEvent`; their stable external identity is account ID, mailbox, UIDVALIDITY, and UID. Each derived event computes its intake text from its source fields. A related sent message is appended to an active Work Item like any other new context, invalidating the current plan before reassessment. Future Teams and Todoist sources follow the same rule. Connectors do not create or modify work items themselves.
 
 Use cases represent external triggers only: a user action, an endpoint request, or a newly received input event. A use-case handler coordinates the integral steps of that operation by calling scoped processing, classification, planning, execution, and invocation-lifecycle services. It never sends another use case.
 
@@ -41,6 +42,8 @@ The selected existing work item must be both in the supplied candidate list and 
 stateDiagram-v2
     [*] --> Planning: actionable intake
     Planning --> AwaitingApproval: plan generated
+    Planning --> Completed: context proves outcome already resolved
+    Planning --> Discarded: context proves outcome no longer relevant
     Planning --> NeedsAttention: planning failed
     AwaitingApproval --> Approved: approve exact plan + work item revision
     AwaitingApproval --> Planning: reject with feedback
@@ -55,6 +58,8 @@ stateDiagram-v2
     NeedsAttention --> Discarded: discard
     OutcomeUnknown --> Discarded: close after manual reconciliation
 ```
+
+The planner first returns `PlanRequired`, `AlreadyResolved`, or `NoLongerRelevant`. Terminal results require clear evidence in the supplied context and preserve the reason and planning invocation ID on the Work Item. `AlreadyResolved` becomes a normal completion; `NoLongerRelevant` becomes an audited discard. Neither fabricates a plan or runs execution.
 
 A `WorkItemPlan` is Samwise’s own serializable plan snapshot, not an opaque Agent Framework session. It is nested in its work item document and contains technical steps, referenced qualified tool IDs, side-effect flags, success criteria, assumptions, risks, the exact work item revision, the selected playbook snapshot when one applies, structured snapshots of both tool catalogs, the agent-configuration identity/timestamp, the planning invocation ID, and its optional review. The invocation document owns the full rendered prompt and raw AI response, avoiding duplicate large strings inside every plan.
 
@@ -111,9 +116,9 @@ The authenticated Configuration → Inputs → Emails page owns the polling inte
 
 `EmailInputConfiguration` is a singleton Marten document. `EmailAccount` is a separate document per mailbox because its check timestamps and error state change independently. Passwords and app passwords are protected with ASP.NET Data Protection before persistence and are never returned to the UI; the persisted key ring is shared with authentication cookies.
 
-`Samwise.Infrastructure.Email.Imap` uses MailKit and never changes message flags. It owns the provider-neutral IMAP reader and password authentication; `Samwise.Infrastructure.Email.Microsoft365` contributes Microsoft device-code authorization and an XOAUTH2 authentication handler. Creating an account stores the current INBOX `UIDVALIDITY` and `UIDNEXT`; scheduled checks import all later UIDs whether read or unread, then advance the checkpoint only after durable capture. A changed UID validity establishes a fresh checkpoint without replaying the mailbox. The manual action searches `UNSEEN` messages without changing the automatic checkpoint, allowing deliberate import of older unread mail. The dedupe identity remains account ID, mailbox, UIDVALIDITY, and UID.
+`Samwise.Infrastructure.Email.Imap` uses MailKit and never changes message flags. It owns the provider-neutral IMAP reader and password authentication; `Samwise.Infrastructure.Email.Microsoft365` contributes Microsoft device-code authorization and an XOAUTH2 authentication handler. Creating an account stores the current `UIDVALIDITY` and `UIDNEXT` independently for INBOX and the server-designated Sent folder; scheduled checks import all later UIDs and advance each checkpoint only after durable capture. Existing accounts establish a Sent checkpoint on their first check without replaying history. A changed UID validity establishes a fresh checkpoint without replaying that mailbox. The manual action searches only INBOX `UNSEEN` messages without changing either automatic checkpoint. The dedupe identity remains account ID, mailbox, UIDVALIDITY, and UID.
 
-Email events snapshot read and answered state. For answered messages, the adapter opens the server-designated Sent folder read-only and finds up to five replies using `Message-ID`, `In-Reply-To`, and `References`; their normalized bodies are included in intake context. Failure to discover or read Sent does not block inbox capture. Attachment metadata is recorded without downloading attachment bodies. Exact ignored senders are recorded as ignored events without an AI call, body download, or sent-reply lookup. OAuth, sending, full thread synchronization, and IMAP IDLE are outside V1.
+Received-email events snapshot read and answered state. For answered messages, the adapter opens the server-designated Sent folder read-only and finds up to five replies using `Message-ID`, `In-Reply-To`, and `References`; their normalized bodies are included in intake context. Sent-email events independently capture newly sent message bodies and attachment metadata for intake. Failure to discover Sent disables sent tracking without blocking INBOX capture. Attachment metadata is recorded without downloading attachment bodies. Exact ignored senders apply only to received mail and are recorded without an AI call, body download, or sent-reply lookup. Sending, full thread synchronization, and IMAP IDLE are outside V1.
 
 ## UI
 

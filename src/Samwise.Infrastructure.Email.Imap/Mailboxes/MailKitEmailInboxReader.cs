@@ -31,7 +31,7 @@ internal sealed partial class MailKitEmailInboxReader(
         await client.DisconnectAsync(true, cancellationToken);
     }
 
-    public async Task<EmailInboxCheckpoint> GetCurrentInboxCheckpointAsync(
+    public async Task<EmailMailboxCheckpoint> GetCurrentInboxCheckpointAsync(
         EmailAccount account,
         CancellationToken cancellationToken)
     {
@@ -39,6 +39,24 @@ internal sealed partial class MailKitEmailInboxReader(
         var inbox = client.Inbox;
         await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
         var checkpoint = CreateCurrentCheckpoint(inbox);
+        await client.DisconnectAsync(true, cancellationToken);
+        return checkpoint;
+    }
+
+    public async Task<EmailMailboxCheckpoint?> GetCurrentSentCheckpointAsync(
+        EmailAccount account,
+        CancellationToken cancellationToken)
+    {
+        using var client = await ConnectAsync(account, cancellationToken);
+        var sent = TryGetSentFolder(client);
+        if (sent is null)
+        {
+            await client.DisconnectAsync(true, cancellationToken);
+            return null;
+        }
+
+        await sent.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+        var checkpoint = CreateCurrentCheckpoint(sent);
         await client.DisconnectAsync(true, cancellationToken);
         return checkpoint;
     }
@@ -84,21 +102,48 @@ internal sealed partial class MailKitEmailInboxReader(
             account.Id,
             cancellationToken);
 
-        var nextUid = checkpointAtOpen.NextUid;
-        if (messages.Count > 0)
+        var nextCheckpoint = CreateNextCheckpoint(previousCheckpoint, checkpointAtOpen, messages);
+        await client.DisconnectAsync(true, cancellationToken);
+        return new NewEmailReadResult(messages, nextCheckpoint, false);
+    }
+
+    public async Task<NewEmailReadResult> ReadNewSentAsync(
+        EmailAccount account,
+        CancellationToken cancellationToken)
+    {
+        using var client = await ConnectAsync(account, cancellationToken);
+        var sent = TryGetSentFolder(client);
+        if (sent is null)
         {
-            var highestReadUid = messages.Max(message => message.Uid);
-            var uidAfterHighestRead = highestReadUid == uint.MaxValue
-                ? uint.MaxValue
-                : highestReadUid + 1;
-            nextUid = Math.Max(nextUid, uidAfterHighestRead);
+            await client.DisconnectAsync(true, cancellationToken);
+            return new NewEmailReadResult([], null, false);
         }
 
-        nextUid = Math.Max(nextUid, previousCheckpoint.NextUid);
-        var nextCheckpoint = new EmailInboxCheckpoint(
-            inbox.UidValidity,
-            nextUid,
-            timeProvider.GetUtcNow());
+        await sent.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+        var checkpointAtOpen = CreateCurrentCheckpoint(sent);
+        var previousCheckpoint = account.SentCheckpoint;
+        if (previousCheckpoint is null)
+        {
+            await client.DisconnectAsync(true, cancellationToken);
+            return new NewEmailReadResult([], checkpointAtOpen, false);
+        }
+
+        if (previousCheckpoint.UidValidity != sent.UidValidity)
+        {
+            await client.DisconnectAsync(true, cancellationToken);
+            return new NewEmailReadResult([], checkpointAtOpen, true);
+        }
+
+        var searchQuery = CreateNewMessagesSearchQuery(previousCheckpoint.NextUid, checkpointAtOpen.NextUid);
+        if (searchQuery is null)
+        {
+            await client.DisconnectAsync(true, cancellationToken);
+            return new NewEmailReadResult([], checkpointAtOpen, false);
+        }
+
+        var uids = await SearchWithoutExtendedResultsAsync(sent, searchQuery, cancellationToken);
+        var messages = await ReadSentMessagesAsync(sent, uids, cancellationToken);
+        var nextCheckpoint = CreateNextCheckpoint(previousCheckpoint, checkpointAtOpen, messages);
         await client.DisconnectAsync(true, cancellationToken);
         return new NewEmailReadResult(messages, nextCheckpoint, false);
     }
@@ -123,10 +168,31 @@ internal sealed partial class MailKitEmailInboxReader(
         return messages;
     }
 
-    private EmailInboxCheckpoint CreateCurrentCheckpoint(IMailFolder inbox) => new(
-        inbox.UidValidity,
-        Math.Max(inbox.UidNext?.Id ?? 1, 1),
+    private EmailMailboxCheckpoint CreateCurrentCheckpoint(IMailFolder folder) => new(
+        folder.UidValidity,
+        Math.Max(folder.UidNext?.Id ?? 1, 1),
         timeProvider.GetUtcNow());
+
+    private EmailMailboxCheckpoint CreateNextCheckpoint(
+        EmailMailboxCheckpoint previousCheckpoint,
+        EmailMailboxCheckpoint checkpointAtOpen,
+        IReadOnlyList<EmailMessageSnapshot> messages)
+    {
+        var nextUid = checkpointAtOpen.NextUid;
+        if (messages.Count > 0)
+        {
+            var highestReadUid = messages.Max(message => message.Uid);
+            var uidAfterHighestRead = highestReadUid == uint.MaxValue
+                ? uint.MaxValue
+                : highestReadUid + 1;
+            nextUid = Math.Max(nextUid, uidAfterHighestRead);
+        }
+
+        return new EmailMailboxCheckpoint(
+            checkpointAtOpen.UidValidity,
+            Math.Max(nextUid, previousCheckpoint.NextUid),
+            timeProvider.GetUtcNow());
+    }
 
     internal static string? CreateNewMessagesSearchQuery(uint nextUid, uint inboxNextUid)
     {
@@ -192,6 +258,7 @@ internal sealed partial class MailKitEmailInboxReader(
             var flags = summary.Flags ?? MessageFlags.None;
 
             messages.Add(new EmailMessageSnapshot(
+                EmailMessageDirection.Incoming,
                 inbox.FullName,
                 inbox.UidValidity,
                 summary.UniqueId.Id,
@@ -215,6 +282,53 @@ internal sealed partial class MailKitEmailInboxReader(
             ignored,
             emailAccountId,
             cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<EmailMessageSnapshot>> ReadSentMessagesAsync(
+        IMailFolder sent,
+        IList<UniqueId> uids,
+        CancellationToken cancellationToken)
+    {
+        if (uids.Count == 0)
+        {
+            return [];
+        }
+
+        var summaries = await sent.FetchAsync(
+            uids,
+            MessageSummaryItems.UniqueId
+            | MessageSummaryItems.Envelope
+            | MessageSummaryItems.InternalDate
+            | MessageSummaryItems.Flags
+            | MessageSummaryItems.BodyStructure,
+            cancellationToken);
+        var messages = new List<EmailMessageSnapshot>(summaries.Count);
+        foreach (var summary in summaries.OrderBy(item => item.UniqueId.Id))
+        {
+            var from = summary.Envelope?.From.Mailboxes.FirstOrDefault();
+            messages.Add(new EmailMessageSnapshot(
+                EmailMessageDirection.Sent,
+                sent.FullName,
+                sent.UidValidity,
+                summary.UniqueId.Id,
+                summary.Envelope?.MessageId,
+                summary.Envelope?.Subject ?? string.Empty,
+                from?.Address ?? string.Empty,
+                from?.Name ?? string.Empty,
+                summary.Envelope?.To.Mailboxes.Select(mailbox => mailbox.Address).ToList() ?? [],
+                summary.Envelope?.Date,
+                summary.InternalDate,
+                true,
+                false,
+                await ReadBodyTextAsync(sent, summary, MaximumBodyCharacters, cancellationToken),
+                summary.Attachments.Select(part => new EmailAttachmentSummary(
+                    string.IsNullOrWhiteSpace(part.FileName) ? "Unnamed attachment" : part.FileName,
+                    part.ContentType.MimeType,
+                    part.Octets)).ToList(),
+                []));
+        }
+
+        return messages;
     }
 
     private async Task<IReadOnlyList<EmailMessageSnapshot>> AddSentRepliesAsync(
@@ -327,6 +441,18 @@ internal sealed partial class MailKitEmailInboxReader(
         {
             client.Dispose();
             throw;
+        }
+    }
+
+    private static IMailFolder? TryGetSentFolder(ImapClient client)
+    {
+        try
+        {
+            return client.GetFolder(SpecialFolder.Sent);
+        }
+        catch (FolderNotFoundException)
+        {
+            return null;
         }
     }
 

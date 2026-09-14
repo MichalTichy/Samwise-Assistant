@@ -143,6 +143,23 @@ internal sealed class SaveEmailAccountUsecaseHandler(
             }
         }
 
+        if (connectionChanged || account.SentCheckpoint is null)
+        {
+            try
+            {
+                account.SentCheckpoint = await inboxReader.GetCurrentSentCheckpointAsync(
+                    account,
+                    cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                return new EmailAccountSaveResult(
+                    false,
+                    request.EmailAccountId,
+                    [$"The Sent mailbox could not be initialized: {exception.Message}"]);
+            }
+        }
+
         if (isNew)
         {
             await repository.AddAsync(account, cancellationToken);

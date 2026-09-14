@@ -2,7 +2,7 @@
 
 Samwise is a single-user personal assistant that turns incoming information into approved, executable work.
 
-Version 1 accepts manual text and email messages from configured IMAP accounts in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline that future Microsoft Teams and Todoist connectors can also use:
+Version 1 accepts manual text plus received and sent email messages from configured IMAP accounts in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline that future Microsoft Teams and Todoist connectors can also use:
 
 ```mermaid
 flowchart LR
@@ -13,7 +13,9 @@ flowchart LR
     Intake -->|needs_review| Review["Record needs review"]
     Create --> Plan["Generate technical plan"]
     Append --> Plan
-    Plan --> Approval["Wait for user approval"]
+    Plan -->|plan_required| Approval["Wait for user approval"]
+    Plan -->|already_resolved| Done["Complete work item"]
+    Plan -->|no_longer_relevant| Discard["Discard work item"]
     Approval -->|approve| Execute["Execute with execution Gateway key"]
     Approval -->|reject + feedback| Replan["Increment revision and replan"]
     Approval -->|discard| Discard["Discard work item"]
@@ -117,7 +119,7 @@ dotnet user-secrets set "SamwiseMcp:ApiKey" "..." --project src/Samwise.Web
 
 Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to help intake recognize actionable scenarios and steer the planning agent.
 
-Configure one or more IMAP accounts under **Configuration → Inputs → Emails**. Generic providers may use a password/app password. Exchange Online requires Microsoft 365 OAuth: configure `SAMWISE_MICROSOFT365_CLIENT_ID` and `SAMWISE_MICROSOFT365_TENANT_ID`, select **Microsoft 365 sign-in**, and complete the displayed device-code login. Account creation records the current INBOX UID as a starting checkpoint, so historical mail is not imported automatically. Samwise then polls enabled accounts at the UI-configured interval and captures every newly delivered message even if you read it first, without changing message flags. The manual action searches unread mail regardless of age. When an imported message was answered, Samwise attempts to include matching sent replies in the intake context. Passwords and Microsoft token caches are encrypted with the persisted Data Protection key ring.
+Configure one or more IMAP accounts under **Configuration → Inputs → Emails**. Generic providers may use a password/app password. Exchange Online requires Microsoft 365 OAuth: configure `SAMWISE_MICROSOFT365_CLIENT_ID` and `SAMWISE_MICROSOFT365_TENANT_ID`, select **Microsoft 365 sign-in**, and complete the displayed device-code login. Account creation records the current INBOX and Sent UIDs as starting checkpoints, so historical mail is not imported automatically. Samwise then polls enabled accounts at the UI-configured interval and captures every new received or sent message without changing message flags. A sent message may update an active Work Item and trigger replanning; planning can then keep work pending, complete an objective proven resolved, or discard one proven irrelevant. The manual action continues to search unread INBOX mail regardless of age. Passwords and Microsoft token caches are encrypted with the persisted Data Protection key ring.
 
 ## Verify
 

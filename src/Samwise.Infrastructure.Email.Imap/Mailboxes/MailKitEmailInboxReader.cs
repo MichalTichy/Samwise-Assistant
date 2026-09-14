@@ -18,6 +18,8 @@ internal sealed partial class MailKitEmailInboxReader(
     TimeProvider timeProvider,
     ILogger<MailKitEmailInboxReader> logger) : IEmailInboxReader
 {
+    internal const string UnreadSearchQuery = "UNSEEN";
+
     private const int MaximumBodyCharacters = 50_000;
     private const int MaximumReplyBodyCharacters = 20_000;
     private const int MaximumRepliesPerMessage = 5;
@@ -64,11 +66,16 @@ internal sealed partial class MailKitEmailInboxReader(
             return new NewEmailReadResult([], checkpointAtOpen, true);
         }
 
-        var uidRange = new UniqueIdRange(
-            inbox.UidValidity,
-            Math.Max(previousCheckpoint.NextUid, 1),
-            uint.MaxValue);
-        var uids = await inbox.SearchAsync(SearchQuery.Uids(uidRange), cancellationToken);
+        var searchQuery = CreateNewMessagesSearchQuery(
+            previousCheckpoint.NextUid,
+            checkpointAtOpen.NextUid);
+        if (searchQuery is null)
+        {
+            await client.DisconnectAsync(true, cancellationToken);
+            return new NewEmailReadResult([], checkpointAtOpen, false);
+        }
+
+        var uids = await SearchWithoutExtendedResultsAsync(inbox, searchQuery, cancellationToken);
         var messages = await ReadMessagesAsync(
             client,
             inbox,
@@ -104,7 +111,7 @@ internal sealed partial class MailKitEmailInboxReader(
         using var client = await ConnectAsync(account, cancellationToken);
         var inbox = client.Inbox;
         await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
-        var uids = await inbox.SearchAsync(SearchQuery.NotSeen, cancellationToken);
+        var uids = await SearchWithoutExtendedResultsAsync(inbox, UnreadSearchQuery, cancellationToken);
         var messages = await ReadMessagesAsync(
             client,
             inbox,
@@ -120,6 +127,29 @@ internal sealed partial class MailKitEmailInboxReader(
         inbox.UidValidity,
         Math.Max(inbox.UidNext?.Id ?? 1, 1),
         timeProvider.GetUtcNow());
+
+    internal static string? CreateNewMessagesSearchQuery(uint nextUid, uint inboxNextUid)
+    {
+        var firstUid = Math.Max(nextUid, 1);
+        if (firstUid >= inboxNextUid)
+        {
+            return null;
+        }
+
+        return $"UID {firstUid}:{inboxNextUid - 1}";
+    }
+
+    private static async Task<IList<UniqueId>> SearchWithoutExtendedResultsAsync(
+        IMailFolder folder,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        // The typed MailKit overload uses ESEARCH when the server advertises it and adds
+        // RETURN (ALL). Some Exchange servers reject that form with "message set is invalid".
+        var imapFolder = (ImapFolder)folder;
+        var results = await imapFolder.SearchAsync(query, cancellationToken);
+        return results.UniqueIds;
+    }
 
     private async Task<IReadOnlyList<EmailMessageSnapshot>> ReadMessagesAsync(
         ImapClient client,

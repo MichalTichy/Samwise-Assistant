@@ -121,4 +121,23 @@ internal static class AgentWorkflowSupport
             }
         }
     }
+
+    public static void ValidatePlanningQuestion(PlanningQuestionDraft? question)
+    {
+        if (question is null || string.IsNullOrWhiteSpace(question.Prompt))
+        {
+            throw new InvalidOperationException("The planner requested user input without a question.");
+        }
+
+        if (question.Options.Count is < 2 or > 6)
+        {
+            throw new InvalidOperationException("A planning question must offer between two and six answers.");
+        }
+
+        if (question.Options.Any(option => string.IsNullOrWhiteSpace(option.Label)) ||
+            question.Options.Select(option => option.Label.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != question.Options.Count)
+        {
+            throw new InvalidOperationException("Planning question answers must have distinct, non-empty labels.");
+        }
+    }
 }

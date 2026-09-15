@@ -31,11 +31,11 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
 6. `InboundEventProcessingService` calls `WorkItemPlanningService` for that work item.
 7. Planning asks `AgentPromptBuilder` for a ready prompt. The builder retrieves the work item, enabled playbooks, configuration, time, and both required catalogs before the configured planning model is called through `IAgentRuntime`.
-8. Planning returns an explicit disposition. `PlanRequired` validates and snapshots the selected playbook and referenced execution tools before leaving the work item awaiting approval. `AlreadyResolved` completes work proven finished by new context; `NoLongerRelevant` discards work proven unnecessary. Both terminal outcomes retain the planner's reason and invocation ID without fabricating an empty plan.
+8. Planning returns an explicit disposition. `PlanRequired` validates and snapshots the selected playbook, decisions, and referenced execution tools before leaving the work item awaiting approval. `UserInputRequired` validates and stores one question with two to six mutually exclusive choices after tools and playbooks cannot resolve a material preference. `AlreadyResolved` completes work proven finished by new context; `NoLongerRelevant` discards work proven unnecessary. Both terminal outcomes retain the planner's reason and invocation ID without fabricating an empty plan.
 
 ## Approval and execution flow
 
-1. Context addition, plan rejection, and planning retry are external use cases. Each changes the aggregate and calls `WorkItemPlanningService` directly because replanning is an integral part of the requested operation.
+1. Context addition, planning-question answer, plan rejection, and planning retry are external use cases. Each changes the aggregate and calls `WorkItemPlanningService` directly because replanning is an integral part of the requested operation. A question answer is retained as structured context and the resulting plan snapshots the decisions it used.
 2. `ApproveWorkItemPlanUsecase` performs revision-bound approval and calls `WorkItemExecutionService` directly.
 3. Execution reloads the execution tool catalog and fails closed if it differs from the approved snapshot.
 4. A confirmed successful response stores its summary, outputs, invocation ID, and completion time as a nested Work Item completion. A reported or interrupted uncertain execution becomes `OutcomeUnknown` and is not automatically repeated.

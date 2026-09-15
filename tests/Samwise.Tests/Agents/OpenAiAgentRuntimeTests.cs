@@ -95,6 +95,7 @@ public sealed class OpenAiAgentRuntimeTests
             disposition = "plan_required",
             resolution_reason = (string?)null,
             playbook_id = "invoice-processing",
+            question = (object?)null,
             summary = "Process the invoice safely.",
             assumptions = Array.Empty<string>(),
             risks = Array.Empty<string>(),
@@ -154,6 +155,7 @@ public sealed class OpenAiAgentRuntimeTests
             .GetProperty("properties");
         Assert.True(planningSchemaProperties.TryGetProperty("disposition", out _));
         Assert.True(planningSchemaProperties.TryGetProperty("resolution_reason", out _));
+        Assert.True(planningSchemaProperties.TryGetProperty("question", out _));
         Assert.Equal(PlanningDisposition.PlanRequired, result.Disposition);
         Assert.Null(result.ResolutionReason);
         Assert.Equal("invoice-processing", result.Plan.PlaybookId);
@@ -180,6 +182,7 @@ public sealed class OpenAiAgentRuntimeTests
             disposition = wireDisposition,
             resolution_reason = "The latest sent email resolved the objective.",
             playbook_id = (string?)null,
+            question = (object?)null,
             summary = string.Empty,
             assumptions = Array.Empty<string>(),
             risks = Array.Empty<string>(),
@@ -203,6 +206,54 @@ public sealed class OpenAiAgentRuntimeTests
         Assert.Equal(expectedDisposition, result.Disposition);
         Assert.Equal("The latest sent email resolved the objective.", result.ResolutionReason);
         Assert.Empty(result.Plan.Steps);
+    }
+
+    [Fact]
+    public async Task PlanningParsesAUserQuestionWithSuggestedAnswers()
+    {
+        await using var server = new LoopbackServer();
+        const string model = "planning-model";
+        var runtime = CreateRuntime(server.BaseAddress, "planning-test-key");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responseBody = CreateChatCompletion(model, new
+        {
+            disposition = "user_input_required",
+            resolution_reason = (string?)null,
+            playbook_id = (string?)null,
+            question = new
+            {
+                prompt = "How should the conflict be handled?",
+                explanation = "Both offered times overlap another meeting.",
+                options = new[]
+                {
+                    new { label = "Ask for alternatives", description = "Do not select either time." },
+                    new { label = "Use Tuesday", description = "Reschedule the conflicting meeting." }
+                }
+            },
+            summary = string.Empty,
+            assumptions = Array.Empty<string>(),
+            risks = Array.Empty<string>(),
+            steps = Array.Empty<object>()
+        });
+        var capturedRequestTask = server.CaptureAndRespondAsync(responseBody, timeout.Token);
+        var emptyCatalog = new ToolCatalogSnapshot("catalog", "{}", []);
+
+        var result = await runtime.PlanAsync(
+            new PlannerRequest(
+                "work-item-1",
+                1,
+                1,
+                "Plan this meeting.",
+                emptyCatalog,
+                emptyCatalog,
+                new AgentRunConfiguration(model, "medium")),
+            timeout.Token);
+        await capturedRequestTask;
+
+        Assert.Equal(PlanningDisposition.UserInputRequired, result.Disposition);
+        var question = Assert.IsType<PlanningQuestionDraft>(result.Question);
+        Assert.Equal("How should the conflict be handled?", question.Prompt);
+        Assert.Equal(2, question.Options.Count);
     }
 
     private static OpenAiAgentRuntime CreateRuntime(Uri baseAddress, string apiKey)

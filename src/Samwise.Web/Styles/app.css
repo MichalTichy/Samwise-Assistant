@@ -222,12 +222,13 @@
 
     /* Board */
     .board-page { width: calc(100% + 6rem); margin-left: -3rem; }
-    .work-item-board { width: 100%; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; overflow-x: auto; padding: 0 0 1rem; }
+    .work-item-board { width: 100%; min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .85rem; overflow-x: auto; padding: 0 0 1rem; }
     .board-column { min-width: 0; min-height: 460px; padding: .75rem; border: 1px solid rgb(104 67 41 / .08); border-radius: 1.1rem; background: rgb(226 214 195 / .27); }
     .board-column > header { height: 2.65rem; padding: 0 .2rem .65rem; display: flex; align-items: center; gap: .55rem; }
     .board-column h2 { margin: 0; flex: 1; color: #53483e; font-size: .8rem; font-weight: 780; }
     .column-dot { width: 8px; height: 8px; border-radius: 50%; background: #a99a8b; box-shadow: 0 0 0 4px rgb(169 154 139 / .09); }
     .dot-draft { background: #8b9eaa; }
+    .dot-input { background: #bc7627; }
     .dot-approval { background: #d8952f; }
     .dot-running { background: #846998; }
     .dot-complete { background: #6f7f45; }
@@ -247,6 +248,7 @@
     /* Status chips */
     .status-chip { font-size: .64rem !important; font-weight: 760 !important; letter-spacing: .015em; }
     .status-awaitingapproval, .handling-needsreview { color: #86580f !important; background: #f8e8b9 !important; }
+    .status-awaitinguserinput { color: #7b4617 !important; background: #f7dfc4 !important; }
     .status-planning, .status-approved, .status-executing, .handling-pending { color: #4d6073 !important; background: #e6edf1 !important; }
     .status-completed, .handling-createworkitem, .handling-appendtoworkitem { color: #52672f !important; background: #e7edd6 !important; }
     .status-needsattention, .status-outcomeunknown { color: #944733 !important; background: #f8ded6 !important; }
@@ -457,6 +459,10 @@
     .input-copy p { white-space: pre-line; }
     .plan-card > .plan-card-heading { padding-bottom: 1.1rem; border-bottom: 1px solid #e8dccd; }
     .plan-card > .plan-card-heading h2 { max-width: 720px; margin: .15rem 0 0; color: #352d27; font-size: 1.28rem; line-height: 1.42; }
+    .plan-decisions { padding: 1rem 0; display: grid; gap: .55rem; border-bottom: 1px solid #ece1d4; }
+    .plan-decisions article { padding: .75rem .85rem; border-left: 3px solid #d8952f; border-radius: .3rem .7rem .7rem .3rem; background: #faf2e4; }
+    .plan-decisions p { margin: 0 0 .3rem; color: #857565; font-size: .7rem; line-height: 1.5; }
+    .plan-decisions strong { color: #4e4035; font-size: .78rem; line-height: 1.5; }
     .revision-label { color: #a09284; font: .64rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: nowrap; }
     .plan-notes-grid { padding: 1rem 0; display: grid; gap: .7rem; border-bottom: 1px solid #ece1d4; }
     .plan-note { padding: .85rem 1rem; border-radius: .75rem; background: #f8f2e8; }
@@ -508,7 +514,24 @@
     .state-card p { margin-bottom: .75rem; color: #817468; font-size: .78rem; }
     .state-symbol { width: 35px; height: 35px; flex: 0 0 auto; display: grid; place-items: center; border-radius: .7rem; color: #796c61; background: #eee5da; font-size: 1rem; font-weight: 800; }
     .state-working { color: #536d7b; background: #e6eef1; }
+    .state-question { color: #8b581d; background: #f7e4c6; }
     .state-warning { color: #974632; background: #f7ddd5; }
+    .planning-question-card { border-color: rgb(216 149 47 / .3); background: linear-gradient(145deg, #fffbf2, #fffdf8 72%); }
+    .planning-question-heading { display: grid; grid-template-columns: 35px minmax(0, 1fr); align-items: start; gap: .9rem; }
+    .planning-question-heading h2 { margin: .2rem 0 .45rem; color: #3f342b; font-size: 1.12rem; line-height: 1.45; }
+    .planning-question-heading p { margin: 0; color: #7e6f61; font-size: .77rem; line-height: 1.6; }
+    .planning-question-options { margin-top: 1rem; display: grid; gap: .55rem; }
+    .planning-question-option { width: 100%; padding: .8rem .9rem; display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: .7rem; border: 1px solid #e6d8c5; border-radius: .75rem; color: #55483e; background: #fffdf8; text-align: left; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+    .planning-question-option:hover { border-color: #d9ae72; background: #fff8eb; transform: translateY(-1px); }
+    .planning-question-option.selected { border-color: #d8952f; background: #fdf2dd; box-shadow: 0 0 0 2px rgb(216 149 47 / .12); }
+    .planning-option-marker { width: 16px; height: 16px; margin-top: .1rem; border: 1.5px solid #b8a590; border-radius: 50%; background: #fff; }
+    .planning-question-option.selected .planning-option-marker { border: 4px solid #d8952f; }
+    .planning-question-option strong, .planning-question-option small { display: block; }
+    .planning-question-option strong { font-size: .78rem; line-height: 1.4; }
+    .planning-question-option small { margin-top: .2rem; color: #8c7d6f; font-size: .69rem; line-height: 1.5; }
+    .planning-other-answer { margin-top: .75rem; }
+    .planning-question-actions { margin-top: 1rem; padding-top: .85rem; display: flex; align-items: center; justify-content: space-between; gap: .8rem; border-top: 1px solid #ecdfce; }
+    .planning-question-actions > span { color: #978778; font-size: .67rem; }
     .outcome-warning { border-color: #e3b4a8; background: #fff5f1; }
     .completion-card { border-color: rgb(111 127 69 / .25); background: linear-gradient(145deg, #fbfdf4, #fffdf8 65%); }
     .completion-heading { padding-bottom: 1rem; border-bottom: 1px solid rgb(111 127 69 / .18); }
@@ -603,7 +626,7 @@
 
 @media (max-width: 1050px) {
     .board-page { width: 100%; margin-left: 0; }
-    .work-item-board { grid-template-columns: repeat(4, 265px); }
+    .work-item-board { grid-template-columns: repeat(5, 265px); }
     .work-item-detail-grid { grid-template-columns: minmax(0, 1fr); }
     .work-item-detail-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .auth-page { grid-template-columns: minmax(280px, 1fr) minmax(340px, 430px); gap: 3rem; }

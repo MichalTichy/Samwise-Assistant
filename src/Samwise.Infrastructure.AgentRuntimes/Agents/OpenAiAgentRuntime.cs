@@ -79,6 +79,14 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
             ParsePlanningDisposition(result.Disposition),
             ParseResolutionReason(result.ResolutionReason),
             plan,
+            result.Question is null
+                ? null
+                : new PlanningQuestionDraft(
+                    result.Question.Prompt,
+                    result.Question.Explanation,
+                    result.Question.Options.Select(option => new PlanningQuestionOptionDraft(
+                        option.Label,
+                        option.Description)).ToList()),
             CreateReceipt(response));
     }
 
@@ -227,6 +235,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         .ToLowerInvariant() switch
     {
         "planrequired" => PlanningDisposition.PlanRequired,
+        "userinputrequired" => PlanningDisposition.UserInputRequired,
         "alreadyresolved" => PlanningDisposition.AlreadyResolved,
         "nolongerrelevant" => PlanningDisposition.NoLongerRelevant,
         _ => throw new InvalidOperationException($"Unknown planning disposition '{value}'.")
@@ -246,10 +255,31 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         [JsonRequired]
         public string? PlaybookId { get; init; }
 
+        [JsonRequired]
+        public PlanningQuestionWireResult? Question { get; init; }
+
         public required string Summary { get; init; }
         public required List<string> Assumptions { get; init; }
         public required List<string> Risks { get; init; }
         public required List<PlanStepWireResult> Steps { get; init; }
+    }
+
+    private sealed class PlanningQuestionWireResult
+    {
+        public required string Prompt { get; init; }
+
+        [JsonRequired]
+        public string? Explanation { get; init; }
+
+        public required List<PlanningQuestionOptionWireResult> Options { get; init; }
+    }
+
+    private sealed class PlanningQuestionOptionWireResult
+    {
+        public required string Label { get; init; }
+
+        [JsonRequired]
+        public string? Description { get; init; }
     }
 
     private sealed class IntakeWireResult

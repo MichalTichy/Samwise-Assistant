@@ -13,7 +13,8 @@ public sealed record WorkItemCard(
     WorkItemStatus Status,
     int Revision,
     DateTimeOffset UpdatedAt,
-    int? PlanNumber);
+    int? PlanNumber,
+    string? UserQuestion);
 
 public sealed record WorkItemDetails(
     DomainWorkItem WorkItem,

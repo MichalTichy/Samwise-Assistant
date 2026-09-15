@@ -58,10 +58,10 @@ internal sealed class WorkItemPlanningService(
             PlanPlaybookSnapshot? playbook = null;
             if (result.Disposition == PlanningDisposition.PlanRequired)
             {
-                if (result.ResolutionReason is not null)
+                if (result.ResolutionReason is not null || result.Question is not null)
                 {
                     throw new InvalidOperationException(
-                        "A plan-required result cannot include a terminal resolution reason.");
+                        "A plan-required result cannot include a resolution reason or user question.");
                 }
 
                 AgentWorkflowSupport.ValidatePlan(result.Plan, prompt.ExecutionTools);
@@ -69,15 +69,30 @@ internal sealed class WorkItemPlanningService(
                     result.Plan.PlaybookId,
                     prompt.AvailablePlaybooks);
             }
+            else if (result.Disposition == PlanningDisposition.UserInputRequired)
+            {
+                if (result.ResolutionReason is not null)
+                {
+                    throw new InvalidOperationException(
+                        "A user-input-required result cannot include a resolution reason.");
+                }
+
+                ValidateEmptyPlan(result);
+                AgentWorkflowSupport.ValidatePlanningQuestion(result.Question);
+            }
             else if (string.IsNullOrWhiteSpace(result.ResolutionReason))
             {
                 throw new InvalidOperationException(
                     $"Planning disposition '{result.Disposition}' requires a resolution reason.");
             }
-            else if (result.Plan.PlaybookId is not null || result.Plan.Steps.Count > 0)
+            else if (result.Question is not null)
             {
                 throw new InvalidOperationException(
-                    $"Planning disposition '{result.Disposition}' cannot include an executable plan.");
+                    $"Planning disposition '{result.Disposition}' cannot include a user question.");
+            }
+            else
+            {
+                ValidateEmptyPlan(result);
             }
 
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
@@ -108,6 +123,33 @@ internal sealed class WorkItemPlanningService(
                 return;
             }
 
+            if (result.Disposition == PlanningDisposition.UserInputRequired)
+            {
+                var question = result.Question!;
+                currentWorkItem.RequestUserInput(new PlanningQuestion
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    WorkItemRevision = currentWorkItem.Revision,
+                    PlanningAttemptNumber = planNumber,
+                    Prompt = question.Prompt.Trim(),
+                    Explanation = string.IsNullOrWhiteSpace(question.Explanation)
+                        ? null
+                        : question.Explanation.Trim(),
+                    Options = question.Options.Select(option => new PlanningQuestionOption
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Label = option.Label.Trim(),
+                        Description = string.IsNullOrWhiteSpace(option.Description)
+                            ? null
+                            : option.Description.Trim()
+                    }).ToList(),
+                    PlanningInvocationId = invocation.Id,
+                    CreatedAt = timeProvider.GetUtcNow()
+                }, timeProvider.GetUtcNow());
+                await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+                return;
+            }
+
             if (result.Disposition != PlanningDisposition.PlanRequired)
             {
                 throw new InvalidOperationException(
@@ -123,6 +165,12 @@ internal sealed class WorkItemPlanningService(
                 Summary = result.Plan.Summary,
                 Assumptions = [.. result.Plan.Assumptions],
                 Risks = [.. result.Plan.Risks],
+                Decisions = currentWorkItem.PlanningDecisions.Select(decision => new PlanDecisionSnapshot
+                {
+                    Question = decision.Question,
+                    Answer = decision.Answer,
+                    AnsweredAt = decision.AnsweredAt
+                }).ToList(),
                 Playbook = playbook,
                 Steps = result.Plan.Steps.Select(step => new PlanStep
                 {
@@ -178,6 +226,19 @@ internal sealed class WorkItemPlanningService(
                 currentWorkItem.MarkPlanningFailed(timeProvider.GetUtcNow());
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
             }
+        }
+    }
+
+    private static void ValidateEmptyPlan(PlannerResult result)
+    {
+        if (result.Plan.PlaybookId is not null ||
+            !string.IsNullOrWhiteSpace(result.Plan.Summary) ||
+            result.Plan.Assumptions.Count > 0 ||
+            result.Plan.Risks.Count > 0 ||
+            result.Plan.Steps.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Planning disposition '{result.Disposition}' cannot include an executable plan.");
         }
     }
 }

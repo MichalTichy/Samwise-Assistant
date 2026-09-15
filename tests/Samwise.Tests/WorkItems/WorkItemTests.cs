@@ -129,6 +129,54 @@ public sealed class WorkItemTests
     }
 
     [Fact]
+    public void PlanningQuestionAnswerBecomesStructuredContextForANewRevision()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Schedule the proposed meeting.", null, InitialTime);
+        var question = new PlanningQuestion
+        {
+            Id = "question-1",
+            WorkItemRevision = workItem.Revision,
+            PlanningAttemptNumber = workItem.ReservePlanNumber(InitialTime.AddMinutes(1)),
+            Prompt = "How should the calendar conflict be handled?",
+            Explanation = "Both offered times overlap another meeting.",
+            Options =
+            [
+                new PlanningQuestionOption
+                {
+                    Id = "reschedule",
+                    Label = "Use Tuesday and reschedule the conflict",
+                    Description = "Move the existing meeting."
+                },
+                new PlanningQuestionOption
+                {
+                    Id = "alternatives",
+                    Label = "Ask for alternative times"
+                }
+            ],
+            PlanningInvocationId = "planning-invocation-1",
+            CreatedAt = InitialTime.AddMinutes(2)
+        };
+
+        workItem.RequestUserInput(question, InitialTime.AddMinutes(2));
+        workItem.AnswerPlanningQuestion(
+            question.Id,
+            "reschedule",
+            null,
+            InitialTime.AddMinutes(3));
+
+        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
+        Assert.Equal(2, workItem.Revision);
+        Assert.Null(workItem.PendingPlanningQuestion);
+        var decision = Assert.Single(workItem.PlanningDecisions);
+        Assert.Equal(question.Prompt, decision.Question);
+        Assert.Equal("Use Tuesday and reschedule the conflict", decision.Answer);
+        Assert.False(decision.IsOther);
+        var comment = Assert.Single(workItem.Comments);
+        Assert.Equal(WorkItemCommentKind.PlanningDecision, comment.Kind);
+        Assert.Contains(decision.Answer, comment.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ExecutionRetryIsRejectedUnlessOutcomeIsUnknown()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Send the revised offer.", null, InitialTime);

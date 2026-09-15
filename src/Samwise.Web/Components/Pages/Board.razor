@@ -1,6 +1,7 @@
 @page "/board"
 @attribute [Authorize]
 @rendermode InteractiveServer
+@using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus
 
 <PageTitle>Board · Samwise</PageTitle>
 
@@ -46,9 +47,13 @@ else
                                 <span class="revision-label">r@(workItem.Revision)</span>
                             </div>
                             <h3>@workItem.Title</h3>
-                            <p>@workItem.Description</p>
+                            <p>@(workItem.Status == WorkItemStatus.AwaitingUserInput && workItem.UserQuestion is not null
+                                ? workItem.UserQuestion
+                                : workItem.Description)</p>
                             <footer>
-                                <span>@(workItem.PlanNumber is null ? "Plan pending" : $"Plan {workItem.PlanNumber}")</span>
+                                <span>@(workItem.Status == WorkItemStatus.AwaitingUserInput
+                                    ? "Answer needed"
+                                    : workItem.PlanNumber is null ? "Plan pending" : $"Plan {workItem.PlanNumber}")</span>
                                 <time>@workItem.UpdatedAt.ToLocalTime().ToString("d MMM, HH:mm")</time>
                             </footer>
                             </LumexCardBody>

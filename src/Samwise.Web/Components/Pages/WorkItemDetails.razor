@@ -100,6 +100,20 @@ else
                                 <span class="revision-label">Revision @plan.WorkItemRevision</span>
                             </div>
 
+                            @if (plan.Decisions.Count > 0)
+                            {
+                                <div class="plan-decisions">
+                                    <span class="page-kicker">Decisions used for this plan</span>
+                                    @foreach (var decision in plan.Decisions)
+                                    {
+                                        <article>
+                                            <p>@decision.Question</p>
+                                            <strong>@decision.Answer</strong>
+                                        </article>
+                                    }
+                                </div>
+                            }
+
                             @if (plan.Assumptions.Count > 0 || plan.Risks.Count > 0)
                             {
                                 <div class="plan-notes-grid">
@@ -221,6 +235,73 @@ else
                     }
                     else
                     {
+                        @if (workItem.Status == WorkItemStatus.AwaitingUserInput && workItem.PendingPlanningQuestion is { } question)
+                        {
+                            <section class="detail-card planning-question-card">
+                                <div class="planning-question-heading">
+                                    <span class="state-symbol state-question">?</span>
+                                    <div>
+                                        <span class="page-kicker">Your input is needed</span>
+                                        <h2>@question.Prompt</h2>
+                                        @if (!string.IsNullOrWhiteSpace(question.Explanation))
+                                        {
+                                            <p>@question.Explanation</p>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="planning-question-options" role="radiogroup" aria-label="Answer options">
+                                    @foreach (var option in question.Options)
+                                    {
+                                        <button type="button"
+                                                role="radio"
+                                                aria-checked="@(selectedPlanningAnswer == option.Id)"
+                                                class="planning-question-option @(selectedPlanningAnswer == option.Id ? "selected" : null)"
+                                                @onclick="() => SelectPlanningAnswer(option.Id)">
+                                            <span class="planning-option-marker"></span>
+                                            <span>
+                                                <strong>@option.Label</strong>
+                                                @if (!string.IsNullOrWhiteSpace(option.Description))
+                                                {
+                                                    <small>@option.Description</small>
+                                                }
+                                            </span>
+                                        </button>
+                                    }
+                                    <button type="button"
+                                            role="radio"
+                                            aria-checked="@(selectedPlanningAnswer == OtherPlanningAnswer)"
+                                            class="planning-question-option @(selectedPlanningAnswer == OtherPlanningAnswer ? "selected" : null)"
+                                            @onclick="() => SelectPlanningAnswer(OtherPlanningAnswer)">
+                                        <span class="planning-option-marker"></span>
+                                        <span><strong>Other</strong><small>Give Samwise a different instruction.</small></span>
+                                    </button>
+                                </div>
+
+                                @if (selectedPlanningAnswer == OtherPlanningAnswer)
+                                {
+                                    <LumexTextarea Class="planning-other-answer"
+                                                   MinRows="3"
+                                                   MaxRows="7"
+                                                   Behavior="@InputBehavior.OnInput"
+                                                   Variant="@InputVariant.Outlined"
+                                                   Placeholder="Write your answer…"
+                                                   @bind-Value="otherPlanningAnswer" />
+                                }
+
+                                <div class="planning-question-actions">
+                                    <span>Your answer becomes context for a fresh plan.</span>
+                                    <LumexButton Color="@ThemeColor.Primary"
+                                                 Variant="@Variant.Shadow"
+                                                 OnClick="AnswerPlanningQuestionAsync"
+                                                 Disabled="@(actionBusy || string.IsNullOrWhiteSpace(selectedPlanningAnswer))">
+                                        @(actionBusy ? "Planning…" : "Continue planning")
+                                    </LumexButton>
+                                </div>
+                            </section>
+                        }
+                        else
+                        {
                         <section class="detail-card state-card">
                             @if (workItem.Status == WorkItemStatus.Planning)
                             {
@@ -251,6 +332,7 @@ else
                                 </div>
                             }
                         </section>
+                        }
                     }
                 </div>
 

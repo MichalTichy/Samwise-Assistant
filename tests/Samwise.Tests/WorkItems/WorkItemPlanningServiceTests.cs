@@ -28,6 +28,7 @@ public sealed class WorkItemPlanningServiceTests
                 PlanningDisposition.AlreadyResolved,
                 "The newly captured sent email contains the requested reply.",
                 EmptyPlan(),
+                null,
                 Receipt()),
             invocationService);
 
@@ -52,6 +53,7 @@ public sealed class WorkItemPlanningServiceTests
                 PlanningDisposition.NoLongerRelevant,
                 "The latest context says the meeting is no longer needed.",
                 EmptyPlan(),
+                null,
                 Receipt()),
             invocationService);
 
@@ -62,6 +64,38 @@ public sealed class WorkItemPlanningServiceTests
         Assert.Equal("Planning agent", workItem.DiscardedFrom);
         Assert.Equal("The latest context says the meeting is no longer needed.", workItem.DiscardReason);
         Assert.Equal(invocationService.Invocation.Id, workItem.DiscardInvocationId);
+        Assert.True(invocationService.Completed);
+    }
+
+    [Fact]
+    public async Task UserInputRequiredStoresQuestionWithoutCreatingAPlan()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Schedule the proposed meeting.", null, Now);
+        var invocationService = new StubInvocationService();
+        var service = CreateService(
+            workItem,
+            new PlannerResult(
+                PlanningDisposition.UserInputRequired,
+                null,
+                EmptyPlan(),
+                new PlanningQuestionDraft(
+                    "How should the conflict be handled?",
+                    "Both offered times overlap another meeting.",
+                    [
+                        new PlanningQuestionOptionDraft("Ask for alternatives", "Do not select either time."),
+                        new PlanningQuestionOptionDraft("Use Tuesday", "Reschedule the conflicting meeting.")
+                    ]),
+                Receipt()),
+            invocationService);
+
+        await service.PlanAsync(workItem.Id, CancellationToken.None);
+
+        Assert.Equal(WorkItemStatus.AwaitingUserInput, workItem.Status);
+        Assert.Empty(workItem.Plans);
+        var question = Assert.IsType<PlanningQuestion>(workItem.PendingPlanningQuestion);
+        Assert.Equal("How should the conflict be handled?", question.Prompt);
+        Assert.Equal(2, question.Options.Count);
+        Assert.Equal(invocationService.Invocation.Id, question.PlanningInvocationId);
         Assert.True(invocationService.Completed);
     }
 

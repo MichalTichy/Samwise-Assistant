@@ -14,6 +14,7 @@ public partial class Board
     private static readonly BoardColumn[] Columns =
     [
         new("Draft", "dot-draft", [WorkItemStatus.Planning, WorkItemStatus.NeedsAttention, WorkItemStatus.OutcomeUnknown]),
+        new("Needs your input", "dot-input", [WorkItemStatus.AwaitingUserInput]),
         new("Approval", "dot-approval", [WorkItemStatus.AwaitingApproval]),
         new("In progress", "dot-running", [WorkItemStatus.Approved, WorkItemStatus.Executing]),
         new("Done", "dot-complete", [WorkItemStatus.Completed])
@@ -44,7 +45,8 @@ public partial class Board
                     workItem.Status,
                     workItem.Revision,
                     workItem.UpdatedAt,
-                    plan?.PlanNumber);
+                    plan?.PlanNumber,
+                    workItem.PendingPlanningQuestion?.Prompt);
             }).ToList();
         }
         finally
@@ -56,6 +58,7 @@ public partial class Board
     private static string FormatStatus(WorkItemStatus status) => status switch
     {
         WorkItemStatus.AwaitingApproval => "Awaiting approval",
+        WorkItemStatus.AwaitingUserInput => "Needs your input",
         WorkItemStatus.NeedsAttention => "Needs attention",
         WorkItemStatus.OutcomeUnknown => "Outcome unknown",
         _ => status.ToString()

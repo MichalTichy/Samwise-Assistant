@@ -28,6 +28,7 @@ public sealed class AgentConfigurationTests
         Assert.Contains("{{execution_tools}}", configuration.Intake.Prompt);
         Assert.Contains("sent email", configuration.Intake.Prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("{{playbooks}}", configuration.Planning.Prompt);
+        Assert.Contains("user_input_required", configuration.Planning.Prompt, StringComparison.Ordinal);
         Assert.Contains("already_resolved", configuration.Planning.Prompt, StringComparison.Ordinal);
         Assert.Contains("no_longer_relevant", configuration.Planning.Prompt, StringComparison.Ordinal);
         Assert.Contains("{{approved_plan}}", configuration.Execution.Prompt);

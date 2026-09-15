@@ -15,6 +15,7 @@ namespace Samwise.Web.Components.Pages;
 
 public partial class WorkItemDetails
 {
+    private const string OtherPlanningAnswer = "__other__";
     private WorkItemDetailsModel? details;
     private bool loading = true;
     private bool actionBusy;
@@ -23,6 +24,9 @@ public partial class WorkItemDetails
     private string? actionError;
     private AgentInvocation? selectedInvocation;
     private bool activityDetailsOpen;
+    private string selectedPlanningAnswer = string.Empty;
+    private string otherPlanningAnswer = string.Empty;
+    private string? loadedPlanningQuestionId;
 
     [Inject]
     private ISender Sender { get; set; } = default!;
@@ -57,6 +61,12 @@ public partial class WorkItemDetails
                 workItem.FindCurrentPlan(),
                 workItem.Comments,
                 invocations);
+            if (loadedPlanningQuestionId != workItem.PendingPlanningQuestion?.Id)
+            {
+                loadedPlanningQuestionId = workItem.PendingPlanningQuestion?.Id;
+                selectedPlanningAnswer = string.Empty;
+                otherPlanningAnswer = string.Empty;
+            }
         }
         finally
         {
@@ -111,6 +121,39 @@ public partial class WorkItemDetails
     private Task RetryExecutionAsync() =>
         RunActionAsync(() => Sender.Send(new RetryWorkItemExecutionUsecase(WorkItemId)));
 
+    private void SelectPlanningAnswer(string answer)
+    {
+        selectedPlanningAnswer = answer;
+        actionError = null;
+        if (answer != OtherPlanningAnswer)
+        {
+            otherPlanningAnswer = string.Empty;
+        }
+    }
+
+    private async Task AnswerPlanningQuestionAsync()
+    {
+        var question = RequireDetails().WorkItem.PendingPlanningQuestion
+            ?? throw new InvalidOperationException("There is no current planning question.");
+        if (string.IsNullOrWhiteSpace(selectedPlanningAnswer))
+        {
+            actionError = "Choose an answer before continuing.";
+            return;
+        }
+
+        if (selectedPlanningAnswer == OtherPlanningAnswer && string.IsNullOrWhiteSpace(otherPlanningAnswer))
+        {
+            actionError = "Write your answer before continuing.";
+            return;
+        }
+
+        await RunActionAsync(() => Sender.Send(new AnswerPlanningQuestionUsecase(
+            WorkItemId,
+            question.Id,
+            selectedPlanningAnswer == OtherPlanningAnswer ? null : selectedPlanningAnswer,
+            selectedPlanningAnswer == OtherPlanningAnswer ? otherPlanningAnswer : null)));
+    }
+
     private async Task RunActionAsync(Func<Task> action)
     {
         actionBusy = true;
@@ -142,6 +185,7 @@ public partial class WorkItemDetails
     private static string FormatStatus(WorkItemStatus status) => status switch
     {
         WorkItemStatus.AwaitingApproval => "Awaiting approval",
+        WorkItemStatus.AwaitingUserInput => "Needs your input",
         WorkItemStatus.NeedsAttention => "Needs attention",
         WorkItemStatus.OutcomeUnknown => "Outcome unknown",
         _ => status.ToString()

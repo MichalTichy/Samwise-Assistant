@@ -11,7 +11,8 @@ public enum WorkItemCommentKind
 {
     Context,
     PlanningFeedback,
-    ExecutionUpdate
+    ExecutionUpdate,
+    PlanningDecision
 }
 
 public sealed class WorkItemComment

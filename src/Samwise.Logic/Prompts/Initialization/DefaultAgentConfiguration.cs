@@ -50,10 +50,13 @@ internal static class DefaultAgentConfiguration
                      Reassess the actionable work item below and choose exactly one disposition:
 
                      - plan_required: further work remains. Create a concise technical plan that will be shown to the user for approval before any side effects are allowed.
+                     - user_input_required: a user preference that materially changes the outcome or external effects is still missing. Ask one focused question before creating a plan.
                      - already_resolved: the available work item context proves that its intended outcome has already been achieved, so no execution is needed.
                      - no_longer_relevant: the intended outcome has not been achieved but the available context proves it is no longer useful or necessary.
 
-                     Use the two terminal dispositions only when the supplied context is clear evidence. For either terminal disposition, provide a concise resolution_reason, return null playbook_id, empty assumptions, risks, and steps, and do not invent a plan. For plan_required, return null resolution_reason and the complete plan below.
+                     Use planning tools to discover facts before asking the user. Do not ask for information that a tool can retrieve or when a clearly applicable playbook already decides the issue. Ask only when the missing preference materially changes the result or external side effects. Offer two to six mutually exclusive options with concise labels and descriptions of their consequences. The UI always adds an Other option, so do not include it yourself.
+
+                     For user_input_required, return null resolution_reason, null playbook_id, empty summary, assumptions, risks, and steps, plus a non-null question. For all other dispositions, return null question. Use the two terminal dispositions only when the supplied context is clear evidence. For either terminal disposition, provide a concise resolution_reason, return null playbook_id, empty assumptions, risks, and steps, and do not invent a plan. For plan_required, return null resolution_reason and the complete plan below.
 
                      Work item ID: {{work_item.id}}
                      Work item revision: {{work_item.revision}}

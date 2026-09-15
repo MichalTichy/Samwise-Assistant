@@ -9,6 +9,7 @@ public sealed class WorkItemPlan
     public string Summary { get; set; } = string.Empty;
     public List<string> Assumptions { get; set; } = [];
     public List<string> Risks { get; set; } = [];
+    public List<PlanDecisionSnapshot> Decisions { get; set; } = [];
     public List<PlanStep> Steps { get; set; } = [];
     public PlanPlaybookSnapshot? Playbook { get; set; }
     public PlanToolCatalogSnapshot PlanningTools { get; set; } = new();

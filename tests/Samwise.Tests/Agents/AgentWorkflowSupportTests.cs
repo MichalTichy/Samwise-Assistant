@@ -191,4 +191,21 @@ public sealed class AgentWorkflowSupportTests
 
         Assert.Contains("not valid JSON", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void PlanningQuestionRequiresDistinctChoices()
+    {
+        var question = new PlanningQuestionDraft(
+            "Which outcome do you prefer?",
+            null,
+            [
+                new PlanningQuestionOptionDraft("First", null),
+                new PlanningQuestionOptionDraft("first", "Duplicate label")
+            ]);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => AgentWorkflowSupport.ValidatePlanningQuestion(question));
+
+        Assert.Contains("distinct", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

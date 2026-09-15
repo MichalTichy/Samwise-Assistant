@@ -14,6 +14,8 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public int NextPlanNumber { get; set; }
     public string? CurrentPlanId { get; set; }
     public string? LatestPlanningFeedback { get; set; }
+    public PlanningQuestion? PendingPlanningQuestion { get; set; }
+    public List<PlanningDecision> PlanningDecisions { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
@@ -83,6 +85,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
 
         Plans.Add(plan);
         CurrentPlanId = plan.Id;
+        PendingPlanningQuestion = null;
         Status = WorkItemStatus.AwaitingApproval;
         LatestPlanningFeedback = null;
         UpdatedAt = now;
@@ -122,6 +125,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
             now));
         Revision++;
         CurrentPlanId = null;
+        PendingPlanningQuestion = null;
         LatestPlanningFeedback = normalizedFeedback;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
@@ -138,6 +142,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         Comments.Add(CreateComment(normalizedText, authorKind, WorkItemCommentKind.Context, now));
         Revision++;
         CurrentPlanId = null;
+        PendingPlanningQuestion = null;
         LatestPlanningFeedback = normalizedText;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
@@ -152,6 +157,80 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         }
     }
 
+    public void RequestUserInput(PlanningQuestion question, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+        if (Status != WorkItemStatus.Planning)
+        {
+            throw new InvalidOperationException("Only a work item being planned can request user input.");
+        }
+
+        if (question.WorkItemRevision != Revision ||
+            string.IsNullOrWhiteSpace(question.Id) ||
+            string.IsNullOrWhiteSpace(question.Prompt) ||
+            string.IsNullOrWhiteSpace(question.PlanningInvocationId) ||
+            question.Options.Count is < 2 or > 6 ||
+            question.Options.Any(option => string.IsNullOrWhiteSpace(option.Id) || string.IsNullOrWhiteSpace(option.Label)) ||
+            question.Options.Select(option => option.Id).Distinct(StringComparer.Ordinal).Count() != question.Options.Count)
+        {
+            throw new InvalidOperationException("The planning question is incomplete or does not belong to the current revision.");
+        }
+
+        PendingPlanningQuestion = question;
+        CurrentPlanId = null;
+        Status = WorkItemStatus.AwaitingUserInput;
+        UpdatedAt = now;
+    }
+
+    public void AnswerPlanningQuestion(
+        string questionId,
+        string? optionId,
+        string? otherAnswer,
+        DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(questionId);
+        if (Status != WorkItemStatus.AwaitingUserInput || PendingPlanningQuestion?.Id != questionId)
+        {
+            throw new InvalidOperationException("Only the current planning question can be answered.");
+        }
+
+        var normalizedOther = string.IsNullOrWhiteSpace(otherAnswer) ? null : otherAnswer.Trim();
+        PlanningQuestionOption? option = null;
+        if (!string.IsNullOrWhiteSpace(optionId))
+        {
+            option = PendingPlanningQuestion.Options.SingleOrDefault(candidate => candidate.Id == optionId.Trim())
+                ?? throw new InvalidOperationException("The selected planning answer is not available.");
+        }
+
+        if ((option is null) == (normalizedOther is null))
+        {
+            throw new InvalidOperationException("Choose one suggested answer or provide another answer.");
+        }
+
+        var answer = option?.Label ?? normalizedOther!;
+        PlanningDecisions.Add(new PlanningDecision
+        {
+            Id = Guid.NewGuid().ToString(),
+            QuestionId = PendingPlanningQuestion.Id,
+            Question = PendingPlanningQuestion.Prompt,
+            OptionId = option?.Id,
+            Answer = answer,
+            IsOther = option is null,
+            AnsweredAt = now
+        });
+        Comments.Add(CreateComment(
+            $"Planning decision\n\nQuestion: {PendingPlanningQuestion.Prompt}\n\nAnswer: {answer}",
+            CommentAuthorKind.User,
+            WorkItemCommentKind.PlanningDecision,
+            now));
+        PendingPlanningQuestion = null;
+        Revision++;
+        CurrentPlanId = null;
+        LatestPlanningFeedback = answer;
+        Status = WorkItemStatus.Planning;
+        UpdatedAt = now;
+    }
+
     public void Replan(DateTimeOffset now)
     {
         if (Status is not (WorkItemStatus.AwaitingApproval or WorkItemStatus.NeedsAttention))
@@ -160,6 +239,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         }
 
         CurrentPlanId = null;
+        PendingPlanningQuestion = null;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
     }
@@ -228,6 +308,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
 
         Status = WorkItemStatus.Completed;
         CurrentPlanId = null;
+        PendingPlanningQuestion = null;
         Completion = new WorkItemCompletion
         {
             Kind = WorkItemCompletionKind.PlanningResolution,
@@ -301,6 +382,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
 
         Status = WorkItemStatus.Discarded;
         CurrentPlanId = null;
+        PendingPlanningQuestion = null;
         DiscardedAt = now;
         DiscardedFrom = source;
         DiscardReason = null;
@@ -318,6 +400,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         Status = WorkItemStatus.Planning;
         Revision++;
         CurrentPlanId = null;
+        PendingPlanningQuestion = null;
         LatestPlanningFeedback = null;
         Comments.Add(CreateComment(
             $"Restored from the discarded state through {source}.",

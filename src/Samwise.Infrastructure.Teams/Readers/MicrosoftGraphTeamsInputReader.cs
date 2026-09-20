@@ -2,7 +2,8 @@ using System.Text.Json;
 using System.Net;
 using System.Text.RegularExpressions;
 using Samwise.Infrastructure.Teams.Graph;
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Discovery;
+using Samwise.Inputs.Teams.Ingestion;
 
 namespace Samwise.Infrastructure.Teams.Readers;
 

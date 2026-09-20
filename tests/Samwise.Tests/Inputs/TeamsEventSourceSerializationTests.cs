@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using Samwise.Domain.Inbox;
-using Samwise.Inputs.Teams.Events;
+using Samwise.Inputs.Teams.InboundEvents.Conversations;
+using Samwise.Inputs.Teams.InboundEvents.Transcripts;
 
 namespace Samwise.Tests.Inputs;
 

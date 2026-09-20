@@ -1,9 +1,11 @@
 using Samwise.Domain.Inbox;
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Configuration;
+using Samwise.Inputs.Teams.Discovery;
+using Samwise.Inputs.Teams.Ingestion;
 using Samwise.Logic.Inbox.Services;
-using Samwise.Inputs.Teams.Events;
-using Samwise.Inputs.Teams.Services;
-using Samwise.Inputs.Teams.Usecases;
+using Samwise.Inputs.Teams.InboundEvents.Conversations;
+using Samwise.Inputs.Teams.InboundEvents.Transcripts;
+using Samwise.Inputs.Teams.Usecases.Processing;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Repositories;
 using Shared.Infrastructure.Persistence.Specifications;

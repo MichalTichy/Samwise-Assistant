@@ -4,7 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Identity.Client;
 using Samwise.Infrastructure.Teams.Configuration;
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Authentication;
+using Samwise.Inputs.Teams.Configuration;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Infrastructure.Teams.Authentication;

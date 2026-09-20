@@ -6,8 +6,9 @@ using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using Samwise.Inputs.Manual.Events;
 using Samwise.Inputs.Email.Events;
-using Samwise.Inputs.Teams;
-using Samwise.Inputs.Teams.Events;
+using Samwise.Inputs.Teams.Configuration;
+using Samwise.Inputs.Teams.InboundEvents.Conversations;
+using Samwise.Inputs.Teams.InboundEvents.Transcripts;
 using Shared.Infrastructure.Persistence.Marten.StorageConfiguration;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 

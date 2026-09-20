@@ -5,7 +5,8 @@ using Samwise.Infrastructure.Teams.Configuration;
 using Samwise.Infrastructure.Teams.Graph;
 using Samwise.Infrastructure.Teams.Readers;
 using Samwise.Infrastructure.Teams.Polling;
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Authentication;
+using Samwise.Inputs.Teams.Ingestion;
 using Shared.Infrastructure.IoC;
 
 namespace Samwise.Infrastructure.Teams.Installers;

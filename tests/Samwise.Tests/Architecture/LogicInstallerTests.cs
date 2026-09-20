@@ -6,7 +6,7 @@ using Samwise.Inputs.Email.Services;
 using Samwise.Inputs.Email.Installers;
 using Samwise.Inputs.Manual.Installers;
 using Samwise.Inputs.Teams.Installers;
-using Samwise.Inputs.Teams.Services;
+using Samwise.Inputs.Teams.Ingestion;
 using Samwise.Logic.Installers;
 using Samwise.Logic.Prompts;
 using Samwise.Logic.Prompts.Services;

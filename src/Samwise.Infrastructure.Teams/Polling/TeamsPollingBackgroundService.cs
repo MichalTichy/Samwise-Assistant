@@ -2,8 +2,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Samwise.Inputs.Teams;
-using Samwise.Inputs.Teams.Usecases;
+using Samwise.Inputs.Teams.Configuration;
+using Samwise.Inputs.Teams.Usecases.Processing;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Infrastructure.Teams.Polling;

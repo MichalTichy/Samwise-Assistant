@@ -1,4 +1,4 @@
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Configuration;
 
 namespace Samwise.Tests.Inputs;
 

@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Samwise.Inputs.Teams.Services;
+using Samwise.Inputs.Teams.Ingestion;
 using Shared.Infrastructure.IoC;
 
 namespace Samwise.Inputs.Teams.Installers;

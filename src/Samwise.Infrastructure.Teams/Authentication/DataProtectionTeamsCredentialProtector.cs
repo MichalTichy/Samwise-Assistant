@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.DataProtection;
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Authentication;
 
 namespace Samwise.Infrastructure.Teams.Authentication;
 

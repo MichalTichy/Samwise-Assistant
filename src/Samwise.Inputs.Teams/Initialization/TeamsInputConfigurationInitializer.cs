@@ -1,4 +1,4 @@
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Configuration;
 using Shared.Infrastructure.Initializer;
 using Shared.Infrastructure.Persistence.Repositories;
 

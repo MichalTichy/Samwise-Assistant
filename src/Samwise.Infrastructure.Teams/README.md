@@ -6,4 +6,4 @@ This project connects the Teams input module directly to Microsoft Graph. Samwis
 
 Samwise deliberately does not download transcript content while polling. A transcript input event stores only stable Microsoft identifiers and timing metadata. Intake, planning, or execution agents can retrieve the content explicitly through an available agent tool when they need it.
 
-Configure `TeamsInput:MicrosoftGraph:TenantId` and `ClientId`. A client secret is required only for transcript discovery. The Web UI owns delegated account connection and disconnection. The optional Teams MCP service remains a Gateway tool provider for planning and execution, not an intake dependency.
+The Web UI owns the Entra tenant ID, client ID, protected optional client secret, and delegated account connection. A client secret is required only for transcript discovery. Runtime-only Graph endpoint and token-cache path settings stay in infrastructure configuration. The optional Teams MCP service remains a Gateway tool provider for planning and execution, not an intake dependency.

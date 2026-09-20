@@ -1,50 +1,47 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Identity.Client;
 using Samwise.Infrastructure.Teams.Configuration;
 using Samwise.Inputs.Teams;
+using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Infrastructure.Teams.Authentication;
 
 internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
 {
-    private readonly TeamsMicrosoftGraphOptions options;
-    private readonly IPublicClientApplication publicClient;
-    private readonly IConfidentialClientApplication? confidentialClient;
-    private readonly string cachePath;
+    private readonly IServiceScopeFactory scopeFactory;
+    private readonly ITeamsCredentialProtector credentialProtector;
+    private readonly TeamsGraphRuntimeOptions options;
     private readonly SemaphoreSlim cacheLock = new(1, 1);
     private readonly object stateLock = new();
+    private ClientContext? currentContext;
     private Task? deviceCodeTask;
     private Task<TeamsAuthorizationChallenge>? challengeTask;
     private TeamsAuthorizationChallenge? pendingChallenge;
     private string? lastError;
 
-    public TeamsGraphTokenProvider(IOptions<TeamsMicrosoftGraphOptions> options)
+    public TeamsGraphTokenProvider(
+        IServiceScopeFactory scopeFactory,
+        ITeamsCredentialProtector credentialProtector,
+        IOptions<TeamsGraphRuntimeOptions> options)
     {
+        this.scopeFactory = scopeFactory;
+        this.credentialProtector = credentialProtector;
         this.options = options.Value;
         Directory.CreateDirectory(this.options.DataPath);
-        cachePath = Path.Combine(this.options.DataPath, "delegated-token-cache.bin");
-        publicClient = PublicClientApplicationBuilder.Create(this.options.ClientId)
-            .WithAuthority($"https://login.microsoftonline.com/{this.options.TenantId}")
-            .Build();
-        RegisterPersistentCache(publicClient.UserTokenCache);
-
-        if (!string.IsNullOrWhiteSpace(this.options.ClientSecret))
-        {
-            confidentialClient = ConfidentialClientApplicationBuilder.Create(this.options.ClientId)
-                .WithAuthority($"https://login.microsoftonline.com/{this.options.TenantId}")
-                .WithClientSecret(this.options.ClientSecret)
-                .Build();
-        }
     }
 
     public async Task<string> GetDelegatedTokenAsync(CancellationToken cancellationToken)
     {
-        var account = (await publicClient.GetAccountsAsync()).FirstOrDefault()
+        var context = await GetContextAsync(cancellationToken);
+        var account = (await context.PublicClient.GetAccountsAsync()).FirstOrDefault()
             ?? throw new InvalidOperationException(
                 "No Microsoft Teams account is connected. Connect it in Configuration → Inputs → Microsoft Teams.");
         try
         {
-            var result = await publicClient.AcquireTokenSilent(options.DelegatedScopes, account)
+            var result = await context.PublicClient.AcquireTokenSilent(options.DelegatedScopes, account)
                 .ExecuteAsync(cancellationToken);
             return result.AccessToken;
         }
@@ -58,13 +55,14 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
 
     public async Task<string> GetApplicationTokenAsync(CancellationToken cancellationToken)
     {
-        if (confidentialClient is null)
+        var context = await GetContextAsync(cancellationToken);
+        if (context.ConfidentialClient is null)
         {
             throw new InvalidOperationException(
-                "Teams transcript intake requires TeamsInput:MicrosoftGraph:ClientSecret.");
+                "Teams transcript intake requires a client secret in Configuration → Inputs → Microsoft Teams.");
         }
 
-        var result = await confidentialClient
+        var result = await context.ConfidentialClient
             .AcquireTokenForClient(["https://graph.microsoft.com/.default"])
             .ExecuteAsync(cancellationToken);
         return result.AccessToken;
@@ -72,6 +70,7 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
 
     public async Task<TeamsAuthorizationChallenge> StartAsync(CancellationToken cancellationToken = default)
     {
+        var context = await GetContextAsync(cancellationToken);
         Task<TeamsAuthorizationChallenge> currentChallengeTask;
         lock (stateLock)
         {
@@ -86,7 +85,7 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
                 var challengeSource = new TaskCompletionSource<TeamsAuthorizationChallenge>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 challengeTask = challengeSource.Task;
-                deviceCodeTask = CompleteDeviceCodeSignInAsync(challengeSource);
+                deviceCodeTask = CompleteDeviceCodeSignInAsync(context, challengeSource);
                 currentChallengeTask = challengeTask;
             }
         }
@@ -96,28 +95,45 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
 
     public async Task<TeamsConnectionState> GetStateAsync(CancellationToken cancellationToken = default)
     {
-        var account = (await publicClient.GetAccountsAsync()).FirstOrDefault();
-        lock (stateLock)
+        try
         {
-            return new TeamsConnectionState(
-                account is not null,
-                account?.Username,
-                pendingChallenge,
-                lastError);
+            var context = await GetContextAsync(cancellationToken);
+            var account = (await context.PublicClient.GetAccountsAsync()).FirstOrDefault();
+            lock (stateLock)
+            {
+                return new TeamsConnectionState(
+                    account is not null,
+                    account?.Username,
+                    pendingChallenge,
+                    lastError);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new TeamsConnectionState(false, null, null, exception.Message);
         }
     }
 
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        foreach (var account in await publicClient.GetAccountsAsync())
+        ClientContext? context;
+        lock (stateLock)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await publicClient.RemoveAsync(account);
+            context = currentContext;
         }
 
-        if (File.Exists(cachePath))
+        if (context is not null)
         {
-            File.Delete(cachePath);
+            foreach (var account in await context.PublicClient.GetAccountsAsync())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await context.PublicClient.RemoveAsync(account);
+            }
+
+            if (File.Exists(context.CachePath))
+            {
+                File.Delete(context.CachePath);
+            }
         }
 
         lock (stateLock)
@@ -128,12 +144,71 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
         }
     }
 
+    private async Task<ClientContext> GetContextAsync(CancellationToken cancellationToken)
+    {
+        var registration = await LoadRegistrationAsync(cancellationToken);
+        lock (stateLock)
+        {
+            if (currentContext?.Registration == registration)
+            {
+                return currentContext;
+            }
+
+            currentContext = CreateContext(registration);
+            pendingChallenge = null;
+            lastError = null;
+            challengeTask = null;
+            deviceCodeTask = null;
+            return currentContext;
+        }
+    }
+
+    private async Task<Registration> LoadRegistrationAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IReadOnlyRepository<TeamsInputConfiguration>>();
+        var configuration = await repository.GetRequiredByIdAsync(
+            TeamsInputConfiguration.DocumentId,
+            cancellationToken);
+        var graph = configuration.MicrosoftGraph;
+        if (string.IsNullOrWhiteSpace(graph.TenantId) || string.IsNullOrWhiteSpace(graph.ClientId))
+        {
+            throw new InvalidOperationException(
+                "Configure the Microsoft tenant ID and application client ID before connecting Teams.");
+        }
+
+        var clientSecret = graph.HasClientSecret
+            ? credentialProtector.Unprotect(graph.ProtectedClientSecret!)
+            : null;
+        return new Registration(graph.TenantId.Trim(), graph.ClientId.Trim(), clientSecret);
+    }
+
+    private ClientContext CreateContext(Registration registration)
+    {
+        var cacheKey = Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes($"{registration.TenantId}\n{registration.ClientId}")))[..16];
+        var cachePath = Path.Combine(options.DataPath, $"delegated-token-cache-{cacheKey}.bin");
+        var publicClient = PublicClientApplicationBuilder.Create(registration.ClientId)
+            .WithAuthority($"https://login.microsoftonline.com/{registration.TenantId}")
+            .Build();
+        RegisterPersistentCache(publicClient.UserTokenCache, cachePath);
+
+        var confidentialClient = string.IsNullOrWhiteSpace(registration.ClientSecret)
+            ? null
+            : ConfidentialClientApplicationBuilder.Create(registration.ClientId)
+                .WithAuthority($"https://login.microsoftonline.com/{registration.TenantId}")
+                .WithClientSecret(registration.ClientSecret)
+                .Build();
+        return new ClientContext(registration, publicClient, confidentialClient, cachePath);
+    }
+
     private async Task CompleteDeviceCodeSignInAsync(
+        ClientContext context,
         TaskCompletionSource<TeamsAuthorizationChallenge> challengeSource)
     {
         try
         {
-            await publicClient.AcquireTokenWithDeviceCode(options.DelegatedScopes, result =>
+            await context.PublicClient.AcquireTokenWithDeviceCode(options.DelegatedScopes, result =>
             {
                 var challenge = new TeamsAuthorizationChallenge(
                     result.UserCode,
@@ -142,7 +217,10 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
                     result.ExpiresOn);
                 lock (stateLock)
                 {
-                    pendingChallenge = challenge;
+                    if (ReferenceEquals(currentContext, context))
+                    {
+                        pendingChallenge = challenge;
+                    }
                 }
 
                 challengeSource.TrySetResult(challenge);
@@ -150,22 +228,28 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
             }).ExecuteAsync();
             lock (stateLock)
             {
-                pendingChallenge = null;
+                if (ReferenceEquals(currentContext, context))
+                {
+                    pendingChallenge = null;
+                }
             }
         }
         catch (Exception exception)
         {
             lock (stateLock)
             {
-                pendingChallenge = null;
-                lastError = exception.GetBaseException().Message;
+                if (ReferenceEquals(currentContext, context))
+                {
+                    pendingChallenge = null;
+                    lastError = exception.GetBaseException().Message;
+                }
             }
 
             challengeSource.TrySetException(exception);
         }
     }
 
-    private void RegisterPersistentCache(ITokenCache cache)
+    private void RegisterPersistentCache(ITokenCache cache, string cachePath)
     {
         cache.SetBeforeAccessAsync(async args =>
         {
@@ -204,4 +288,12 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
             }
         });
     }
+
+    private sealed record Registration(string TenantId, string ClientId, string? ClientSecret);
+
+    private sealed record ClientContext(
+        Registration Registration,
+        IPublicClientApplication PublicClient,
+        IConfidentialClientApplication? ConfidentialClient,
+        string CachePath);
 }

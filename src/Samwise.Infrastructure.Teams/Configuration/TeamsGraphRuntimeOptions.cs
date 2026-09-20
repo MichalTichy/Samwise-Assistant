@@ -1,12 +1,9 @@
 namespace Samwise.Infrastructure.Teams.Configuration;
 
-public sealed class TeamsMicrosoftGraphOptions
+public sealed class TeamsGraphRuntimeOptions
 {
-    public const string SectionName = "TeamsInput:MicrosoftGraph";
+    public const string SectionName = "TeamsInput:GraphRuntime";
 
-    public string TenantId { get; set; } = "organizations";
-    public string ClientId { get; set; } = string.Empty;
-    public string ClientSecret { get; set; } = string.Empty;
     public string DataPath { get; set; } = "/app/data-protection/teams";
     public Uri GraphBaseUrl { get; set; } = new("https://graph.microsoft.com/v1.0/");
 

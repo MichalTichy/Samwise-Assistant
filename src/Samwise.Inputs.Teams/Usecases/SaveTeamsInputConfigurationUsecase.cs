@@ -5,6 +5,10 @@ using Shared.Infrastructure.Persistence.Repositories;
 namespace Samwise.Inputs.Teams.Usecases;
 
 public sealed record SaveTeamsInputConfigurationUsecase(
+    string TenantId,
+    string ClientId,
+    string? ClientSecret,
+    bool RemoveClientSecret,
     int PollingIntervalMinutes,
     int DebounceMinutes,
     string? IntakeGuidance,
@@ -17,7 +21,8 @@ public sealed record SaveTeamsInputConfigurationUsecase(
     : IRequest<TeamsInputConfigurationSaveResult>;
 
 internal sealed class SaveTeamsInputConfigurationUsecaseHandler(
-    IRepository<TeamsInputConfiguration> repository)
+    IRepository<TeamsInputConfiguration> repository,
+    ITeamsCredentialProtector credentialProtector)
     : IRequestHandler<SaveTeamsInputConfigurationUsecase, TeamsInputConfigurationSaveResult>
 {
     public async Task<TeamsInputConfigurationSaveResult> Handle(
@@ -33,7 +38,15 @@ internal sealed class SaveTeamsInputConfigurationUsecaseHandler(
         var configuration = await repository.GetRequiredByIdAsync(
             TeamsInputConfiguration.DocumentId,
             cancellationToken);
+        var protectedClientSecret = request.RemoveClientSecret
+            ? null
+            : string.IsNullOrWhiteSpace(request.ClientSecret)
+                ? configuration.MicrosoftGraph.ProtectedClientSecret
+                : credentialProtector.Protect(request.ClientSecret.Trim());
         configuration.Update(
+            request.TenantId,
+            request.ClientId,
+            protectedClientSecret,
             request.PollingIntervalMinutes,
             request.DebounceMinutes,
             request.IntakeGuidance,
@@ -50,6 +63,16 @@ internal sealed class SaveTeamsInputConfigurationUsecaseHandler(
     private static List<string> Validate(SaveTeamsInputConfigurationUsecase request)
     {
         var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(request.TenantId))
+        {
+            errors.Add("The Microsoft tenant ID is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ClientId))
+        {
+            errors.Add("The Microsoft application client ID is required.");
+        }
+
         if (request.PollingIntervalMinutes is < 1 or > 1_440)
         {
             errors.Add("The polling interval must be between 1 and 1,440 minutes.");

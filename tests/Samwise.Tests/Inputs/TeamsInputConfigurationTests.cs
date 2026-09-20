@@ -10,6 +10,9 @@ public sealed class TeamsInputConfigurationTests
         var configuration = new TeamsInputConfiguration();
 
         configuration.Update(
+            " tenant-id ",
+            " client-id ",
+            "protected-secret",
             12,
             3,
             " Work Teams guidance. ",
@@ -24,6 +27,10 @@ public sealed class TeamsInputConfigurationTests
             [new TeamsInputSource { Id = "channel-1", DisplayName = "Announcements" }]);
 
         Assert.Equal(12, configuration.PollingIntervalMinutes);
+        Assert.Equal("tenant-id", configuration.MicrosoftGraph.TenantId);
+        Assert.Equal("client-id", configuration.MicrosoftGraph.ClientId);
+        Assert.Equal("protected-secret", configuration.MicrosoftGraph.ProtectedClientSecret);
+        Assert.True(configuration.MicrosoftGraph.HasClientSecret);
         Assert.Equal(3, configuration.DebounceMinutes);
         Assert.Equal("Work Teams guidance.", configuration.IntakeGuidance);
         Assert.False(configuration.IncludeChatMessages);

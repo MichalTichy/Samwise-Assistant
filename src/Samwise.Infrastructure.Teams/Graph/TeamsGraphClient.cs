@@ -9,7 +9,7 @@ namespace Samwise.Infrastructure.Teams.Graph;
 internal sealed class TeamsGraphClient(
     HttpClient httpClient,
     TeamsGraphTokenProvider tokens,
-    IOptions<TeamsMicrosoftGraphOptions> options)
+    IOptions<TeamsGraphRuntimeOptions> options)
 {
     private readonly Uri baseUrl = options.Value.GraphBaseUrl;
 

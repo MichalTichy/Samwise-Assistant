@@ -14,16 +14,13 @@ public sealed class TeamsInputInstaller : IInstaller
 {
     public void Install(IServiceCollection services, IConfiguration configuration, bool isProduction)
     {
-        services.AddOptions<TeamsMicrosoftGraphOptions>()
-            .Bind(configuration.GetSection(TeamsMicrosoftGraphOptions.SectionName))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.ClientId),
-                "TeamsInput:MicrosoftGraph:ClientId is required.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.TenantId),
-                "TeamsInput:MicrosoftGraph:TenantId is required.")
+        services.AddOptions<TeamsGraphRuntimeOptions>()
+            .Bind(configuration.GetSection(TeamsGraphRuntimeOptions.SectionName))
             .Validate(options => options.GraphBaseUrl.IsAbsoluteUri,
-                "TeamsInput:MicrosoftGraph:GraphBaseUrl must be absolute.")
+                "TeamsInput:GraphRuntime:GraphBaseUrl must be absolute.")
             .ValidateOnStart();
         services.AddHttpClient<TeamsGraphClient>();
+        services.AddSingleton<ITeamsCredentialProtector, DataProtectionTeamsCredentialProtector>();
         services.AddSingleton<TeamsGraphTokenProvider>();
         services.AddSingleton<ITeamsAuthorizationService>(provider =>
             provider.GetRequiredService<TeamsGraphTokenProvider>());

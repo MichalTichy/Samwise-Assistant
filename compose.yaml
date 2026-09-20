@@ -134,10 +134,7 @@ services:
       AgentEndpoints__Execution__BaseAddress: "${SAMWISE_EXECUTION_BASE_URL:-http://gateway:8080/p/samwise-execution/v1/}"
       AgentEndpoints__Execution__ApiKey: "${SAMWISE_EXECUTION_API_KEY:?Set SAMWISE_EXECUTION_API_KEY in an ignored .env file}"
       SamwiseMcp__ApiKey: "${SAMWISE_MCP_API_KEY:?Set SAMWISE_MCP_API_KEY in an ignored .env file}"
-      TeamsInput__MicrosoftGraph__TenantId: "${SAMWISE_TEAMS_TENANT_ID:?Set SAMWISE_TEAMS_TENANT_ID in an ignored .env file}"
-      TeamsInput__MicrosoftGraph__ClientId: "${SAMWISE_TEAMS_CLIENT_ID:?Set SAMWISE_TEAMS_CLIENT_ID in an ignored .env file}"
-      TeamsInput__MicrosoftGraph__ClientSecret: "${SAMWISE_TEAMS_CLIENT_SECRET:-}"
-      TeamsInput__MicrosoftGraph__DataPath: /app/data-protection/teams
+      TeamsInput__GraphRuntime__DataPath: /app/data-protection/teams
       Email__Microsoft365__ClientId: "${SAMWISE_MICROSOFT365_CLIENT_ID:-}"
       Email__Microsoft365__TenantId: "${SAMWISE_MICROSOFT365_TENANT_ID:-organizations}"
     volumes:

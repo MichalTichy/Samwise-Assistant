@@ -9,6 +9,7 @@ public sealed class TeamsInputConfiguration : IItemWithId
     public const int DefaultDebounceMinutes = 2;
 
     public string Id { get; set; } = DocumentId;
+    public TeamsGraphApplicationConfiguration MicrosoftGraph { get; set; } = new();
     public int PollingIntervalMinutes { get; set; } = DefaultPollingIntervalMinutes;
     public int DebounceMinutes { get; set; } = DefaultDebounceMinutes;
     public string IntakeGuidance { get; set; } = string.Empty;
@@ -22,6 +23,9 @@ public sealed class TeamsInputConfiguration : IItemWithId
     public string? LastError { get; set; }
 
     public void Update(
+        string tenantId,
+        string clientId,
+        string? protectedClientSecret,
         int pollingIntervalMinutes,
         int debounceMinutes,
         string? intakeGuidance,
@@ -46,6 +50,12 @@ public sealed class TeamsInputConfiguration : IItemWithId
                 "The debounce interval must be between 0 and 60 minutes.");
         }
 
+        MicrosoftGraph = new TeamsGraphApplicationConfiguration
+        {
+            TenantId = tenantId.Trim(),
+            ClientId = clientId.Trim(),
+            ProtectedClientSecret = protectedClientSecret
+        };
         PollingIntervalMinutes = pollingIntervalMinutes;
         DebounceMinutes = debounceMinutes;
         IntakeGuidance = intakeGuidance?.Trim() ?? string.Empty;
@@ -56,6 +66,29 @@ public sealed class TeamsInputConfiguration : IItemWithId
         IgnoredChats = Normalize(ignoredChats);
         IgnoredChannels = Normalize(ignoredChannels);
     }
+
+    public void Update(
+        int pollingIntervalMinutes,
+        int debounceMinutes,
+        string? intakeGuidance,
+        bool includeChatMessages,
+        bool includeChannelMessages,
+        bool includeCallTranscripts,
+        IEnumerable<TeamsInputSource> ignoredPeople,
+        IEnumerable<TeamsInputSource> ignoredChats,
+        IEnumerable<TeamsInputSource> ignoredChannels) => Update(
+            MicrosoftGraph.TenantId,
+            MicrosoftGraph.ClientId,
+            MicrosoftGraph.ProtectedClientSecret,
+            pollingIntervalMinutes,
+            debounceMinutes,
+            intakeGuidance,
+            includeChatMessages,
+            includeChannelMessages,
+            includeCallTranscripts,
+            ignoredPeople,
+            ignoredChats,
+            ignoredChannels);
 
     public bool IsPersonIgnored(string? id) => Contains(IgnoredPeople, id);
 

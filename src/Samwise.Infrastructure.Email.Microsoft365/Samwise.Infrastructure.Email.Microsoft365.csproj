@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Samwise.Domain\Samwise.Domain.csproj" />
+    <ProjectReference Include="..\Samwise.Inputs.Email\Samwise.Inputs.Email.csproj" />
     <ProjectReference Include="..\Samwise.Logic\Samwise.Logic.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Email.Imap\Samwise.Infrastructure.Email.Imap.csproj" />
     <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.IoC\Shared.Infrastructure.IoC.csproj" />

@@ -1,4 +1,4 @@
-using Samwise.Domain.Inputs.Email;
+using Samwise.Inputs.Email;
 
 namespace Samwise.Infrastructure.Email.Microsoft365.Authentication;
 

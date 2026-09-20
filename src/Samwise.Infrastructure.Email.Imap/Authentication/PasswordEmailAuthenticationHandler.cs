@@ -1,6 +1,5 @@
 using MailKit.Net.Imap;
-using Samwise.Domain.Inputs.Email;
-using Samwise.Logic.Inputs.Email;
+using Samwise.Inputs.Email;
 
 namespace Samwise.Infrastructure.Email.Imap.Authentication;
 

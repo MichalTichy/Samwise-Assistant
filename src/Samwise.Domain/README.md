@@ -10,8 +10,6 @@ This project contains Samwise's durable business state and transition rules. It 
 - `WorkItems/PlanReview` records the single approval or rejection outcome owned by its plan.
 - `WorkItems/WorkItemStatus` defines the draft, approval, execution, completion, attention, uncertainty, and discarded states.
 - `Inbox/InboundEvent` is the source-neutral processing lifecycle shared by every input observed by Samwise. It embeds the zero or more `InboundEventOutcome` records that link the input to every Work Item it created or updated, along with trusted source guidance and structured historical context. The Domain project owns only this base event contract and its common nested state; each input feature owns its concrete event documents and source-specific invariants.
-- `Inputs/Email/EmailAccount` stores one IMAP connection, its authentication method, encrypted password or Microsoft token cache, per-account intake guidance, independent nested INBOX and Sent UID checkpoints, enabled state, and last-check outcome. Existing documents default to password authentication.
-- `Inputs/Email/EmailInputConfiguration` is the singleton email-input configuration containing the polling interval and nested exact-address ignore list.
 - `Agents/AgentInvocation` records one intake, planning, or execution call, including its rendered prompt, model settings, exact available-tool snapshot, raw response, timing, and final outcome.
 - `Agents/AgentConfiguration` is the single current-settings document. It owns fixed nested Intake, Planning, and Execution settings, each with its model ID, exact Gateway reasoning-effort ID, prompt, and update timestamp. Reasoning effort is deliberately not an enum because supported values belong to the selected model.
 - `Playbooks/Playbook` stores one reusable, optionally enabled intake-and-planning instruction configured by the user.
@@ -36,3 +34,4 @@ Plans, planning questions and decisions, their selected-playbook snapshots, revi
 - Put state transitions and invariants on domain types, not in pages or persistence adapters.
 - Keep external SDK, HTTP, database-session, and dependency-injection code out.
 - Do not add compatibility aliases for pre-release model names; V1 evolves the model directly.
+- Keep concrete input-source events, configuration, and processing rules in their `Samwise.Inputs.*` feature modules. Domain owns only the source-neutral inbound lifecycle.

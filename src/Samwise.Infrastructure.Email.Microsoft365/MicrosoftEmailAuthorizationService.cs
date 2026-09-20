@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using Microsoft.Identity.Client;
-using Samwise.Logic.Inputs.Email;
+using Samwise.Inputs.Email;
 
 namespace Samwise.Infrastructure.Email.Microsoft365;
 

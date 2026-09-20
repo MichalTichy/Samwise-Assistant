@@ -4,7 +4,7 @@ using Samwise.Infrastructure.Email.Imap.Authentication;
 using Samwise.Infrastructure.Email.Imap.Credentials;
 using Samwise.Infrastructure.Email.Imap.Mailboxes;
 using Samwise.Infrastructure.Email.Imap.Polling;
-using Samwise.Logic.Inputs.Email;
+using Samwise.Inputs.Email;
 using Shared.Infrastructure.IoC;
 
 namespace Samwise.Infrastructure.Email.Imap.Installers;

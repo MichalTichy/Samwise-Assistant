@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
-using Samwise.Inputs.Teams;
+using Samwise.Inputs.Teams.Configuration;
+using Samwise.Inputs.Teams.Discovery;
 
 namespace Samwise.Web.Components.Inputs;
 

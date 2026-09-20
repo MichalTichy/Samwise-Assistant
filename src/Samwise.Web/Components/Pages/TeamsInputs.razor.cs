@@ -1,7 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Components;
-using Samwise.Inputs.Teams;
-using Samwise.Inputs.Teams.Usecases;
+using Samwise.Inputs.Teams.Authentication;
+using Samwise.Inputs.Teams.Configuration;
+using Samwise.Inputs.Teams.Discovery;
+using Samwise.Inputs.Teams.Ingestion;
+using Samwise.Inputs.Teams.Usecases.Authorization;
+using Samwise.Inputs.Teams.Usecases.Configuration;
+using Samwise.Inputs.Teams.Usecases.Processing;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Web.Components.Pages;

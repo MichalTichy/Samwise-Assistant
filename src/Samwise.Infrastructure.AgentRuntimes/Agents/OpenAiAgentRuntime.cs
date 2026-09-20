@@ -41,7 +41,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         var result = response.Result;
 
         return new IntakeResult(
-            ParseIntakeDisposition(result.Disposition),
+            ParseIntakeDecision(result.Decision),
             result.WorkItems.Select(workItem => new IntakeWorkItemChange(
                 ParseIntakeWorkItemAction(workItem.Action),
                 ParseExistingWorkItemId(workItem.ExistingWorkItemId),
@@ -210,15 +210,15 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
     private static AgentReceipt CreateReceipt<T>(StructuredResponse<T> response) =>
         new("OpenAI Chat Completions", response.Model, response.CompletionId, response.RawResponse);
 
-    private static IntakeDisposition ParseIntakeDisposition(string value) => value
+    private static IntakeDecision ParseIntakeDecision(string value) => value
         .Replace("_", string.Empty, StringComparison.Ordinal)
         .Replace("-", string.Empty, StringComparison.Ordinal)
         .ToLowerInvariant() switch
     {
-        "apply" => IntakeDisposition.Apply,
-        "ignore" => IntakeDisposition.Ignore,
-        "needsreview" => IntakeDisposition.NeedsReview,
-        _ => throw new InvalidOperationException($"Unknown intake disposition '{value}'.")
+        "applychanges" => IntakeDecision.ApplyChanges,
+        "ignore" => IntakeDecision.Ignore,
+        "needsreview" => IntakeDecision.NeedsReview,
+        _ => throw new InvalidOperationException($"Unknown intake decision '{value}'.")
     };
 
     private static IntakeWorkItemAction ParseIntakeWorkItemAction(string value) => value
@@ -296,7 +296,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
 
     private sealed class IntakeWireResult
     {
-        public required string Disposition { get; init; }
+        public required string Decision { get; init; }
 
         public required List<IntakeWorkItemChangeWireResult> WorkItems { get; init; }
 

@@ -13,12 +13,12 @@ internal static class AgentWorkflowSupport
             throw new InvalidOperationException("The intake result needs an explanation.");
         }
 
-        if (result.Disposition == IntakeDisposition.Apply && result.WorkItems.Count == 0)
+        if (result.Decision == IntakeDecision.ApplyChanges && result.WorkItems.Count == 0)
         {
             throw new InvalidOperationException("An applied intake result must contain at least one work item change.");
         }
 
-        if (result.Disposition != IntakeDisposition.Apply && result.WorkItems.Count > 0)
+        if (result.Decision != IntakeDecision.ApplyChanges && result.WorkItems.Count > 0)
         {
             throw new InvalidOperationException("Ignored or review-required input cannot contain work item changes.");
         }

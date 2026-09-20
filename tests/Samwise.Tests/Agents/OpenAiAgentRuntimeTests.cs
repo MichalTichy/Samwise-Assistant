@@ -19,7 +19,7 @@ public sealed class OpenAiAgentRuntimeTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var responseBody = CreateChatCompletion(model, new
         {
-            disposition = "apply",
+            decision = "apply_changes",
             work_items = new[]
             {
                 new
@@ -75,7 +75,7 @@ public sealed class OpenAiAgentRuntimeTests
         var schemaProperties = jsonSchema
             .GetProperty("schema")
             .GetProperty("properties");
-        Assert.True(schemaProperties.TryGetProperty("disposition", out _));
+        Assert.True(schemaProperties.TryGetProperty("decision", out _));
         Assert.True(schemaProperties.TryGetProperty("work_items", out _));
         Assert.True(schemaProperties.TryGetProperty("explanation", out _));
         var requiredProperties = jsonSchema
@@ -87,7 +87,7 @@ public sealed class OpenAiAgentRuntimeTests
         Assert.Equal(schemaProperties.EnumerateObject().Count(), requiredProperties.Count);
         Assert.All(schemaProperties.EnumerateObject(), property => Assert.Contains(property.Name, requiredProperties));
 
-        Assert.Equal(IntakeDisposition.Apply, result.Disposition);
+        Assert.Equal(IntakeDecision.ApplyChanges, result.Decision);
         Assert.Equal(2, result.WorkItems.Count);
         var change = result.WorkItems[0];
         Assert.Equal(IntakeWorkItemAction.Create, change.Action);

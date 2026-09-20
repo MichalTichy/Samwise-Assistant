@@ -16,7 +16,7 @@ public sealed class AgentWorkflowSupportTests
     public void IntakeValidationAcceptsMultipleIndependentWorkItemChanges()
     {
         var result = new IntakeResult(
-            IntakeDisposition.Apply,
+            IntakeDecision.ApplyChanges,
             [
                 new IntakeWorkItemChange(
                     IntakeWorkItemAction.Create,
@@ -41,7 +41,7 @@ public sealed class AgentWorkflowSupportTests
     public void IntakeValidationRejectsMultipleUpdatesForTheSameWorkItem()
     {
         var result = new IntakeResult(
-            IntakeDisposition.Apply,
+            IntakeDecision.ApplyChanges,
             [
                 new IntakeWorkItemChange(
                     IntakeWorkItemAction.Append,
@@ -69,13 +69,13 @@ public sealed class AgentWorkflowSupportTests
     public void IntakeValidationRejectsIgnoredInputWithWorkItemChanges()
     {
         var result = new IntakeResult(
-            IntakeDisposition.Ignore,
+            IntakeDecision.Ignore,
             [new IntakeWorkItemChange(
                 IntakeWorkItemAction.Create,
                 null,
                 "Unexpected work item",
                 "This should not be applied.",
-                "Contradicts the disposition.")],
+                "Contradicts the decision.")],
             "Ignore the input.",
             Receipt);
 
@@ -96,7 +96,7 @@ public sealed class AgentWorkflowSupportTests
             Input = inboundText
         };
         var result = new IntakeResult(
-            IntakeDisposition.Apply,
+            IntakeDecision.ApplyChanges,
             [new IntakeWorkItemChange(
                 IntakeWorkItemAction.Create,
                 null,

@@ -1,8 +1,8 @@
 namespace Samwise.Logic.Agents;
 
-public enum IntakeDisposition
+public enum IntakeDecision
 {
-    Apply,
+    ApplyChanges,
     Ignore,
     NeedsReview
 }

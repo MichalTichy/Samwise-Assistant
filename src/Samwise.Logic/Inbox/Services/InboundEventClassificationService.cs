@@ -74,9 +74,9 @@ internal sealed class InboundEventClassificationService(
 
             await using (var unitOfWork = new UnitOfWorkProvider())
             {
-                switch (result.Disposition)
+                switch (result.Decision)
                 {
-                    case IntakeDisposition.Apply:
+                    case IntakeDecision.ApplyChanges:
                         foreach (var change in result.WorkItems)
                         {
                             var workItem = change.Action switch
@@ -115,14 +115,14 @@ internal sealed class InboundEventClassificationService(
 
                         inboundEvent.Status = InboundEventStatus.Processed;
                         break;
-                    case IntakeDisposition.Ignore:
+                    case IntakeDecision.Ignore:
                         inboundEvent.Status = InboundEventStatus.Processed;
                         break;
-                    case IntakeDisposition.NeedsReview:
+                    case IntakeDecision.NeedsReview:
                         inboundEvent.Status = InboundEventStatus.NeedsReview;
                         break;
                     default:
-                        throw new InvalidOperationException($"Unsupported intake disposition '{result.Disposition}'.");
+                        throw new InvalidOperationException($"Unsupported intake decision '{result.Decision}'.");
                 }
 
                 await inboundRepository.UpdateAsync(inboundEvent, cancellationToken);

@@ -26,7 +26,6 @@ internal sealed class InboundEventClassificationService(
         CancellationToken cancellationToken)
     {
         var inboundEvent = await inboundRepository.GetRequiredByIdAsync(inboundEventId, cancellationToken);
-        inboundEvent.NormalizeLegacyState();
         if (inboundEvent.Status != InboundEventStatus.Pending)
         {
             return [];

@@ -31,7 +31,6 @@ public partial class Inbox
             var inboundEvents = await InboundEventRepository.ListAsync(new InboxEventsSpecification());
             events = inboundEvents.Select(item =>
             {
-                item.NormalizeLegacyState();
                 return new InboxEventItem(
                     item.Id,
                     item.Source,

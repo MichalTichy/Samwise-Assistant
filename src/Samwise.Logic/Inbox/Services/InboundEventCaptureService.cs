@@ -23,7 +23,6 @@ internal sealed class InboundEventCaptureService(
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inboundEvent.ExternalId);
-        inboundEvent.NormalizeLegacyState();
         var intakeText = inboundEvent.GetIntakeText();
         if (inboundEvent.Status == InboundEventStatus.Pending)
         {
@@ -35,7 +34,6 @@ internal sealed class InboundEventCaptureService(
             new InboundEventByDedupeKeySpecification(dedupeKey), cancellationToken);
         if (existing is not null)
         {
-            existing.NormalizeLegacyState();
             if (existing.Status == InboundEventStatus.Pending)
             {
                 await processingService.ProcessAsync(existing.Id, cancellationToken);

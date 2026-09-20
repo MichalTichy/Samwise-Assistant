@@ -11,7 +11,7 @@ namespace Samwise.Infrastructure.Mcp.Tools;
 public sealed class InputEventTools(IReadOnlyRepository<InboundEvent> repository)
 {
     [McpServerTool(Name = "list_input_events")]
-    [Description("Lists recent inputs received by Samwise and how intake handled them. Use get_input_event for complete source content.")]
+    [Description("Lists recent inputs received by Samwise and how intake handled them. Use get_input_event for the complete data stored by Samwise; external source content may require its source MCP tool.")]
     public async Task<string> ListInputEventsAsync(
         [Description("Maximum number of input events to return, from 1 to 100.")]
         int limit = 25,
@@ -46,7 +46,7 @@ public sealed class InputEventTools(IReadOnlyRepository<InboundEvent> repository
     }
 
     [McpServerTool(Name = "get_input_event")]
-    [Description("Gets a complete Samwise input event, including its source-specific content and intake handling result.")]
+    [Description("Gets a complete Samwise input event as stored by Samwise, including source identifiers and intake handling. Some external content, such as a Teams transcript, remains in the source system.")]
     public async Task<string> GetInputEventAsync(
         [Description("The input event ID returned by list_input_events.")]
         string inputEventId,

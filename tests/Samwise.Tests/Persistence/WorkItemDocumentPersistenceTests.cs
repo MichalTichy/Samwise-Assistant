@@ -109,16 +109,18 @@ public sealed class WorkItemDocumentPersistenceTests
             BodyText = "Come home.",
             WasReadWhenCaptured = true,
             WasAnsweredWhenCaptured = true,
-            Replies =
+            SourceGuidance = "Treat this as personal correspondence.",
+            Context =
             [
-                new EmailReplySnapshot(
-                    "reply-1",
-                    "Re: Supper",
-                    "sam@example.com",
-                    "Sam",
-                    ["rosie@example.com"],
-                    DateTimeOffset.UtcNow,
-                    "On my way.")
+                new InboundEventContextItem
+                {
+                    SourceItemId = "reply-1",
+                    Content = "On my way.",
+                    OccurredAt = DateTimeOffset.UtcNow,
+                    PreviouslyProcessed = true,
+                    InboundEventId = "sent-event-1",
+                    WorkItemIds = ["work-item-1"]
+                }
             ],
             DedupeKey = Guid.NewGuid().ToString("N"),
             ReceivedAt = DateTimeOffset.UtcNow
@@ -146,7 +148,10 @@ public sealed class WorkItemDocumentPersistenceTests
         var storedEmail = Assert.IsType<EmailInboundEvent>(
             await repository.GetRequiredByIdAsync(email.Id));
         Assert.Contains("Subject: Supper", storedEmail.GetIntakeText(), StringComparison.Ordinal);
-        Assert.Equal("On my way.", Assert.Single(storedEmail.Replies).BodyText);
+        Assert.Equal("Treat this as personal correspondence.", storedEmail.SourceGuidance);
+        var storedContext = Assert.Single(storedEmail.Context);
+        Assert.Equal("On my way.", storedContext.Content);
+        Assert.Equal("work-item-1", Assert.Single(storedContext.WorkItemIds));
         var storedSentEmail = Assert.IsType<SentEmailInboundEvent>(
             await repository.GetRequiredByIdAsync(sentEmail.Id));
         Assert.Contains("Email sent from: sam@example.com", storedSentEmail.GetIntakeText(), StringComparison.Ordinal);

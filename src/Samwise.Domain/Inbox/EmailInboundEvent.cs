@@ -21,7 +21,6 @@ public sealed class EmailInboundEvent : InboundEvent
     public bool WasAnsweredWhenCaptured { get; set; }
     public string BodyText { get; set; } = string.Empty;
     public IReadOnlyList<EmailAttachmentSummary> Attachments { get; set; } = [];
-    public IReadOnlyList<EmailReplySnapshot> Replies { get; set; } = [];
 
     public override string Source => "Email";
 
@@ -58,27 +57,6 @@ public sealed class EmailInboundEvent : InboundEvent
             }
         }
 
-        if (Replies.Count > 0)
-        {
-            text.AppendLine()
-                .AppendLine()
-                .AppendLine("Replies already sent from this account:");
-            foreach (var reply in Replies.OrderBy(reply => reply.SentAt))
-            {
-                text.AppendLine()
-                    .Append("Sent: ")
-                    .AppendLine(reply.SentAt?.ToString("O") ?? "Unknown")
-                    .Append("From: ")
-                    .AppendLine(reply.FormatSender())
-                    .Append("To: ")
-                    .AppendLine(string.Join(", ", reply.ToAddresses))
-                    .Append("Subject: ")
-                    .AppendLine(reply.Subject)
-                    .AppendLine()
-                    .AppendLine(reply.BodyText.Trim());
-            }
-        }
-
         return text.ToString().Trim();
     }
 
@@ -89,7 +67,7 @@ public sealed class EmailInboundEvent : InboundEvent
             WasReadWhenCaptured ? "read" : "unread",
             WasAnsweredWhenCaptured ? "answered" : "not answered"
         };
-        if (WasAnsweredWhenCaptured && Replies.Count == 0)
+        if (WasAnsweredWhenCaptured && Context.Count == 0)
         {
             states.Add("sent reply could not be retrieved");
         }

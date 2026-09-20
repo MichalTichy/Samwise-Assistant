@@ -35,6 +35,7 @@ public partial class EmailInputs
     private EmailAuthenticationMethod authenticationMethod = EmailAuthenticationMethod.Password;
     private string username = string.Empty;
     private string password = string.Empty;
+    private string intakeGuidance = string.Empty;
     private MicrosoftEmailAuthorizationChallenge? microsoftAuthorizationChallenge;
     private bool startingMicrosoftAuthorization;
     private bool accountEnabled = true;
@@ -72,6 +73,7 @@ public partial class EmailInputs
                 Security = account.Security,
                 AuthenticationMethod = account.AuthenticationMethod,
                 Username = account.Username,
+                IntakeGuidance = account.IntakeGuidance,
                 IsEnabled = account.IsEnabled,
                 LastSuccessfulCheckAt = account.LastSuccessfulCheckAt,
                 LastError = account.LastError
@@ -152,6 +154,7 @@ public partial class EmailInputs
         authenticationMethod = EmailAuthenticationMethod.Password;
         username = string.Empty;
         password = string.Empty;
+        intakeGuidance = string.Empty;
         microsoftAuthorizationChallenge = null;
         accountEnabled = true;
         accountErrors = [];
@@ -169,6 +172,7 @@ public partial class EmailInputs
         authenticationMethod = account.AuthenticationMethod;
         username = account.Username;
         password = string.Empty;
+        intakeGuidance = account.IntakeGuidance;
         microsoftAuthorizationChallenge = null;
         accountEnabled = account.IsEnabled;
         accountErrors = [];
@@ -200,6 +204,7 @@ public partial class EmailInputs
                 username,
                 password,
                 microsoftAuthorizationChallenge?.AuthorizationId,
+                intakeGuidance,
                 accountEnabled));
             accountErrors = result.Errors;
             if (!result.Succeeded)
@@ -336,6 +341,7 @@ public partial class EmailInputs
         public EmailConnectionSecurity Security { get; init; }
         public EmailAuthenticationMethod AuthenticationMethod { get; init; }
         public string Username { get; init; } = string.Empty;
+        public string IntakeGuidance { get; init; } = string.Empty;
         public bool IsEnabled { get; init; }
         public DateTimeOffset? LastSuccessfulCheckAt { get; init; }
         public string? LastError { get; init; }

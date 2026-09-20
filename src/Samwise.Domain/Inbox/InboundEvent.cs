@@ -13,6 +13,9 @@ public abstract class InboundEvent : IItemWithId
     public InboundEventStatus Status { get; set; }
     public List<InboundEventOutcome> Outcomes { get; set; } = [];
     public string Explanation { get; set; } = string.Empty;
+    public string SourceGuidance { get; set; } = string.Empty;
+    public List<InboundEventContextItem> Context { get; set; } = [];
+    public string? ContextKey { get; set; }
 
     public abstract string Source { get; }
 

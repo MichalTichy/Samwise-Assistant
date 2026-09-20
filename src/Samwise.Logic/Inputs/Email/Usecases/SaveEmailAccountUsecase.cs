@@ -15,6 +15,7 @@ public sealed record SaveEmailAccountUsecase(
     string Username,
     string? Password,
     string? MicrosoftAuthorizationId,
+    string? IntakeGuidance,
     bool IsEnabled) : IRequest<EmailAccountSaveResult>;
 
 internal sealed class SaveEmailAccountUsecaseHandler(
@@ -103,6 +104,7 @@ internal sealed class SaveEmailAccountUsecaseHandler(
         account.Security = request.Security;
         account.AuthenticationMethod = request.AuthenticationMethod;
         account.Username = request.Username.Trim();
+        account.IntakeGuidance = request.IntakeGuidance?.Trim() ?? string.Empty;
         account.IsEnabled = request.IsEnabled;
         account.UpdatedAt = now;
         if (request.AuthenticationMethod == EmailAuthenticationMethod.Password)

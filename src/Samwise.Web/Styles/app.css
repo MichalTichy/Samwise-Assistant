@@ -394,6 +394,7 @@
     .email-editor-close { width: 32px; height: 32px; padding: 0; border: 0; border-radius: .65rem; color: #8e8174; background: #f1e8dc; cursor: pointer; font-size: 1.2rem; }
     .email-editor-close:hover { color: #5d5045; background: #e9ddce; }
     .email-account-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; }
+    .email-guidance-input { min-height: 7rem; height: auto; padding-block: .7rem; resize: vertical; line-height: 1.5; }
     .email-field-wide { grid-column: 1 / -1; }
     .email-account-baseline-note { padding: .75rem .85rem; border: 1px solid #eadbc7; border-radius: .75rem; color: #796b5d; background: #f8f0e4; font-size: .68rem; line-height: 1.5; }
     .email-account-baseline-note strong { color: #67584b; }

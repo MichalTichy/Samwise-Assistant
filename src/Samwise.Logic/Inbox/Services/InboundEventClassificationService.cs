@@ -84,7 +84,8 @@ internal sealed class InboundEventClassificationService(
                                 IntakeWorkItemAction.Create => DomainWorkItem.CreateFromInbound(
                                     change.RelevantText,
                                     change.ProposedTitle,
-                                    timeProvider.GetUtcNow()),
+                                    timeProvider.GetUtcNow(),
+                                    CreateSourceReference(inboundEvent)),
                                 IntakeWorkItemAction.Append => appendTargets[change.ExistingWorkItemId!.Trim()],
                                 _ => throw new InvalidOperationException(
                                     $"Unsupported intake work item action '{change.Action}'.")
@@ -96,7 +97,10 @@ internal sealed class InboundEventClassificationService(
                             }
                             else
                             {
-                                workItem.AddContext(change.RelevantText, timeProvider.GetUtcNow());
+                                workItem.AddInboundContext(
+                                    change.RelevantText,
+                                    CreateSourceReference(inboundEvent),
+                                    timeProvider.GetUtcNow());
                                 await workItemRepository.UpdateAsync(workItem, cancellationToken);
                             }
 
@@ -196,4 +200,12 @@ internal sealed class InboundEventClassificationService(
         inboundEvent.Outcomes = [];
         inboundEvent.Explanation = reason;
     }
+
+    private static WorkItemSourceReference CreateSourceReference(InboundEvent inboundEvent) => new()
+        {
+            InboundEventId = inboundEvent.Id,
+            Source = inboundEvent.Source,
+            ExternalId = inboundEvent.ExternalId,
+            AddedAt = inboundEvent.ReceivedAt
+        };
 }

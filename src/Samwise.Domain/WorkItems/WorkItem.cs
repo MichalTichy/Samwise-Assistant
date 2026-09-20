@@ -26,11 +26,13 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public string? DiscardInvocationId { get; set; }
     public List<WorkItemPlan> Plans { get; set; } = [];
     public List<WorkItemComment> Comments { get; set; } = [];
+    public List<WorkItemSourceReference> Sources { get; set; } = [];
 
     public static WorkItem CreateFromInbound(
         string description,
         string? proposedTitle,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        WorkItemSourceReference? source = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
 
@@ -41,7 +43,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
                 .FirstOrDefault() ?? normalized
             : proposedTitle.Trim();
 
-        return new WorkItem
+        var workItem = new WorkItem
         {
             Id = Guid.NewGuid().ToString(),
             Title = normalizedTitle.Length <= 96 ? normalizedTitle : normalizedTitle[..93] + "...",
@@ -52,6 +54,12 @@ public sealed class WorkItem : IItemWithId, IRevisioned
             CreatedAt = now,
             UpdatedAt = now
         };
+        if (source is not null)
+        {
+            workItem.Sources.Add(source);
+        }
+
+        return workItem;
     }
 
     public int ReservePlanNumber(DateTimeOffset now)
@@ -180,6 +188,16 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         CurrentPlanId = null;
         Status = WorkItemStatus.AwaitingUserInput;
         UpdatedAt = now;
+    }
+
+    public void AddInboundContext(
+        string text,
+        WorkItemSourceReference source,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        AddContext(text, now, CommentAuthorKind.System);
+        Sources.Add(source);
     }
 
     public void AnswerPlanningQuestion(

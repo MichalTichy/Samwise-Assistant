@@ -13,8 +13,8 @@ internal sealed class InboundEventProcessingService(
 {
     public async Task ProcessAsync(string inboundEventId, CancellationToken cancellationToken)
     {
-        var workItemId = await classificationService.ClassifyAsync(inboundEventId, cancellationToken);
-        if (workItemId is not null)
+        var workItemIds = await classificationService.ClassifyAsync(inboundEventId, cancellationToken);
+        foreach (var workItemId in workItemIds.Distinct(StringComparer.Ordinal))
         {
             await planningService.PlanAsync(workItemId, cancellationToken);
         }

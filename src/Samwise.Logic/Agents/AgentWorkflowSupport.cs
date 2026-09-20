@@ -6,6 +6,58 @@ namespace Samwise.Logic.Agents;
 
 internal static class AgentWorkflowSupport
 {
+    public static void ValidateIntakeResult(IntakeResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.Explanation))
+        {
+            throw new InvalidOperationException("The intake result needs an explanation.");
+        }
+
+        if (result.Disposition == IntakeDisposition.Apply && result.WorkItems.Count == 0)
+        {
+            throw new InvalidOperationException("An applied intake result must contain at least one work item change.");
+        }
+
+        if (result.Disposition != IntakeDisposition.Apply && result.WorkItems.Count > 0)
+        {
+            throw new InvalidOperationException("Ignored or review-required input cannot contain work item changes.");
+        }
+
+        foreach (var change in result.WorkItems)
+        {
+            if (string.IsNullOrWhiteSpace(change.RelevantText) || string.IsNullOrWhiteSpace(change.Explanation))
+            {
+                throw new InvalidOperationException(
+                    "Every intake work item change needs relevant input text and an explanation.");
+            }
+
+            switch (change.Action)
+            {
+                case IntakeWorkItemAction.Create when
+                    string.IsNullOrWhiteSpace(change.ProposedTitle) ||
+                    !string.IsNullOrWhiteSpace(change.ExistingWorkItemId):
+                    throw new InvalidOperationException(
+                        "A create change needs a proposed title and cannot reference an existing work item.");
+                case IntakeWorkItemAction.Append when
+                    string.IsNullOrWhiteSpace(change.ExistingWorkItemId) ||
+                    !string.IsNullOrWhiteSpace(change.ProposedTitle):
+                    throw new InvalidOperationException(
+                        "An append change needs an existing work item ID and cannot propose a title.");
+            }
+        }
+
+        var duplicateAppendTarget = result.WorkItems
+            .Where(change => change.Action == IntakeWorkItemAction.Append)
+            .Select(change => change.ExistingWorkItemId!.Trim())
+            .GroupBy(id => id, StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicateAppendTarget is not null)
+        {
+            throw new InvalidOperationException(
+                $"Intake returned more than one update for work item '{duplicateAppendTarget.Key}'.");
+        }
+    }
+
     public static string FormatExecutionResult(ExecutionResult result) => result.Outputs.Count == 0
         ? result.Summary
         : string.Concat(

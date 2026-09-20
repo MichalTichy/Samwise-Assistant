@@ -1,5 +1,4 @@
 using Samwise.Domain.Agents;
-using Samwise.Domain.Inbox;
 using Samwise.Domain.WorkItems;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
@@ -21,12 +20,3 @@ public sealed record WorkItemDetails(
     WorkItemPlan? CurrentPlan,
     IReadOnlyList<WorkItemComment> Comments,
     IReadOnlyList<AgentInvocation> Invocations);
-
-public sealed record InboxEventItem(
-    string Id,
-    string Source,
-    string Text,
-    DateTimeOffset ReceivedAt,
-    InboundHandlingKind Handling,
-    string? WorkItemId,
-    string Explanation);

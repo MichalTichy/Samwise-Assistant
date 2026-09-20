@@ -13,7 +13,80 @@ public sealed class AgentWorkflowSupportTests
         "{}");
 
     [Fact]
-    public void NewWorkItemPreservesInboundTextInsteadOfAiDescription()
+    public void IntakeValidationAcceptsMultipleIndependentWorkItemChanges()
+    {
+        var result = new IntakeResult(
+            IntakeDisposition.Apply,
+            [
+                new IntakeWorkItemChange(
+                    IntakeWorkItemAction.Create,
+                    null,
+                    "Prepare the proposal",
+                    "Prepare the requested proposal by Friday.",
+                    "This is a new deliverable."),
+                new IntakeWorkItemChange(
+                    IntakeWorkItemAction.Append,
+                    "existing-work-item",
+                    null,
+                    "The customer moved the meeting to Tuesday.",
+                    "This changes the active meeting work item.")
+            ],
+            "The input contains two independent outcomes.",
+            Receipt);
+
+        AgentWorkflowSupport.ValidateIntakeResult(result);
+    }
+
+    [Fact]
+    public void IntakeValidationRejectsMultipleUpdatesForTheSameWorkItem()
+    {
+        var result = new IntakeResult(
+            IntakeDisposition.Apply,
+            [
+                new IntakeWorkItemChange(
+                    IntakeWorkItemAction.Append,
+                    "existing-work-item",
+                    null,
+                    "First update.",
+                    "First relevant fact."),
+                new IntakeWorkItemChange(
+                    IntakeWorkItemAction.Append,
+                    "existing-work-item",
+                    null,
+                    "Second update.",
+                    "Second relevant fact.")
+            ],
+            "Both updates refer to one work item.",
+            Receipt);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => AgentWorkflowSupport.ValidateIntakeResult(result));
+
+        Assert.Contains("more than one update", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void IntakeValidationRejectsIgnoredInputWithWorkItemChanges()
+    {
+        var result = new IntakeResult(
+            IntakeDisposition.Ignore,
+            [new IntakeWorkItemChange(
+                IntakeWorkItemAction.Create,
+                null,
+                "Unexpected work item",
+                "This should not be applied.",
+                "Contradicts the disposition.")],
+            "Ignore the input.",
+            Receipt);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => AgentWorkflowSupport.ValidateIntakeResult(result));
+
+        Assert.Contains("cannot contain", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void NewWorkItemUsesTheRelevantTextSelectedByIntake()
     {
         const string inboundText = "Prepare the revised offer.\nInclude the signed appendix and delivery dates.";
         var inboundEvent = new ManualInboundEvent
@@ -23,21 +96,25 @@ public sealed class AgentWorkflowSupportTests
             Input = inboundText
         };
         var result = new IntakeResult(
-            IntakeDecision.CreateWorkItem,
-            null,
-            "Revised customer offer",
-            "AI-generated summary that must not replace the source text.",
+            IntakeDisposition.Apply,
+            [new IntakeWorkItemChange(
+                IntakeWorkItemAction.Create,
+                null,
+                "Revised customer offer",
+                "Prepare the revised offer with the signed appendix.",
+                "The input contains an independent offer deliverable.")],
             "This is actionable.",
             Receipt);
+        var change = Assert.Single(result.WorkItems);
 
         var workItem = Samwise.Domain.WorkItems.WorkItem.CreateFromInbound(
-            inboundEvent.GetIntakeText(),
-            result.ProposedTitle,
+            change.RelevantText,
+            change.ProposedTitle,
             new DateTimeOffset(2026, 8, 17, 8, 0, 0, TimeSpan.Zero));
 
         Assert.Equal("Revised customer offer", workItem.Title);
-        Assert.Equal(inboundText, workItem.Description);
-        Assert.NotEqual(result.ProposedDescription, workItem.Description);
+        Assert.Equal("Prepare the revised offer with the signed appendix.", workItem.Description);
+        Assert.NotEqual(inboundText, workItem.Description);
     }
 
     [Fact]

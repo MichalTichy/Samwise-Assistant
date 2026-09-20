@@ -21,6 +21,16 @@ internal sealed class AgentPromptBuilder(
     IPromptRenderer renderer,
     TimeProvider timeProvider) : IAgentPromptBuilder
 {
+    private const string IntakeResponseContract = """
+        Mandatory intake response contract:
+        - Return disposition as apply, ignore, or needs_review.
+        - Identify every independently achievable outcome in the event; do not stop after the first. For apply, return one or more work_items. Each must use action create or append, include self-contained relevant_text and an explanation, and represent an independently achievable outcome rather than one step of a shared objective.
+        - A create item requires proposed_title and null existing_work_item_id.
+        - An append item requires the exact existing_work_item_id of an active candidate and null proposed_title. Combine all context for the same target into one item.
+        - For ignore or needs_review, return an empty work_items array.
+        These structural requirements take precedence over any obsolete singular response instructions in the configurable prompt.
+        """;
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -45,7 +55,7 @@ internal sealed class AgentPromptBuilder(
         var planningTools = await planningToolsTask;
         var executionTools = await executionToolsTask;
         var stageConfiguration = configuration.GetStage(AgentStage.Intake);
-        var text = Render(
+        var configuredText = Render(
             AgentStage.Intake,
             stageConfiguration.Prompt,
             CreateValues(
@@ -66,6 +76,11 @@ internal sealed class AgentPromptBuilder(
                 (AgentPromptPlaceholders.PlanningTools, planningTools.RawJson),
                 (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
                 (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
+        var text = string.Concat(
+            configuredText.TrimEnd(),
+            Environment.NewLine,
+            Environment.NewLine,
+            IntakeResponseContract);
 
         return new IntakeAgentPrompt(
             text,

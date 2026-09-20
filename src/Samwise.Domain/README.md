@@ -9,7 +9,7 @@ This project contains Samwise's durable business state and transition rules. It 
 - `WorkItems/WorkItemComment` stores user, Samwise, and system context inside the aggregate.
 - `WorkItems/PlanReview` records the single approval or rejection outcome owned by its plan.
 - `WorkItems/WorkItemStatus` defines the draft, approval, execution, completion, attention, uncertainty, and discarded states.
-- `Inbox/InboundEvent` is the common handling lifecycle for every input observed by Samwise. `ManualInboundEvent`, `EmailInboundEvent`, and `SentEmailInboundEvent` store source-specific immutable data and compute the text passed to intake instead of duplicating a generic text field. Received-email events snapshot mailbox flags and any matching sent replies; sent-email events let intake reassess active work after the owner acts independently.
+- `Inbox/InboundEvent` is the common processing lifecycle for every input observed by Samwise. It embeds the zero or more `InboundEventOutcome` records that link the input to every Work Item it created or updated, including the exact relevant text and decision explanation. `ManualInboundEvent`, `EmailInboundEvent`, and `SentEmailInboundEvent` store source-specific immutable data and compute the text passed to intake instead of duplicating a generic text field.
 - `Inputs/Email/EmailAccount` stores one IMAP connection, its authentication method, encrypted password or Microsoft token cache, independent nested INBOX and Sent UID checkpoints, enabled state, and last-check outcome. Existing documents default to password authentication.
 - `Inputs/Email/EmailInputConfiguration` is the singleton email-input configuration containing the polling interval and nested exact-address ignore list.
 - `Agents/AgentInvocation` records one intake, planning, or execution call, including its rendered prompt, model settings, exact available-tool snapshot, raw response, timing, and final outcome.
@@ -18,7 +18,7 @@ This project contains Samwise's durable business state and transition rules. It 
 
 ## Work-item lifecycle
 
-1. Actionable intake creates a work item or appends context to an active one.
+1. Intake can create or update multiple Work Items when one input contains independently achievable outcomes. All changes are applied together before each affected Work Item is planned once.
 2. New context increments the revision and invalidates the previous plan.
 3. Planning either attaches a plan for the exact current revision, asks one structured user question, completes an outcome already achieved outside Samwise, or discards work proven no longer relevant. Terminal planning outcomes retain their reason and invocation ID.
 4. A planning question moves the Work Item to `AwaitingUserInput`. Its mutually exclusive choices plus the UI-provided Other answer are stored as a structured decision; answering advances the revision and immediately replans.
@@ -29,7 +29,7 @@ This project contains Samwise's durable business state and transition rules. It 
 
 ## Aggregate boundary
 
-Plans, planning questions and decisions, their selected-playbook snapshots, reviews, numbered plan steps, suggested tool calls and JSON parameters, tool snapshots, comments, completion result, and discard metadata are nested in `WorkItem` because they change with and are consistent with that work item. Approval and rejection belong to the reviewed plan; completion and discard belong to the work-item lifecycle. The three agent-stage settings are nested in one `AgentConfiguration` because they form one fixed configuration edited and loaded together. Inbound events, playbook definitions, that configuration root, and agent invocations remain separate documents because they have separate identity, retention, and access patterns.
+Plans, planning questions and decisions, their selected-playbook snapshots, reviews, numbered plan steps, suggested tool calls and JSON parameters, tool snapshots, comments, completion result, and discard metadata are nested in `WorkItem` because they change with and are consistent with that work item. Intake outcomes are nested in their `InboundEvent` because they form the audit result of processing one observed input. The three agent-stage settings are nested in one `AgentConfiguration` because they form one fixed configuration edited and loaded together. Inbound events, Work Items, playbook definitions, that configuration root, and agent invocations remain separate documents because they have separate identity, retention, and access patterns.
 
 ## Rules for this project
 

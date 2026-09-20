@@ -1,9 +1,9 @@
 using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.Inbox;
+using Samwise.Logic.Inbox;
 using Samwise.Logic.Inbox.Specifications;
 using Samwise.Logic.Inbox.Usecases;
-using Samwise.Logic.WorkItems;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Web.Components.Pages;
@@ -29,14 +29,22 @@ public partial class Inbox
         try
         {
             var inboundEvents = await InboundEventRepository.ListAsync(new InboxEventsSpecification());
-            events = inboundEvents.Select(item => new InboxEventItem(
-                item.Id,
-                item.Source,
-                item.GetIntakeText(),
-                item.ReceivedAt,
-                item.Handling,
-                item.WorkItemId,
-                item.Explanation)).ToList();
+            events = inboundEvents.Select(item =>
+            {
+                item.NormalizeLegacyState();
+                return new InboxEventItem(
+                    item.Id,
+                    item.Source,
+                    item.GetIntakeText(),
+                    item.ReceivedAt,
+                    item.Status,
+                    item.Outcomes.Select(outcome => new InboxEventOutcomeItem(
+                        outcome.Kind,
+                        outcome.WorkItemId,
+                        outcome.RelevantText,
+                        outcome.Explanation)).ToList(),
+                    item.Explanation);
+            }).ToList();
         }
         finally
         {
@@ -63,13 +71,32 @@ public partial class Inbox
         }
     }
 
-    private static string FormatHandling(InboundHandlingKind handling) => handling switch
+    private static string FormatStatus(InboxEventItem item) => item.Status switch
     {
-        InboundHandlingKind.CreateWorkItem => "Created work item",
-        InboundHandlingKind.AppendToWorkItem => "Updated work item",
-        InboundHandlingKind.NeedsReview => "Needs review",
-        InboundHandlingKind.Ignore => "Ignored",
-        _ => handling.ToString()
+        InboundEventStatus.Pending => "Pending",
+        InboundEventStatus.NeedsReview => "Needs review",
+        InboundEventStatus.Processed when item.Outcomes.Count == 0 => "Ignored",
+        InboundEventStatus.Processed when item.Outcomes.Count == 1 &&
+            item.Outcomes[0].Kind == InboundEventOutcomeKind.CreatedWorkItem => "Created work item",
+        InboundEventStatus.Processed when item.Outcomes.Count == 1 => "Updated work item",
+        InboundEventStatus.Processed => $"Processed · {item.Outcomes.Count} work items",
+        _ => item.Status.ToString()
+    };
+
+    private static string StatusClass(InboxEventItem item) => item.Status switch
+    {
+        InboundEventStatus.Pending => "handling-pending",
+        InboundEventStatus.NeedsReview => "handling-needsreview",
+        InboundEventStatus.Processed when item.Outcomes.Count == 0 => "handling-ignore",
+        InboundEventStatus.Processed => "handling-processed",
+        _ => string.Empty
+    };
+
+    private static string FormatOutcome(InboundEventOutcomeKind kind) => kind switch
+    {
+        InboundEventOutcomeKind.CreatedWorkItem => "Created",
+        InboundEventOutcomeKind.UpdatedWorkItem => "Updated",
+        _ => kind.ToString()
     };
 
     private static string PreviewText(string text)

@@ -41,10 +41,13 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         var result = response.Result;
 
         return new IntakeResult(
-            ParseIntakeDecision(result.Decision),
-            ParseExistingWorkItemId(result.ExistingWorkItemId),
-            result.ProposedTitle,
-            result.ProposedDescription,
+            ParseIntakeDisposition(result.Disposition),
+            result.WorkItems.Select(workItem => new IntakeWorkItemChange(
+                ParseIntakeWorkItemAction(workItem.Action),
+                ParseExistingWorkItemId(workItem.ExistingWorkItemId),
+                workItem.ProposedTitle,
+                workItem.RelevantText,
+                workItem.Explanation)).ToList(),
             result.Explanation,
             CreateReceipt(response));
     }
@@ -207,16 +210,25 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
     private static AgentReceipt CreateReceipt<T>(StructuredResponse<T> response) =>
         new("OpenAI Chat Completions", response.Model, response.CompletionId, response.RawResponse);
 
-    private static IntakeDecision ParseIntakeDecision(string value) => value
+    private static IntakeDisposition ParseIntakeDisposition(string value) => value
         .Replace("_", string.Empty, StringComparison.Ordinal)
         .Replace("-", string.Empty, StringComparison.Ordinal)
         .ToLowerInvariant() switch
     {
-        "createworkitem" => IntakeDecision.CreateWorkItem,
-        "appendtoworkitem" => IntakeDecision.AppendToWorkItem,
-        "ignore" => IntakeDecision.Ignore,
-        "needsreview" => IntakeDecision.NeedsReview,
-        _ => throw new InvalidOperationException($"Unknown intake decision '{value}'.")
+        "apply" => IntakeDisposition.Apply,
+        "ignore" => IntakeDisposition.Ignore,
+        "needsreview" => IntakeDisposition.NeedsReview,
+        _ => throw new InvalidOperationException($"Unknown intake disposition '{value}'.")
+    };
+
+    private static IntakeWorkItemAction ParseIntakeWorkItemAction(string value) => value
+        .Replace("_", string.Empty, StringComparison.Ordinal)
+        .Replace("-", string.Empty, StringComparison.Ordinal)
+        .ToLowerInvariant() switch
+    {
+        "create" => IntakeWorkItemAction.Create,
+        "append" => IntakeWorkItemAction.Append,
+        _ => throw new InvalidOperationException($"Unknown intake work item action '{value}'.")
     };
 
     private static string? ParseExistingWorkItemId(string? value)
@@ -284,7 +296,16 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
 
     private sealed class IntakeWireResult
     {
-        public required string Decision { get; init; }
+        public required string Disposition { get; init; }
+
+        public required List<IntakeWorkItemChangeWireResult> WorkItems { get; init; }
+
+        public required string Explanation { get; init; }
+    }
+
+    private sealed class IntakeWorkItemChangeWireResult
+    {
+        public required string Action { get; init; }
 
         [JsonRequired]
         public string? ExistingWorkItemId { get; init; }
@@ -293,7 +314,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         public string? ProposedTitle { get; init; }
 
         [JsonRequired]
-        public string? ProposedDescription { get; init; }
+        public required string RelevantText { get; init; }
 
         public required string Explanation { get; init; }
     }

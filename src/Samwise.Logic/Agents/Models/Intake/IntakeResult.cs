@@ -1,9 +1,7 @@
 namespace Samwise.Logic.Agents;
 
 public sealed record IntakeResult(
-    IntakeDecision Decision,
-    string? ExistingWorkItemId,
-    string? ProposedTitle,
-    string? ProposedDescription,
+    IntakeDisposition Disposition,
+    IReadOnlyList<IntakeWorkItemChange> WorkItems,
     string Explanation,
     AgentReceipt Receipt);

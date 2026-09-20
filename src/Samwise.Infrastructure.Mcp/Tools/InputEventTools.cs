@@ -21,6 +21,11 @@ public sealed class InputEventTools(IReadOnlyRepository<InboundEvent> repository
         var events = await repository.ListAsync(
             new RecentInboxEventsSpecification(boundedLimit),
             cancellationToken);
+        foreach (var inputEvent in events)
+        {
+            inputEvent.NormalizeLegacyState();
+        }
+
         return SamwiseMcpJson.Serialize(new
         {
             count = events.Count,
@@ -31,8 +36,14 @@ public sealed class InputEventTools(IReadOnlyRepository<InboundEvent> repository
                 inputEvent.ExternalId,
                 inputEvent.ReceivedAt,
                 inputEvent.HandledAt,
-                inputEvent.Handling,
-                inputEvent.WorkItemId,
+                inputEvent.Status,
+                outcomes = inputEvent.Outcomes.Select(outcome => new
+                {
+                    outcome.Kind,
+                    outcome.WorkItemId,
+                    outcome.RelevantText,
+                    outcome.Explanation
+                }),
                 inputEvent.Explanation,
                 inputPreview = SamwiseMcpJson.Truncate(inputEvent.GetIntakeText(), 500)
             })
@@ -47,6 +58,7 @@ public sealed class InputEventTools(IReadOnlyRepository<InboundEvent> repository
         CancellationToken cancellationToken = default)
     {
         var inputEvent = await repository.GetByIdAsync(inputEventId, cancellationToken);
+        inputEvent?.NormalizeLegacyState();
         return inputEvent is null
             ? SamwiseMcpJson.Serialize(new { error = $"Input event '{inputEventId}' was not found." })
             : SamwiseMcpJson.SerializeRuntime(inputEvent);

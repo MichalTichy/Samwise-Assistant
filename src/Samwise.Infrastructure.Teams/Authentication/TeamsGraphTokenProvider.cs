@@ -15,13 +15,8 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
     private readonly IServiceScopeFactory scopeFactory;
     private readonly ITeamsCredentialProtector credentialProtector;
     private readonly TeamsGraphRuntimeOptions options;
-    private readonly SemaphoreSlim cacheLock = new(1, 1);
     private readonly object stateLock = new();
     private ClientContext? currentContext;
-    private Task? deviceCodeTask;
-    private Task<TeamsAuthorizationChallenge>? challengeTask;
-    private TeamsAuthorizationChallenge? pendingChallenge;
-    private string? lastError;
 
     public TeamsGraphTokenProvider(
         IServiceScopeFactory scopeFactory,
@@ -72,26 +67,22 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
     public async Task<TeamsAuthorizationChallenge> StartAsync(CancellationToken cancellationToken = default)
     {
         var context = await GetContextAsync(cancellationToken);
-        Task<TeamsAuthorizationChallenge> currentChallengeTask;
+        AuthorizationAttempt attempt;
         lock (stateLock)
         {
-            if (deviceCodeTask is { IsCompleted: false } && challengeTask is not null)
+            if (context.AuthorizationAttempt is { IsRunning: true } currentAttempt)
             {
-                currentChallengeTask = challengeTask;
+                attempt = currentAttempt;
             }
             else
             {
-                pendingChallenge = null;
-                lastError = null;
-                var challengeSource = new TaskCompletionSource<TeamsAuthorizationChallenge>(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-                challengeTask = challengeSource.Task;
-                deviceCodeTask = CompleteDeviceCodeSignInAsync(context, challengeSource);
-                currentChallengeTask = challengeTask;
+                attempt = new AuthorizationAttempt();
+                context.AuthorizationAttempt = attempt;
+                attempt.Completion = CompleteDeviceCodeSignInAsync(context.PublicClient, attempt);
             }
         }
 
-        return await currentChallengeTask.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
+        return await attempt.ChallengeTask.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
     }
 
     public async Task<TeamsConnectionState> GetStateAsync(CancellationToken cancellationToken = default)
@@ -102,11 +93,12 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
             var account = (await context.PublicClient.GetAccountsAsync()).FirstOrDefault();
             lock (stateLock)
             {
+                var attempt = context.AuthorizationAttempt;
                 return new TeamsConnectionState(
                     account is not null,
                     account?.Username,
-                    pendingChallenge,
-                    lastError);
+                    attempt?.Challenge,
+                    attempt?.Error);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -139,9 +131,10 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
 
         lock (stateLock)
         {
-            pendingChallenge = null;
-            lastError = null;
-            challengeTask = null;
+            if (context is not null)
+            {
+                context.AuthorizationAttempt = null;
+            }
         }
     }
 
@@ -156,10 +149,6 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
             }
 
             currentContext = CreateContext(registration);
-            pendingChallenge = null;
-            lastError = null;
-            challengeTask = null;
-            deviceCodeTask = null;
             return currentContext;
         }
     }
@@ -192,7 +181,7 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
         var publicClient = PublicClientApplicationBuilder.Create(registration.ClientId)
             .WithAuthority($"https://login.microsoftonline.com/{registration.TenantId}")
             .Build();
-        RegisterPersistentCache(publicClient.UserTokenCache, cachePath);
+        RegisterPersistentCache(publicClient.UserTokenCache, cachePath, new SemaphoreSlim(1, 1));
 
         var confidentialClient = string.IsNullOrWhiteSpace(registration.ClientSecret)
             ? null
@@ -204,53 +193,33 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
     }
 
     private async Task CompleteDeviceCodeSignInAsync(
-        ClientContext context,
-        TaskCompletionSource<TeamsAuthorizationChallenge> challengeSource)
+        IPublicClientApplication publicClient,
+        AuthorizationAttempt attempt)
     {
         try
         {
-            await context.PublicClient.AcquireTokenWithDeviceCode(options.DelegatedScopes, result =>
+            await publicClient.AcquireTokenWithDeviceCode(options.DelegatedScopes, result =>
             {
                 var challenge = new TeamsAuthorizationChallenge(
                     result.UserCode,
                     result.VerificationUrl,
                     result.Message,
                     result.ExpiresOn);
-                lock (stateLock)
-                {
-                    if (ReferenceEquals(currentContext, context))
-                    {
-                        pendingChallenge = challenge;
-                    }
-                }
-
-                challengeSource.TrySetResult(challenge);
+                attempt.PublishChallenge(challenge);
                 return Task.CompletedTask;
             }).ExecuteAsync();
-            lock (stateLock)
-            {
-                if (ReferenceEquals(currentContext, context))
-                {
-                    pendingChallenge = null;
-                }
-            }
+            attempt.Complete();
         }
         catch (Exception exception)
         {
-            lock (stateLock)
-            {
-                if (ReferenceEquals(currentContext, context))
-                {
-                    pendingChallenge = null;
-                    lastError = exception.GetBaseException().Message;
-                }
-            }
-
-            challengeSource.TrySetException(exception);
+            attempt.Fail(exception);
         }
     }
 
-    private void RegisterPersistentCache(ITokenCache cache, string cachePath)
+    private static void RegisterPersistentCache(
+        ITokenCache cache,
+        string cachePath,
+        SemaphoreSlim cacheLock)
     {
         cache.SetBeforeAccessAsync(async args =>
         {
@@ -292,9 +261,80 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
 
     private sealed record Registration(string TenantId, string ClientId, string? ClientSecret);
 
-    private sealed record ClientContext(
-        Registration Registration,
-        IPublicClientApplication PublicClient,
-        IConfidentialClientApplication? ConfidentialClient,
-        string CachePath);
+    private sealed class ClientContext(
+        Registration registration,
+        IPublicClientApplication publicClient,
+        IConfidentialClientApplication? confidentialClient,
+        string cachePath)
+    {
+        public Registration Registration { get; } = registration;
+        public IPublicClientApplication PublicClient { get; } = publicClient;
+        public IConfidentialClientApplication? ConfidentialClient { get; } = confidentialClient;
+        public string CachePath { get; } = cachePath;
+        public AuthorizationAttempt? AuthorizationAttempt { get; set; }
+    }
+
+    private sealed class AuthorizationAttempt
+    {
+        private readonly object sync = new();
+        private readonly TaskCompletionSource<TeamsAuthorizationChallenge> challengeSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private TeamsAuthorizationChallenge? challenge;
+        private string? error;
+
+        public Task<TeamsAuthorizationChallenge> ChallengeTask => challengeSource.Task;
+        public Task Completion { get; set; } = Task.CompletedTask;
+        public TeamsAuthorizationChallenge? Challenge
+        {
+            get
+            {
+                lock (sync)
+                {
+                    return challenge;
+                }
+            }
+        }
+
+        public string? Error
+        {
+            get
+            {
+                lock (sync)
+                {
+                    return error;
+                }
+            }
+        }
+
+        public bool IsRunning => !Completion.IsCompleted;
+
+        public void PublishChallenge(TeamsAuthorizationChallenge challenge)
+        {
+            lock (sync)
+            {
+                this.challenge = challenge;
+            }
+
+            challengeSource.TrySetResult(challenge);
+        }
+
+        public void Complete()
+        {
+            lock (sync)
+            {
+                challenge = null;
+            }
+        }
+
+        public void Fail(Exception exception)
+        {
+            lock (sync)
+            {
+                challenge = null;
+                error = exception.GetBaseException().Message;
+            }
+
+            challengeSource.TrySetException(exception);
+        }
+    }
 }

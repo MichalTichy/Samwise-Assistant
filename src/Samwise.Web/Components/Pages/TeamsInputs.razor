@@ -103,6 +103,41 @@
                 </div>
             </div>
 
+            <div class="email-account-form">
+                <label class="email-field">
+                    <span>Tenant ID</span>
+                    <input class="configuration-input"
+                           placeholder="organizations or tenant GUID"
+                           @bind="tenantId"
+                           @bind:event="oninput" />
+                    <small>Use the tenant GUID for a single-tenant application.</small>
+                </label>
+                <label class="email-field">
+                    <span>Application client ID</span>
+                    <input class="configuration-input"
+                           placeholder="Microsoft Entra application ID"
+                           @bind="clientId"
+                           @bind:event="oninput" />
+                </label>
+                <label class="email-field email-field-wide">
+                    <span>Client secret <em>optional</em></span>
+                    <input class="configuration-input"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="@(hasClientSecret ? "Saved — leave blank to keep it" : "Required only for transcript intake")"
+                           @bind="clientSecret"
+                           @bind:event="oninput" />
+                    <small>The secret is protected before it is stored. Delegated messages do not require it.</small>
+                </label>
+                @if (hasClientSecret)
+                {
+                    <label class="configuration-toggle email-field-wide">
+                        <input type="checkbox" @bind="removeClientSecret" />
+                        <span><strong>Remove saved client secret</strong><small>Transcript discovery will stop until another secret is saved.</small></span>
+                    </label>
+                }
+            </div>
+
             @if (connectionState.Connected)
             {
                 <div class="microsoft-email-authorization">

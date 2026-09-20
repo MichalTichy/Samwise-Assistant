@@ -8,6 +8,11 @@ namespace Samwise.Web.Components.Pages;
 
 public partial class TeamsInputs
 {
+    private string tenantId = "organizations";
+    private string clientId = string.Empty;
+    private string clientSecret = string.Empty;
+    private bool hasClientSecret;
+    private bool removeClientSecret;
     private int pollingIntervalMinutes = TeamsInputConfiguration.DefaultPollingIntervalMinutes;
     private int debounceMinutes = TeamsInputConfiguration.DefaultDebounceMinutes;
     private string intakeGuidance = string.Empty;
@@ -53,6 +58,11 @@ public partial class TeamsInputs
         {
             var configuration = await ConfigurationRepository.GetRequiredByIdAsync(
                 TeamsInputConfiguration.DocumentId);
+            tenantId = configuration.MicrosoftGraph.TenantId;
+            clientId = configuration.MicrosoftGraph.ClientId;
+            clientSecret = string.Empty;
+            hasClientSecret = configuration.MicrosoftGraph.HasClientSecret;
+            removeClientSecret = false;
             pollingIntervalMinutes = configuration.PollingIntervalMinutes;
             debounceMinutes = configuration.DebounceMinutes;
             intakeGuidance = configuration.IntakeGuidance;
@@ -86,6 +96,17 @@ public partial class TeamsInputs
         pageMessageIsSuccess = false;
         try
         {
+            var hadEnteredClientSecret = !string.IsNullOrWhiteSpace(clientSecret);
+            var saveResult = await Sender.Send(CreateSaveRequest());
+            if (!saveResult.Succeeded)
+            {
+                pageMessage = string.Join(" ", saveResult.Errors);
+                return;
+            }
+
+            clientSecret = string.Empty;
+            hasClientSecret = removeClientSecret ? false : hasClientSecret || hadEnteredClientSecret;
+            removeClientSecret = false;
             var result = await Sender.Send(new StartTeamsAuthorizationUsecase());
             if (result.Succeeded)
             {
@@ -128,24 +149,38 @@ public partial class TeamsInputs
         pageMessageIsSuccess = false;
         try
         {
-            var result = await Sender.Send(new SaveTeamsInputConfigurationUsecase(
-                pollingIntervalMinutes,
-                debounceMinutes,
-                intakeGuidance,
-                includeChatMessages,
-                includeChannelMessages,
-                includeCallTranscripts,
-                ignoredPeople,
-                ignoredChats,
-                ignoredChannels));
+            var hadEnteredClientSecret = !string.IsNullOrWhiteSpace(clientSecret);
+            var result = await Sender.Send(CreateSaveRequest());
             pageMessage = result.Succeeded ? "Teams input settings saved." : string.Join(" ", result.Errors);
             pageMessageIsSuccess = result.Succeeded;
+            if (result.Succeeded)
+            {
+                hasClientSecret = removeClientSecret ? false : hasClientSecret || hadEnteredClientSecret;
+                clientSecret = string.Empty;
+                removeClientSecret = false;
+                connectionState = await AuthorizationService.GetStateAsync();
+            }
         }
         finally
         {
             saving = false;
         }
     }
+
+    private SaveTeamsInputConfigurationUsecase CreateSaveRequest() => new(
+        tenantId,
+        clientId,
+        clientSecret,
+        removeClientSecret,
+        pollingIntervalMinutes,
+        debounceMinutes,
+        intakeGuidance,
+        includeChatMessages,
+        includeChannelMessages,
+        includeCallTranscripts,
+        ignoredPeople,
+        ignoredChats,
+        ignoredChannels);
 
     private async Task ProcessNowAsync()
     {

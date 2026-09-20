@@ -1,33 +1,25 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
 using Samwise.Infrastructure.Teams.Authentication;
-using Samwise.Infrastructure.Teams.Configuration;
 
 namespace Samwise.Infrastructure.Teams.Graph;
 
 internal sealed class TeamsGraphClient(
     HttpClient httpClient,
-    TeamsGraphTokenProvider tokens,
-    IOptions<TeamsGraphRuntimeOptions> options)
+    TeamsGraphTokenProvider tokens)
 {
-    private readonly Uri baseUrl = options.Value.GraphBaseUrl;
-
-    public Task<JsonElement> DelegatedAsync(string path, CancellationToken cancellationToken) =>
+    public Task<JsonElement> GetDelegatedAsync(string path, CancellationToken cancellationToken) =>
         SendAsync(path, tokens.GetDelegatedTokenAsync, cancellationToken);
 
-    public Task<JsonElement> ApplicationAsync(string path, CancellationToken cancellationToken) =>
-        SendAsync(path, tokens.GetApplicationTokenAsync, cancellationToken);
-
-    public async Task<IReadOnlyList<JsonElement>> DelegatedCollectionAsync(
+    public async Task<IReadOnlyList<JsonElement>> GetDelegatedCollectionAsync(
         string path,
         CancellationToken cancellationToken) =>
-        ReadCollection(await DelegatedAsync(path, cancellationToken));
+        ReadCollection(await GetDelegatedAsync(path, cancellationToken));
 
-    public async Task<IReadOnlyList<JsonElement>> ApplicationCollectionAsync(
+    public async Task<IReadOnlyList<JsonElement>> GetApplicationCollectionAsync(
         string path,
         CancellationToken cancellationToken) =>
-        ReadCollection(await ApplicationAsync(path, cancellationToken));
+        ReadCollection(await SendAsync(path, tokens.GetApplicationTokenAsync, cancellationToken));
 
     public static string Id(string value) => Uri.EscapeDataString(
         string.IsNullOrWhiteSpace(value)
@@ -39,7 +31,7 @@ internal sealed class TeamsGraphClient(
         Func<CancellationToken, Task<string>> tokenFactory,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(baseUrl, path));
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             await tokenFactory(cancellationToken));

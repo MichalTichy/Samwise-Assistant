@@ -12,10 +12,8 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
 {
     public async Task<TeamsInputCatalog> GetCatalogAsync(CancellationToken cancellationToken = default)
     {
-        var chats = await ReadCollectionAsync(
-            graph,
-            TeamsGraphCollection.Chats,
-            new Dictionary<string, object?> { ["limit"] = 50 },
+        var chats = await graph.GetDelegatedCollectionAsync(
+            "me/chats?$top=50&$orderby=lastUpdatedDateTime desc",
             cancellationToken);
 
         var people = new Dictionary<string, TeamsInputSourceOption>(StringComparer.Ordinal);
@@ -23,10 +21,8 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         foreach (var chat in chats)
         {
             var chatId = RequiredString(chat, "id");
-            var members = await ReadCollectionAsync(
-                graph,
-                TeamsGraphCollection.ChatMembers,
-                new Dictionary<string, object?> { ["chatId"] = chatId },
+            var members = await graph.GetDelegatedCollectionAsync(
+                $"chats/{TeamsGraphClient.Id(chatId)}/members",
                 cancellationToken);
             var memberNames = new List<string>();
             foreach (var member in members)
@@ -57,16 +53,14 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
             chatOptions.Add(new TeamsInputSourceOption(chatId, label, FormatChatType(chatType)));
         }
 
-        var teams = await ReadCollectionAsync(graph, TeamsGraphCollection.JoinedTeams, null, cancellationToken);
+        var teams = await graph.GetDelegatedCollectionAsync("me/joinedTeams", cancellationToken);
         var channelOptions = new List<TeamsInputSourceOption>();
         foreach (var team in teams)
         {
             var teamId = RequiredString(team, "id");
             var teamName = OptionalString(team, "displayName") ?? teamId;
-            var channels = await ReadCollectionAsync(
-                graph,
-                TeamsGraphCollection.Channels,
-                new Dictionary<string, object?> { ["teamId"] = teamId },
+            var channels = await graph.GetDelegatedCollectionAsync(
+                $"teams/{TeamsGraphClient.Id(teamId)}/allChannels",
                 cancellationToken);
             foreach (var channel in channels)
             {
@@ -146,19 +140,15 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         ICollection<TeamsActivitySnapshot> activities,
         CancellationToken cancellationToken)
     {
-        var chats = await ReadCollectionAsync(
-            client,
-            TeamsGraphCollection.Chats,
-            new Dictionary<string, object?> { ["limit"] = 50 },
+        var chats = await client.GetDelegatedCollectionAsync(
+            "me/chats?$top=50&$orderby=lastUpdatedDateTime desc",
             cancellationToken);
         foreach (var chat in chats)
         {
             var chatId = RequiredString(chat, "id");
             var chatName = OptionalString(chat, "topic") ?? FormatChatType(OptionalString(chat, "chatType") ?? "chat");
-            var messages = await ReadCollectionAsync(
-                client,
-                TeamsGraphCollection.ChatMessages,
-                new Dictionary<string, object?> { ["chatId"] = chatId, ["limit"] = 50 },
+            var messages = await client.GetDelegatedCollectionAsync(
+                $"chats/{TeamsGraphClient.Id(chatId)}/messages?$top=50",
                 cancellationToken);
             foreach (var message in messages)
             {
@@ -191,29 +181,21 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         ICollection<TeamsActivitySnapshot> activities,
         CancellationToken cancellationToken)
     {
-        var teams = await ReadCollectionAsync(client, TeamsGraphCollection.JoinedTeams, null, cancellationToken);
+        var teams = await client.GetDelegatedCollectionAsync("me/joinedTeams", cancellationToken);
         foreach (var team in teams)
         {
             var teamId = RequiredString(team, "id");
             var teamName = OptionalString(team, "displayName") ?? teamId;
-            var channels = await ReadCollectionAsync(
-                client,
-                TeamsGraphCollection.Channels,
-                new Dictionary<string, object?> { ["teamId"] = teamId },
+            var channels = await client.GetDelegatedCollectionAsync(
+                $"teams/{TeamsGraphClient.Id(teamId)}/allChannels",
                 cancellationToken);
             foreach (var channel in channels)
             {
                 var channelId = RequiredString(channel, "id");
                 var channelName = OptionalString(channel, "displayName") ?? channelId;
-                var messages = await ReadCollectionAsync(
-                    client,
-                    TeamsGraphCollection.ChannelMessages,
-                    new Dictionary<string, object?>
-                    {
-                        ["teamId"] = teamId,
-                        ["channelId"] = channelId,
-                        ["limit"] = 50
-                    },
+                var messages = await client.GetDelegatedCollectionAsync(
+                    $"teams/{TeamsGraphClient.Id(teamId)}/channels/"
+                    + $"{TeamsGraphClient.Id(channelId)}/messages?$top=50&$expand=replies",
                     cancellationToken);
                 foreach (var message in messages)
                 {
@@ -263,16 +245,7 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         ICollection<TeamsActivitySnapshot> activities,
         CancellationToken cancellationToken)
     {
-        var transcripts = await ReadCollectionAsync(
-            client,
-            TeamsGraphCollection.RecentTranscripts,
-            new Dictionary<string, object?>
-            {
-                ["fromDateTime"] = since.ToUniversalTime().ToString("O"),
-                ["toDateTime"] = until.ToUniversalTime().ToString("O"),
-                ["limit"] = 50
-            },
-            cancellationToken);
+        var transcripts = await ReadRecentTranscriptsAsync(client, since, until, cancellationToken);
         foreach (var transcript in transcripts)
         {
             var createdAt = RequiredDateTime(transcript, "createdDateTime");
@@ -356,67 +329,24 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
             OptionalString(message, "webUrl"));
     }
 
-    private static async Task<IReadOnlyList<JsonElement>> ReadCollectionAsync(
-        TeamsGraphClient client,
-        TeamsGraphCollection collection,
-        IReadOnlyDictionary<string, object?>? arguments,
-        CancellationToken cancellationToken)
-    {
-        string RequiredArgument(string name) => arguments?.TryGetValue(name, out var value) == true
-            ? value?.ToString() ?? throw new InvalidOperationException($"Teams operation requires '{name}'.")
-            : throw new InvalidOperationException($"Teams operation requires '{name}'.");
-        var limit = arguments?.TryGetValue("limit", out var limitValue) == true
-            ? Math.Clamp(Convert.ToInt32(limitValue), 1, 100)
-            : 50;
-        return collection switch
-        {
-            TeamsGraphCollection.Chats => await client.DelegatedCollectionAsync(
-                $"me/chats?$top={limit}&$orderby=lastUpdatedDateTime desc",
-                cancellationToken),
-            TeamsGraphCollection.ChatMembers => await client.DelegatedCollectionAsync(
-                $"chats/{TeamsGraphClient.Id(RequiredArgument("chatId"))}/members",
-                cancellationToken),
-            TeamsGraphCollection.ChatMessages => await client.DelegatedCollectionAsync(
-                $"chats/{TeamsGraphClient.Id(RequiredArgument("chatId"))}/messages?$top={limit}",
-                cancellationToken),
-            TeamsGraphCollection.JoinedTeams => await client.DelegatedCollectionAsync(
-                "me/joinedTeams",
-                cancellationToken),
-            TeamsGraphCollection.Channels => await client.DelegatedCollectionAsync(
-                $"teams/{TeamsGraphClient.Id(RequiredArgument("teamId"))}/allChannels",
-                cancellationToken),
-            TeamsGraphCollection.ChannelMessages => await client.DelegatedCollectionAsync(
-                $"teams/{TeamsGraphClient.Id(RequiredArgument("teamId"))}/channels/"
-                + $"{TeamsGraphClient.Id(RequiredArgument("channelId"))}/messages?$top={limit}&$expand=replies",
-                cancellationToken),
-            TeamsGraphCollection.RecentTranscripts => await ReadRecentTranscriptsAsync(
-                client,
-                RequiredArgument("fromDateTime"),
-                RequiredArgument("toDateTime"),
-                limit,
-                cancellationToken),
-            _ => throw new InvalidOperationException($"Unknown Teams Graph collection '{collection}'.")
-        };
-    }
-
     private static async Task<IReadOnlyList<JsonElement>> ReadRecentTranscriptsAsync(
         TeamsGraphClient client,
-        string fromDateTime,
-        string toDateTime,
-        int limit,
+        DateTimeOffset fromDateTime,
+        DateTimeOffset toDateTime,
         CancellationToken cancellationToken)
     {
-        var connectedUser = await client.DelegatedAsync("me?$select=id,displayName", cancellationToken);
+        const int limit = 50;
+        var connectedUser = await client.GetDelegatedAsync("me?$select=id,displayName", cancellationToken);
         var userId = RequiredString(connectedUser, "id");
         var organizerName = OptionalString(connectedUser, "displayName") ?? "Connected Microsoft account";
-        var from = Uri.EscapeDataString(DateTimeOffset.Parse(fromDateTime).ToUniversalTime().ToString("O"));
-        var to = Uri.EscapeDataString(DateTimeOffset.Parse(toDateTime).ToUniversalTime().ToString("O"));
+        var from = Uri.EscapeDataString(fromDateTime.ToUniversalTime().ToString("O"));
+        var to = Uri.EscapeDataString(toDateTime.ToUniversalTime().ToString("O"));
         var escapedUserId = TeamsGraphClient.Id(userId);
-        var scheduledTask = client.ApplicationCollectionAsync(
+        var scheduledTask = client.GetApplicationCollectionAsync(
             $"users/{escapedUserId}/onlineMeetings/getAllTranscripts("
             + $"meetingOrganizerUserId='{escapedUserId}',startDateTime={from},endDateTime={to})?$top={limit}",
             cancellationToken);
-        var adhocTask = client.ApplicationCollectionAsync(
+        var adhocTask = client.GetApplicationCollectionAsync(
             $"users/{escapedUserId}/adhocCalls/getAllTranscripts("
             + $"userId={escapedUserId},startDateTime={from},endDateTime={to})?$top={limit}",
             cancellationToken);
@@ -486,17 +416,6 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         "meeting" => "Meeting chat",
         _ => value
     };
-
-    private enum TeamsGraphCollection
-    {
-        Chats,
-        ChatMembers,
-        ChatMessages,
-        JoinedTeams,
-        Channels,
-        ChannelMessages,
-        RecentTranscripts
-    }
 
     private sealed record ParsedMessage(
         string MessageId,

@@ -1,9 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Identity.Client;
-using Samwise.Infrastructure.Teams.Configuration;
 using Samwise.Inputs.Teams.Authentication;
 using Samwise.Inputs.Teams.Configuration;
 using Shared.Infrastructure.Persistence.Repositories;
@@ -12,21 +11,32 @@ namespace Samwise.Infrastructure.Teams.Authentication;
 
 internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
 {
+    private static readonly string[] DelegatedScopes =
+    [
+        "User.Read",
+        "Chat.Read",
+        "Team.ReadBasic.All",
+        "Channel.ReadBasic.All",
+        "ChannelMessage.Read.All"
+    ];
+
     private readonly IServiceScopeFactory scopeFactory;
     private readonly ITeamsCredentialProtector credentialProtector;
-    private readonly TeamsGraphRuntimeOptions options;
+    private readonly string cacheDirectory;
     private readonly object stateLock = new();
     private ClientContext? currentContext;
 
     public TeamsGraphTokenProvider(
         IServiceScopeFactory scopeFactory,
         ITeamsCredentialProtector credentialProtector,
-        IOptions<TeamsGraphRuntimeOptions> options)
+        IConfiguration configuration)
     {
         this.scopeFactory = scopeFactory;
         this.credentialProtector = credentialProtector;
-        this.options = options.Value;
-        Directory.CreateDirectory(this.options.DataPath);
+        var dataProtectionPath = configuration["DataProtection:KeysPath"]
+            ?? Path.Combine(Directory.GetCurrentDirectory(), ".data", "data-protection");
+        cacheDirectory = Path.Combine(dataProtectionPath, "teams");
+        Directory.CreateDirectory(cacheDirectory);
     }
 
     public async Task<string> GetDelegatedTokenAsync(CancellationToken cancellationToken)
@@ -37,7 +47,7 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
                 "No Microsoft Teams account is connected. Connect it in Configuration → Inputs → Microsoft Teams.");
         try
         {
-            var result = await context.PublicClient.AcquireTokenSilent(options.DelegatedScopes, account)
+            var result = await context.PublicClient.AcquireTokenSilent(DelegatedScopes, account)
                 .ExecuteAsync(cancellationToken);
             return result.AccessToken;
         }
@@ -177,7 +187,7 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
     {
         var cacheKey = Convert.ToHexString(SHA256.HashData(
             Encoding.UTF8.GetBytes($"{registration.TenantId}\n{registration.ClientId}")))[..16];
-        var cachePath = Path.Combine(options.DataPath, $"delegated-token-cache-{cacheKey}.bin");
+        var cachePath = Path.Combine(cacheDirectory, $"delegated-token-cache-{cacheKey}.bin");
         var publicClient = PublicClientApplicationBuilder.Create(registration.ClientId)
             .WithAuthority($"https://login.microsoftonline.com/{registration.TenantId}")
             .Build();
@@ -198,7 +208,7 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
     {
         try
         {
-            await publicClient.AcquireTokenWithDeviceCode(options.DelegatedScopes, result =>
+            await publicClient.AcquireTokenWithDeviceCode(DelegatedScopes, result =>
             {
                 var challenge = new TeamsAuthorizationChallenge(
                     result.UserCode,

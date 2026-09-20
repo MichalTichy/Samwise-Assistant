@@ -135,7 +135,7 @@ dotnet test tests/Samwise.Tests/Samwise.Tests.csproj --no-build --no-restore
 
 ## Deploy with Docker Compose
 
-The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, and Todoist MCP, using an existing PostgreSQL instance. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
+The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, Teams MCP, and Todoist MCP, using an existing PostgreSQL instance. Samwise's Teams intake connects directly to Microsoft Graph; the separate Teams MCP is only an optional Gateway tool provider for agents. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
 
 Copy `.env.example` to the ignored `.env`, replace every secret placeholder, then run:
 

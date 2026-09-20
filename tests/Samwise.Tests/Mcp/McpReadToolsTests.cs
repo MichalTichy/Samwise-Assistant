@@ -3,6 +3,7 @@ using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.WorkItems;
 using Samwise.Infrastructure.Mcp.Tools;
+using Samwise.Logic.Inputs.Email.Events;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Repositories;
 using Shared.Infrastructure.Persistence.Specifications;

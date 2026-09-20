@@ -4,7 +4,6 @@ using MailKit.Search;
 using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using MimeKit;
-using Samwise.Domain.Inbox;
 using Samwise.Domain.Inputs.Email;
 using Samwise.Infrastructure.Email.Imap.Authentication;
 using Samwise.Logic.Inputs.Email;

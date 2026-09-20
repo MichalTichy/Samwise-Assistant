@@ -1,5 +1,3 @@
-using Samwise.Domain.Inbox;
-
 namespace Samwise.Logic.Inputs.Email;
 
 public sealed record EmailMessageSnapshot(

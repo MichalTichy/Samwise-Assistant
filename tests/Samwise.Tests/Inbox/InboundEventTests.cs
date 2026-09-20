@@ -1,4 +1,5 @@
 using Samwise.Domain.Inbox;
+using Samwise.Logic.Inbox.Events;
 
 namespace Samwise.Tests.Inbox;
 

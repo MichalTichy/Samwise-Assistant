@@ -1,6 +1,7 @@
 using System.Text;
+using Samwise.Domain.Inbox;
 
-namespace Samwise.Domain.Inbox;
+namespace Samwise.Logic.Inputs.Email.Events;
 
 public sealed class SentEmailInboundEvent : InboundEvent
 {

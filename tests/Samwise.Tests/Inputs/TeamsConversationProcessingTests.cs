@@ -16,6 +16,25 @@ public sealed class TeamsConversationProcessingTests
         new(2026, 9, 20, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task UnconfiguredTeamsInputRemainsInactive()
+    {
+        var configuration = new TeamsInputConfiguration();
+        var capture = new RecordingCaptureService();
+        var handler = CreateHandler(
+            configuration,
+            [],
+            [Message("message", Now.AddMinutes(-3), isNew: true, "Do not process this yet")],
+            capture);
+
+        var result = await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
+
+        Assert.Equal(0, result.Imported);
+        Assert.Empty(result.Errors);
+        Assert.Empty(capture.Events);
+        Assert.Null(configuration.LastSuccessfulCheckAt);
+    }
+
+    [Fact]
     public async Task MessagesFromOneChatBecomeOneConversationEventWithOlderContext()
     {
         var configuration = CreateConfiguration();
@@ -207,7 +226,19 @@ public sealed class TeamsConversationProcessingTests
         {
             LastSuccessfulCheckAt = Now.AddMinutes(-10)
         };
-        configuration.Update(5, 2, "Work Teams guidance.", true, true, false, [], [], []);
+        configuration.Update(
+            "tenant-id",
+            "client-id",
+            null,
+            5,
+            2,
+            "Work Teams guidance.",
+            true,
+            true,
+            false,
+            [],
+            [],
+            []);
         return configuration;
     }
 

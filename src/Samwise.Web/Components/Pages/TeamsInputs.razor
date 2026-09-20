@@ -189,7 +189,7 @@
 
                 @if (!string.IsNullOrWhiteSpace(connectionState.Error))
                 {
-                    <div class="inline-alert">Microsoft sign-in failed: @connectionState.Error</div>
+                    <div class="inline-alert">@connectionState.Error</div>
                 }
 
                 @if (connectionState.PendingChallenge is not null)

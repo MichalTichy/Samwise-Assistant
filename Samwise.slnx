@@ -22,6 +22,12 @@
     <Project Path="src/Samwise.ServiceDefaults/Samwise.ServiceDefaults.csproj" />
     <Project Path="src/Samwise.Web/Samwise.Web.csproj" />
   </Folder>
+  <Folder Name="/src/Inputs/Email/">
+    <Project Path="src/Samwise.Inputs.Email/Samwise.Inputs.Email.csproj" />
+  </Folder>
+  <Folder Name="/src/Inputs/Manual/">
+    <Project Path="src/Samwise.Inputs.Manual/Samwise.Inputs.Manual.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Samwise.Tests/Samwise.Tests.csproj" />
   </Folder>

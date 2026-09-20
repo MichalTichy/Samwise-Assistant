@@ -1,5 +1,5 @@
 using Samwise.Domain.Inbox;
-using Samwise.Logic.Inbox.Events;
+using Samwise.Inputs.Manual.Events;
 
 namespace Samwise.Tests.Inbox;
 

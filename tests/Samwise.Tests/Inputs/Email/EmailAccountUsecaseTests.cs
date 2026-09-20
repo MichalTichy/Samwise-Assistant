@@ -1,6 +1,5 @@
-using Samwise.Domain.Inputs.Email;
-using Samwise.Logic.Inputs.Email;
-using Samwise.Logic.Inputs.Email.Usecases;
+using Samwise.Inputs.Email;
+using Samwise.Inputs.Email.Usecases;
 using Shared.Infrastructure.Persistence.Repositories;
 using Shared.Infrastructure.Persistence.Specifications;
 

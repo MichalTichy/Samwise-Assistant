@@ -1,5 +1,5 @@
 using Newtonsoft.Json;
-using Samwise.Domain.Inputs.Email;
+using Samwise.Inputs.Email;
 
 namespace Samwise.Tests.Inputs.Email;
 

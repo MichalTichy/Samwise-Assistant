@@ -1,6 +1,6 @@
 using MailKit.Net.Imap;
 using MailKit.Security;
-using Samwise.Domain.Inputs.Email;
+using Samwise.Inputs.Email;
 using Samwise.Infrastructure.Email.Imap.Authentication;
 
 namespace Samwise.Infrastructure.Email.Microsoft365.Authentication;

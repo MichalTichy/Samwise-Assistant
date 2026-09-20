@@ -30,4 +30,4 @@ This project applies Samwise-specific document mappings to the reusable shared M
 
 ## Boundary
 
-The base persistence contract is owned by `Samwise.Domain`; source features in `Samwise.Logic` own concrete inbound-event documents; query intent also lives in `Samwise.Logic`; reusable repository mechanics live in `Shared.Infrastructure.Persistence.Marten`. This project contains only Samwise's binding between them. When a persisted CLR type moves between those boundaries, a versioned migration must update both its JSON `$type` metadata and Marten's `mt_dotnet_type` column.
+The base persistence contract is owned by `Samwise.Domain`; independently composed `Samwise.Inputs.*` modules own concrete inbound-event documents and source-specific configuration; generic query intent lives in `Samwise.Logic`; reusable repository mechanics live in `Shared.Infrastructure.Persistence.Marten`. This project contains only Samwise's binding between them. When a persisted CLR type moves between those boundaries, a versioned migration must update both its JSON `$type` metadata and Marten's `mt_dotnet_type` column.

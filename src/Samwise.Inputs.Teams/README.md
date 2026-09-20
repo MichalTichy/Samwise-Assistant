@@ -9,7 +9,7 @@ This is the complete application module for Microsoft Teams input. It owns Teams
 - `Authentication` contains the account-connection port, device-code state, and credential-protection port.
 - `Configuration` contains the persisted input and Graph-application configuration.
 - `Discovery` contains the people, chat, and channel catalogue exposed to configuration UI.
-- `Ingestion` contains the reader port, external activity snapshots, processing result, and per-process lock.
+- `Ingestion` contains the reader port, processing result, and per-process lock. `Ingestion/Activities` models chat messages, channel messages, scheduled-meeting transcripts, and ad-hoc-call transcripts as separate types instead of one nullable property bag.
 - `InboundEvents/Conversations` contains conversation-update documents, messages, typed chat/channel sources, and their specification.
 - `InboundEvents/Transcripts` contains transcript documents and typed scheduled-meeting/ad-hoc-call sources.
 - `Usecases/Authorization`, `Usecases/Configuration`, and `Usecases/Processing` contain only externally triggered application operations.

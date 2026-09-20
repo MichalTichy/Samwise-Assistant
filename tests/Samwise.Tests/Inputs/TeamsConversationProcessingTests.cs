@@ -2,6 +2,7 @@ using Samwise.Domain.Inbox;
 using Samwise.Inputs.Teams.Configuration;
 using Samwise.Inputs.Teams.Discovery;
 using Samwise.Inputs.Teams.Ingestion;
+using Samwise.Inputs.Teams.Ingestion.Activities;
 using Samwise.Logic.Inbox.Services;
 using Samwise.Inputs.Teams.InboundEvents.Conversations;
 using Samwise.Inputs.Teams.InboundEvents.Transcripts;
@@ -144,22 +145,23 @@ public sealed class TeamsConversationProcessingTests
     {
         var configuration = CreateConfiguration();
         var capture = new RecordingCaptureService();
-        var activity = new TeamsActivitySnapshot(
-            TeamsActivityKind.ChannelMessage,
-            "channel:team-1:channel-1:root-1:message-1:v1",
-            Now.AddMinutes(-3),
-            "Please take a look.",
-            SenderId: "person-1",
-            SenderName: "Rosie",
-            TeamId: "team-1",
-            TeamName: "The Fellowship",
-            ChannelId: "channel-1",
-            ChannelName: "General",
-            ConversationName: "The Fellowship / General",
-            MessageId: "message-1",
-            ReplyToMessageId: "root-1",
-            Version: "v1",
-            IsNew: true);
+        var activity = new TeamsChannelMessageSnapshot
+        {
+            ExternalId = "channel:team-1:channel-1:root-1:message-1:v1",
+            OccurredAt = Now.AddMinutes(-3),
+            BodyText = "Please take a look.",
+            SenderId = "person-1",
+            SenderName = "Rosie",
+            TeamId = "team-1",
+            TeamName = "The Fellowship",
+            ChannelId = "channel-1",
+            ChannelName = "General",
+            ConversationName = "The Fellowship / General",
+            MessageId = "message-1",
+            ReplyToMessageId = "root-1",
+            Version = "v1",
+            IsNew = true
+        };
         var handler = CreateHandler(configuration, [], [activity], capture);
 
         await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
@@ -180,17 +182,25 @@ public sealed class TeamsConversationProcessingTests
         var configuration = CreateConfiguration();
         configuration.Update(5, 2, "Work Teams guidance.", true, true, true, [], [], []);
         var capture = new RecordingCaptureService();
-        var activity = new TeamsActivitySnapshot(
-            TeamsActivityKind.CallTranscript,
-            $"transcript:{(isMeeting ? "scheduledMeeting" : "adhocCall")}:source-1:transcript-1",
-            Now.AddMinutes(-3),
-            string.Empty,
-            SenderId: "organizer-1",
-            SenderName: "Gandalf",
-            MeetingId: isMeeting ? "meeting-1" : null,
-            CallId: isMeeting ? null : "call-1",
-            TranscriptId: "transcript-1",
-            TranscriptKind: isMeeting ? "scheduledMeeting" : "adhocCall");
+        TeamsTranscriptSnapshot activity = isMeeting
+            ? new TeamsScheduledMeetingTranscriptSnapshot
+            {
+                ExternalId = "transcript:scheduledMeeting:meeting-1:transcript-1",
+                OccurredAt = Now.AddMinutes(-3),
+                SenderId = "organizer-1",
+                SenderName = "Gandalf",
+                TranscriptId = "transcript-1",
+                MeetingId = "meeting-1"
+            }
+            : new TeamsAdhocCallTranscriptSnapshot
+            {
+                ExternalId = "transcript:adhocCall:call-1:transcript-1",
+                OccurredAt = Now.AddMinutes(-3),
+                SenderId = "organizer-1",
+                SenderName = "Gandalf",
+                TranscriptId = "transcript-1",
+                CallId = "call-1"
+            };
         var handler = CreateHandler(configuration, [], [activity], capture);
 
         await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
@@ -248,18 +258,19 @@ public sealed class TeamsConversationProcessingTests
         string id,
         DateTimeOffset occurredAt,
         bool isNew,
-        string body) => new(
-            TeamsActivityKind.ChatMessage,
-            $"chat:chat-1:{id}:v1",
-            occurredAt,
-            body,
-            SenderId: "person-1",
-            SenderName: "Rosie",
-            ChatId: "chat-1",
-            ConversationName: "Rosie",
-            MessageId: id,
-            Version: "v1",
-            IsNew: isNew);
+        string body) => new TeamsChatMessageSnapshot
+        {
+            ExternalId = $"chat:chat-1:{id}:v1",
+            OccurredAt = occurredAt,
+            BodyText = body,
+            SenderId = "person-1",
+            SenderName = "Rosie",
+            ChatId = "chat-1",
+            ConversationName = "Rosie",
+            MessageId = id,
+            Version = "v1",
+            IsNew = isNew
+        };
 
     private sealed class StubTeamsReader(IReadOnlyList<TeamsActivitySnapshot> activities) : ITeamsInputReader
     {

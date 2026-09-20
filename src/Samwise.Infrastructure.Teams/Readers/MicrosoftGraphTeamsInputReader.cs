@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Samwise.Infrastructure.Teams.Graph;
 using Samwise.Inputs.Teams.Discovery;
 using Samwise.Inputs.Teams.Ingestion;
+using Samwise.Inputs.Teams.Ingestion.Activities;
 
 namespace Samwise.Infrastructure.Teams.Readers;
 
@@ -161,15 +162,24 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
                 cancellationToken);
             foreach (var message in messages)
             {
-                var snapshot = ParseMessage(
-                    message,
-                    TeamsActivityKind.ChatMessage,
-                    chatName,
-                    chatId,
-                    isNew: IsAfter(message, since));
-                if (snapshot is not null)
+                var parsed = ParseMessage(message);
+                if (parsed is not null)
                 {
-                    activities.Add(snapshot);
+                    activities.Add(new TeamsChatMessageSnapshot
+                    {
+                        ExternalId = $"chat:{chatId}:{parsed.MessageId}:{parsed.Version}",
+                        OccurredAt = parsed.OccurredAt,
+                        SenderId = parsed.SenderId,
+                        SenderName = parsed.SenderName,
+                        ChatId = chatId,
+                        ConversationName = chatName,
+                        MessageId = parsed.MessageId,
+                        Version = parsed.Version,
+                        BodyText = parsed.BodyText,
+                        ReplyToMessageId = parsed.ReplyToMessageId,
+                        WebUrl = parsed.WebUrl,
+                        IsNew = parsed.OccurredAt > since
+                    });
                 }
             }
         }
@@ -219,20 +229,27 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
 
                 void AddChannelMessage(JsonElement message, string? replyToId)
                 {
-                    var snapshot = ParseMessage(
-                        message,
-                        TeamsActivityKind.ChannelMessage,
-                        $"{teamName} / {channelName}",
-                        null,
-                        teamId,
-                        teamName,
-                        channelId,
-                        channelName,
-                        replyToId,
-                        IsAfter(message, since));
-                    if (snapshot is not null)
+                    var parsed = ParseMessage(message);
+                    if (parsed is not null)
                     {
-                        activities.Add(snapshot);
+                        activities.Add(new TeamsChannelMessageSnapshot
+                        {
+                            ExternalId = $"channel:{teamId}:{channelId}:{parsed.MessageId}:{parsed.Version}",
+                            OccurredAt = parsed.OccurredAt,
+                            SenderId = parsed.SenderId,
+                            SenderName = parsed.SenderName,
+                            TeamId = teamId,
+                            TeamName = teamName,
+                            ChannelId = channelId,
+                            ChannelName = channelName,
+                            ConversationName = $"{teamName} / {channelName}",
+                            MessageId = parsed.MessageId,
+                            Version = parsed.Version,
+                            BodyText = parsed.BodyText,
+                            ReplyToMessageId = replyToId ?? parsed.ReplyToMessageId,
+                            WebUrl = parsed.WebUrl,
+                            IsNew = parsed.OccurredAt > since
+                        });
                     }
                 }
             }
@@ -261,34 +278,41 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
             var createdAt = RequiredDateTime(transcript, "createdDateTime");
             var transcriptId = RequiredString(transcript, "id");
             var transcriptKind = RequiredString(transcript, "kind");
-            var meetingId = OptionalString(transcript, "meetingId");
-            var callId = OptionalString(transcript, "callId");
-            activities.Add(new TeamsActivitySnapshot(
-                TeamsActivityKind.CallTranscript,
-                $"transcript:{transcriptKind}:{meetingId ?? callId}:{transcriptId}",
-                createdAt,
-                string.Empty,
-                OptionalString(transcript, "organizerId"),
-                OptionalString(transcript, "organizerName") ?? "Connected Microsoft account",
-                MeetingId: meetingId,
-                CallId: callId,
-                EndedAt: OptionalDateTime(transcript, "endDateTime"),
-                TranscriptId: transcriptId,
-                TranscriptKind: transcriptKind));
+            var common = new
+            {
+                CreatedAt = createdAt,
+                OrganizerId = OptionalString(transcript, "organizerId"),
+                OrganizerName = OptionalString(transcript, "organizerName") ?? "Connected Microsoft account",
+                EndedAt = OptionalDateTime(transcript, "endDateTime")
+            };
+            activities.Add(transcriptKind switch
+            {
+                "scheduledMeeting" => new TeamsScheduledMeetingTranscriptSnapshot
+                {
+                    ExternalId = $"transcript:{transcriptKind}:{RequiredString(transcript, "meetingId")}:{transcriptId}",
+                    OccurredAt = common.CreatedAt,
+                    SenderId = common.OrganizerId,
+                    SenderName = common.OrganizerName,
+                    EndedAt = common.EndedAt,
+                    TranscriptId = transcriptId,
+                    MeetingId = RequiredString(transcript, "meetingId")
+                },
+                "adhocCall" => new TeamsAdhocCallTranscriptSnapshot
+                {
+                    ExternalId = $"transcript:{transcriptKind}:{RequiredString(transcript, "callId")}:{transcriptId}",
+                    OccurredAt = common.CreatedAt,
+                    SenderId = common.OrganizerId,
+                    SenderName = common.OrganizerName,
+                    EndedAt = common.EndedAt,
+                    TranscriptId = transcriptId,
+                    CallId = RequiredString(transcript, "callId")
+                },
+                _ => throw new InvalidOperationException($"Unsupported Teams transcript kind '{transcriptKind}'.")
+            });
         }
     }
 
-    private static TeamsActivitySnapshot? ParseMessage(
-        JsonElement message,
-        TeamsActivityKind kind,
-        string conversationName,
-        string? chatId,
-        string? teamId = null,
-        string? teamName = null,
-        string? channelId = null,
-        string? channelName = null,
-        string? replyToId = null,
-        bool isNew = true)
+    private static ParsedMessage? ParseMessage(JsonElement message)
     {
         if (OptionalString(message, "messageType") is { } messageType && messageType != "message")
         {
@@ -321,33 +345,15 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         var occurredAt = OptionalDateTime(message, "lastModifiedDateTime")
             ?? RequiredDateTime(message, "createdDateTime");
 
-        return new TeamsActivitySnapshot(
-            kind,
-            kind == TeamsActivityKind.ChatMessage
-                ? $"chat:{chatId}:{messageId}:{version}"
-                : $"channel:{teamId}:{channelId}:{messageId}:{version}",
+        return new ParsedMessage(
+            messageId,
+            version,
             occurredAt,
             body,
             sender.ValueKind == JsonValueKind.Object ? OptionalString(sender, "id") : null,
             sender.ValueKind == JsonValueKind.Object ? OptionalString(sender, "displayName") : null,
-            chatId,
-            teamId,
-            teamName,
-            channelId,
-            channelName,
-            conversationName,
-            messageId,
-            version,
-            replyToId ?? OptionalString(message, "replyToId"),
-            OptionalString(message, "webUrl"),
-            IsNew: isNew);
-    }
-
-    private static bool IsAfter(JsonElement message, DateTimeOffset since)
-    {
-        var occurredAt = OptionalDateTime(message, "lastModifiedDateTime")
-            ?? RequiredDateTime(message, "createdDateTime");
-        return occurredAt > since;
+            OptionalString(message, "replyToId"),
+            OptionalString(message, "webUrl"));
     }
 
     private static async Task<IReadOnlyList<JsonElement>> ReadCollectionAsync(
@@ -491,4 +497,14 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         ChannelMessages,
         RecentTranscripts
     }
+
+    private sealed record ParsedMessage(
+        string MessageId,
+        string Version,
+        DateTimeOffset OccurredAt,
+        string BodyText,
+        string? SenderId,
+        string? SenderName,
+        string? ReplyToMessageId,
+        string? WebUrl);
 }

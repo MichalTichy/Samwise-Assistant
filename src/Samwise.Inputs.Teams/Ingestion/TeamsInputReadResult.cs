@@ -1,3 +1,5 @@
+using Samwise.Inputs.Teams.Ingestion.Activities;
+
 namespace Samwise.Inputs.Teams.Ingestion;
 
 public sealed record TeamsInputReadResult(

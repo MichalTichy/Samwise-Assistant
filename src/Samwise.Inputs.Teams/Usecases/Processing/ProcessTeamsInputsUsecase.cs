@@ -2,6 +2,7 @@ using MediatR;
 using Samwise.Domain.Inbox;
 using Samwise.Inputs.Teams.Configuration;
 using Samwise.Inputs.Teams.Ingestion;
+using Samwise.Inputs.Teams.Ingestion.Activities;
 using Samwise.Logic.Inbox.Services;
 using Samwise.Inputs.Teams.InboundEvents.Conversations;
 using Samwise.Inputs.Teams.InboundEvents.Transcripts;
@@ -73,7 +74,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         var hasDeferredConversation = false;
 
         var messageActivities = readResult.Activities
-            .Where(activity => activity.Kind is TeamsActivityKind.ChatMessage or TeamsActivityKind.ChannelMessage)
+            .OfType<TeamsMessageSnapshot>()
             .GroupBy(GetConversationKey, StringComparer.Ordinal);
         foreach (var conversation in messageActivities)
         {
@@ -89,7 +90,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         }
 
         foreach (var transcript in readResult.Activities
-                     .Where(activity => activity.Kind == TeamsActivityKind.CallTranscript)
+                     .OfType<TeamsTranscriptSnapshot>()
                      .OrderBy(activity => activity.OccurredAt))
         {
             var isIgnored = configuration.IsPersonIgnored(transcript.SenderId);
@@ -120,7 +121,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
 
     private async Task<(bool AlreadyExisted, bool Ignored, bool Captured, bool Deferred)> CaptureConversationAsync(
         string conversationKey,
-        IReadOnlyList<TeamsActivitySnapshot> messages,
+        IReadOnlyList<TeamsMessageSnapshot> messages,
         TeamsInputConfiguration configuration,
         DateTimeOffset checkedThrough,
         DateTimeOffset now,
@@ -156,8 +157,12 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         }
 
         var first = messages[0];
-        var conversationIgnored = configuration.IsChatIgnored(first.ChatId)
-            || configuration.IsChannelIgnored(first.ChannelId);
+        var conversationIgnored = first switch
+        {
+            TeamsChatMessageSnapshot chat => configuration.IsChatIgnored(chat.ChatId),
+            TeamsChannelMessageSnapshot channel => configuration.IsChannelIgnored(channel.ChannelId),
+            _ => false
+        };
         var triggerMessages = conversationIgnored
             ? newMessages
             : newMessages.Where(message => !configuration.IsPersonIgnored(message.SenderId)).ToList();
@@ -186,8 +191,8 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
     }
 
     private static TeamsConversationInboundEvent CreateConversationEvent(
-        IReadOnlyList<TeamsActivitySnapshot> allMessages,
-        IReadOnlyList<TeamsActivitySnapshot> triggerMessages,
+        IReadOnlyList<TeamsMessageSnapshot> allMessages,
+        IReadOnlyList<TeamsMessageSnapshot> triggerMessages,
         List<InboundEventContextItem> context,
         string sourceGuidance,
         bool isIgnored,
@@ -217,7 +222,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
     }
 
     private static List<InboundEventContextItem> BuildContext(
-        IReadOnlyList<TeamsActivitySnapshot> messages,
+        IReadOnlyList<TeamsMessageSnapshot> messages,
         IReadOnlyDictionary<string, TeamsConversationInboundEvent> priorMessages)
     {
         var result = new List<InboundEventContextItem>();
@@ -240,7 +245,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             priorMessages.TryGetValue(MessageKey(message), out var priorEvent);
             result.Add(new InboundEventContextItem
             {
-                SourceItemId = message.MessageId ?? message.ExternalId,
+                SourceItemId = message.MessageId,
                 Content = content,
                 OccurredAt = message.OccurredAt,
                 PreviouslyProcessed = priorEvent is not null,
@@ -261,10 +266,10 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         return result;
     }
 
-    private static TeamsConversationMessage CreateMessage(TeamsActivitySnapshot activity) => new()
+    private static TeamsConversationMessage CreateMessage(TeamsMessageSnapshot activity) => new()
     {
-        MessageId = activity.MessageId ?? activity.ExternalId,
-        Version = activity.Version ?? string.Empty,
+        MessageId = activity.MessageId,
+        Version = activity.Version,
         ReplyToMessageId = activity.ReplyToMessageId,
         SenderId = activity.SenderId,
         SenderName = activity.SenderName ?? "Unknown",
@@ -273,48 +278,48 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         WebUrl = activity.WebUrl
     };
 
-    private static TeamsConversationSource CreateConversationSource(TeamsActivitySnapshot activity) =>
-        activity.Kind switch
+    private static TeamsConversationSource CreateConversationSource(TeamsMessageSnapshot activity) =>
+        activity switch
         {
-            TeamsActivityKind.ChatMessage => new TeamsChatConversationSource
+            TeamsChatMessageSnapshot chat => new TeamsChatConversationSource
             {
-                ChatId = Required(activity.ChatId, "Teams chat ID"),
-                ChatName = activity.ConversationName ?? "Microsoft Teams chat"
+                ChatId = chat.ChatId,
+                ChatName = chat.ConversationName
             },
-            TeamsActivityKind.ChannelMessage => CreateChannelThreadSource(activity),
+            TeamsChannelMessageSnapshot channel => CreateChannelThreadSource(channel),
             _ => throw new InvalidOperationException("Only Teams messages have a conversation source.")
         };
 
-    private static TeamsConversationSource CreateChannelThreadSource(TeamsActivitySnapshot activity)
+    private static TeamsConversationSource CreateChannelThreadSource(TeamsChannelMessageSnapshot activity)
     {
-        var teamId = Required(activity.TeamId, "Teams team ID");
-        var channelId = Required(activity.ChannelId, "Teams channel ID");
-        var threadRootId = Required(
-            activity.ReplyToMessageId ?? activity.MessageId,
-            "Teams thread root message ID");
         return new TeamsChannelThreadConversationSource
         {
-            TeamId = teamId,
-            TeamName = activity.TeamName ?? "Microsoft Teams team",
-            ChannelId = channelId,
-            ChannelName = activity.ChannelName ?? activity.ConversationName ?? "Microsoft Teams channel",
-            ThreadRootMessageId = threadRootId
+            TeamId = activity.TeamId,
+            TeamName = activity.TeamName,
+            ChannelId = activity.ChannelId,
+            ChannelName = activity.ChannelName,
+            ThreadRootMessageId = activity.ReplyToMessageId ?? activity.MessageId
         };
     }
 
     private static TeamsTranscriptInboundEvent CreateTranscriptEvent(
-        TeamsActivitySnapshot activity,
+        TeamsTranscriptSnapshot activity,
         string sourceGuidance,
         bool isIgnored,
         DateTimeOffset now) => new()
         {
-            TranscriptId = activity.TranscriptId ?? activity.ExternalId,
+            TranscriptId = activity.TranscriptId,
             TranscriptSource = CreateTranscriptSource(activity),
             OrganizerId = activity.SenderId ?? string.Empty,
             OrganizerName = activity.SenderName ?? "Unknown",
             CreatedAt = activity.OccurredAt,
             EndedAt = activity.EndedAt,
-            ContextKey = activity.MeetingId ?? activity.CallId,
+            ContextKey = activity switch
+            {
+                TeamsScheduledMeetingTranscriptSnapshot meeting => meeting.MeetingId,
+                TeamsAdhocCallTranscriptSnapshot call => call.CallId,
+                _ => activity.ExternalId
+            },
             SourceGuidance = sourceGuidance,
             ReceivedAt = now,
             Status = isIgnored ? InboundEventStatus.Processed : InboundEventStatus.Pending,
@@ -324,48 +329,35 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
                 : "Waiting for intake classification."
         };
 
-    private static TeamsTranscriptSource CreateTranscriptSource(TeamsActivitySnapshot activity)
-    {
-        if (string.Equals(activity.TranscriptKind, "scheduledMeeting", StringComparison.Ordinal))
+    private static TeamsTranscriptSource CreateTranscriptSource(TeamsTranscriptSnapshot activity) =>
+        activity switch
         {
-            return new TeamsScheduledMeetingTranscriptSource
+            TeamsScheduledMeetingTranscriptSnapshot meeting => new TeamsScheduledMeetingTranscriptSource
             {
-                MeetingId = Required(activity.MeetingId, "Teams meeting ID")
-            };
-        }
-
-        if (string.Equals(activity.TranscriptKind, "adhocCall", StringComparison.Ordinal))
-        {
-            return new TeamsAdhocCallTranscriptSource
+                MeetingId = meeting.MeetingId
+            },
+            TeamsAdhocCallTranscriptSnapshot call => new TeamsAdhocCallTranscriptSource
             {
-                CallId = Required(activity.CallId, "Teams call ID")
-            };
-        }
+                CallId = call.CallId
+            },
+            _ => throw new InvalidOperationException("Unsupported Teams transcript snapshot type.")
+        };
 
-        throw new InvalidOperationException(
-            $"Unsupported Teams transcript kind '{activity.TranscriptKind ?? "<missing>"}'.");
-    }
-
-    private static string GetConversationKey(TeamsActivitySnapshot activity) => activity.Kind switch
+    private static string GetConversationKey(TeamsMessageSnapshot activity) => activity switch
     {
-        TeamsActivityKind.ChatMessage => $"teams:chat:{activity.ChatId}",
-        TeamsActivityKind.ChannelMessage =>
-            $"teams:channel:{activity.TeamId}:{activity.ChannelId}:thread:{activity.ReplyToMessageId ?? activity.MessageId}",
+        TeamsChatMessageSnapshot chat => $"teams:chat:{chat.ChatId}",
+        TeamsChannelMessageSnapshot channel =>
+            $"teams:channel:{channel.TeamId}:{channel.ChannelId}:thread:{channel.ReplyToMessageId ?? channel.MessageId}",
         _ => throw new InvalidOperationException("Only Teams messages belong to a conversation group.")
     };
 
-    private static string MessageKey(TeamsActivitySnapshot message) =>
-        MessageKey(message.MessageId ?? message.ExternalId, message.Version ?? string.Empty);
+    private static string MessageKey(TeamsMessageSnapshot message) =>
+        MessageKey(message.MessageId, message.Version);
 
     private static string MessageKey(string messageId, string version) => $"{messageId}:{version}";
 
-    private static string FormatContextMessage(TeamsActivitySnapshot message) =>
+    private static string FormatContextMessage(TeamsMessageSnapshot message) =>
         $"[{message.OccurredAt:O}] {message.SenderName ?? "Unknown"} (message {message.MessageId})\n{message.BodyText.Trim()}";
-
-    private static string Required(string? value, string name) =>
-        !string.IsNullOrWhiteSpace(value)
-            ? value
-            : throw new InvalidOperationException($"{name} is required.");
 
     private static void AddResult(
         (bool AlreadyExisted, bool Ignored, bool Captured, bool Deferred) result,

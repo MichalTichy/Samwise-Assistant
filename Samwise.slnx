@@ -13,8 +13,6 @@
     <Project Path="src/Samwise.Logic/Samwise.Logic.csproj" />
     <Project Path="src/Samwise.Domain/Samwise.Domain.csproj" />
     <Project Path="src/Samwise.Infrastructure.CodexGateway/Samwise.Infrastructure.CodexGateway.csproj" />
-    <Project Path="src/Samwise.Infrastructure.Email.Imap/Samwise.Infrastructure.Email.Imap.csproj" />
-    <Project Path="src/Samwise.Infrastructure.Email.Microsoft365/Samwise.Infrastructure.Email.Microsoft365.csproj" />
     <Project Path="src/Samwise.Infrastructure.Mcp/Samwise.Infrastructure.Mcp.csproj" />
     <Project Path="src/Samwise.Infrastructure.AgentRuntimes/Samwise.Infrastructure.AgentRuntimes.csproj" />
     <Project Path="src/Samwise.Infrastructure.Persistence.Identity/Samwise.Infrastructure.Persistence.Identity.csproj" />
@@ -24,9 +22,15 @@
   </Folder>
   <Folder Name="/src/Inputs/Email/">
     <Project Path="src/Samwise.Inputs.Email/Samwise.Inputs.Email.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Email.Imap/Samwise.Infrastructure.Email.Imap.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Email.Microsoft365/Samwise.Infrastructure.Email.Microsoft365.csproj" />
   </Folder>
   <Folder Name="/src/Inputs/Manual/">
     <Project Path="src/Samwise.Inputs.Manual/Samwise.Inputs.Manual.csproj" />
+  </Folder>
+  <Folder Name="/src/Inputs/Teams/">
+    <Project Path="src/Samwise.Inputs.Teams/Samwise.Inputs.Teams.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Teams/Samwise.Infrastructure.Teams.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Samwise.Tests/Samwise.Tests.csproj" />

@@ -20,6 +20,7 @@ COPY src/Samwise.Infrastructure.CodexGateway/Samwise.Infrastructure.CodexGateway
 COPY src/Samwise.Infrastructure.Email.Imap/Samwise.Infrastructure.Email.Imap.csproj src/Samwise.Infrastructure.Email.Imap/
 COPY src/Samwise.Infrastructure.Email.Microsoft365/Samwise.Infrastructure.Email.Microsoft365.csproj src/Samwise.Infrastructure.Email.Microsoft365/
 COPY src/Samwise.Infrastructure.Mcp/Samwise.Infrastructure.Mcp.csproj src/Samwise.Infrastructure.Mcp/
+COPY src/Samwise.Infrastructure.Teams/Samwise.Infrastructure.Teams.csproj src/Samwise.Infrastructure.Teams/
 COPY src/Samwise.Infrastructure.Persistence.Identity/Samwise.Infrastructure.Persistence.Identity.csproj src/Samwise.Infrastructure.Persistence.Identity/
 COPY src/Samwise.Infrastructure.Persistence.Marten/Samwise.Infrastructure.Persistence.Marten.csproj src/Samwise.Infrastructure.Persistence.Marten/
 COPY src/Samwise.Logic/Samwise.Logic.csproj src/Samwise.Logic/

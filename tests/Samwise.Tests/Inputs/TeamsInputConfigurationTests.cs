@@ -5,6 +5,15 @@ namespace Samwise.Tests.Inputs;
 public sealed class TeamsInputConfigurationTests
 {
     [Fact]
+    public void NewConfigurationIsInactiveUntilGraphApplicationIsConfigured()
+    {
+        var configuration = new TeamsInputConfiguration();
+
+        Assert.False(configuration.IsConfigured);
+        Assert.Null(configuration.LastSuccessfulCheckAt);
+    }
+
+    [Fact]
     public void UpdateNormalizesIgnoredSourcesAndFlags()
     {
         var configuration = new TeamsInputConfiguration();
@@ -31,6 +40,7 @@ public sealed class TeamsInputConfigurationTests
         Assert.Equal("client-id", configuration.MicrosoftGraph.ClientId);
         Assert.Equal("protected-secret", configuration.MicrosoftGraph.ProtectedClientSecret);
         Assert.True(configuration.MicrosoftGraph.HasClientSecret);
+        Assert.True(configuration.IsConfigured);
         Assert.Equal(3, configuration.DebounceMinutes);
         Assert.Equal("Work Teams guidance.", configuration.IntakeGuidance);
         Assert.False(configuration.IncludeChatMessages);

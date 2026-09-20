@@ -22,6 +22,10 @@ public sealed class TeamsInputConfiguration : IItemWithId
     public DateTimeOffset? LastSuccessfulCheckAt { get; set; }
     public string? LastError { get; set; }
 
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(MicrosoftGraph.TenantId)
+        && !string.IsNullOrWhiteSpace(MicrosoftGraph.ClientId);
+
     public void Update(
         string tenantId,
         string clientId,

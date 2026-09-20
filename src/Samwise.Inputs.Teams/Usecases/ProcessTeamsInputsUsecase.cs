@@ -30,6 +30,11 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         var configuration = await configurationRepository.GetRequiredByIdAsync(
             TeamsInputConfiguration.DocumentId,
             cancellationToken);
+        if (!configuration.IsConfigured)
+        {
+            return new TeamsProcessingResult(0, 0, 0, []);
+        }
+
         var now = timeProvider.GetUtcNow();
         if (configuration.LastSuccessfulCheckAt is null)
         {

@@ -23,6 +23,9 @@ public partial class TeamsInputs
     private bool loadingCatalog;
     private bool saving;
     private bool processing;
+    private bool startingAuthorization;
+    private bool disconnecting;
+    private TeamsConnectionState connectionState = new(false, null, null, null);
     private string? pageMessage;
     private bool pageMessageIsSuccess;
 
@@ -35,6 +38,9 @@ public partial class TeamsInputs
     [Inject]
     private ITeamsInputReader InputReader { get; set; } = default!;
 
+    [Inject]
+    private ITeamsAuthorizationService AuthorizationService { get; set; } = default!;
+
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
@@ -45,10 +51,8 @@ public partial class TeamsInputs
         pageMessageIsSuccess = false;
         try
         {
-            var configurationTask = ConfigurationRepository.GetRequiredByIdAsync(
+            var configuration = await ConfigurationRepository.GetRequiredByIdAsync(
                 TeamsInputConfiguration.DocumentId);
-            var catalogTask = InputReader.GetCatalogAsync();
-            var configuration = await configurationTask;
             pollingIntervalMinutes = configuration.PollingIntervalMinutes;
             debounceMinutes = configuration.DebounceMinutes;
             intakeGuidance = configuration.IntakeGuidance;
@@ -59,7 +63,10 @@ public partial class TeamsInputs
             ignoredChats = configuration.IgnoredChats.ToList();
             ignoredChannels = configuration.IgnoredChannels.ToList();
             lastSuccessfulCheckAt = configuration.LastSuccessfulCheckAt;
-            catalog = await catalogTask;
+            connectionState = await AuthorizationService.GetStateAsync();
+            catalog = connectionState.Connected
+                ? await InputReader.GetCatalogAsync()
+                : new TeamsInputCatalog([], [], []);
         }
         catch (Exception exception)
         {
@@ -69,6 +76,48 @@ public partial class TeamsInputs
         {
             loadingCatalog = false;
             loading = false;
+        }
+    }
+
+    private async Task StartAuthorizationAsync()
+    {
+        startingAuthorization = true;
+        pageMessage = null;
+        pageMessageIsSuccess = false;
+        try
+        {
+            var result = await Sender.Send(new StartTeamsAuthorizationUsecase());
+            if (result.Succeeded)
+            {
+                connectionState = connectionState with { PendingChallenge = result.Challenge, Error = null };
+            }
+            else
+            {
+                pageMessage = string.Join(" ", result.Errors);
+            }
+        }
+        finally
+        {
+            startingAuthorization = false;
+        }
+    }
+
+    private async Task DisconnectAsync()
+    {
+        disconnecting = true;
+        pageMessage = null;
+        pageMessageIsSuccess = false;
+        try
+        {
+            await Sender.Send(new DisconnectTeamsAuthorizationUsecase());
+            connectionState = new TeamsConnectionState(false, null, null, null);
+            catalog = new TeamsInputCatalog([], [], []);
+            pageMessage = "Microsoft Teams account disconnected.";
+            pageMessageIsSuccess = true;
+        }
+        finally
+        {
+            disconnecting = false;
         }
     }
 

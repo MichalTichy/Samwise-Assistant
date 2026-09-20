@@ -11,8 +11,8 @@
         <p>Choose which Teams activity becomes input for Samwise and which conversations should stay quiet.</p>
     </div>
     <div class="heading-actions">
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh catalogue</LumexButton>
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@processing">
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(loading || !connectionState.Connected)">Refresh catalogue</LumexButton>
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(processing || !connectionState.Connected)">
             @(processing ? "Processing…" : "Process now")
         </LumexButton>
         <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@saving">
@@ -97,23 +97,75 @@
                 <div>
                     <span class="email-section-icon" aria-hidden="true">T</span>
                     <div>
-                        <h2>Connected Teams catalogue</h2>
-                        <p>Options are loaded from the Microsoft account already connected to Teams MCP.</p>
+                        <h2>Microsoft Teams account</h2>
+                        <p>Samwise connects directly to Microsoft Graph to read the Teams activity selected below.</p>
                     </div>
                 </div>
             </div>
 
-            @if (loadingCatalog)
+            @if (connectionState.Connected)
             {
-                <div class="empty-inline">Loading people, chats, and channels…</div>
+                <div class="microsoft-email-authorization">
+                    <div>
+                        <strong>Connected</strong>
+                        <small>@(connectionState.Username ?? "Microsoft account")</small>
+                    </div>
+                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="DisconnectAsync" Disabled="@disconnecting">
+                        @(disconnecting ? "Disconnecting…" : "Disconnect")
+                    </LumexButton>
+                </div>
+
+                @if (loadingCatalog)
+                {
+                    <div class="empty-inline">Loading people, chats, and channels…</div>
+                }
+                else
+                {
+                    <dl class="teams-catalog-summary">
+                        <div><dt>People</dt><dd>@catalog.People.Count</dd></div>
+                        <div><dt>Chats</dt><dd>@catalog.Chats.Count</dd></div>
+                        <div><dt>Channels</dt><dd>@catalog.Channels.Count</dd></div>
+                    </dl>
+                }
             }
             else
             {
-                <dl class="teams-catalog-summary">
-                    <div><dt>People</dt><dd>@catalog.People.Count</dd></div>
-                    <div><dt>Chats</dt><dd>@catalog.Chats.Count</dd></div>
-                    <div><dt>Channels</dt><dd>@catalog.Channels.Count</dd></div>
-                </dl>
+                <div class="microsoft-email-authorization">
+                    <div>
+                        <strong>Not connected</strong>
+                        <small>Sign in with the account whose Teams communication Samwise should process.</small>
+                    </div>
+                    @if (connectionState.PendingChallenge is null)
+                    {
+                        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Flat" OnClick="StartAuthorizationAsync" Disabled="@startingAuthorization">
+                            @(startingAuthorization ? "Starting sign-in…" : "Connect Microsoft account")
+                        </LumexButton>
+                    }
+                    else
+                    {
+                        <div class="microsoft-device-code">
+                            <span>Enter this code</span>
+                            <code>@connectionState.PendingChallenge.UserCode</code>
+                            <a href="@connectionState.PendingChallenge.VerificationUrl" target="_blank" rel="noopener noreferrer">Open Microsoft sign-in ↗</a>
+                            <small>Expires @connectionState.PendingChallenge.ExpiresAt.ToLocalTime().ToString("t").</small>
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(connectionState.Error))
+                {
+                    <div class="inline-alert">Microsoft sign-in failed: @connectionState.Error</div>
+                }
+
+                @if (connectionState.PendingChallenge is not null)
+                {
+                    <div class="email-card-actions">
+                        <small>After completing Microsoft sign-in, refresh the connection.</small>
+                        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">
+                            @(loading ? "Checking…" : "Refresh connection")
+                        </LumexButton>
+                    </div>
+                }
             }
 
             <div class="email-card-actions">

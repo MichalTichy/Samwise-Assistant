@@ -2,8 +2,7 @@ namespace Samwise.Logic.Agents;
 
 public enum IntakeDecision
 {
-    CreateWorkItem,
-    AppendToWorkItem,
+    ApplyChanges,
     Ignore,
     NeedsReview
 }

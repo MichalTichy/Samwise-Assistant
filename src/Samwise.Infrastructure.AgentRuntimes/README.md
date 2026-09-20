@@ -13,7 +13,7 @@ This project implements the application-layer `IAgentRuntime` port through the s
 1. A logic service calls one of the structured `IAgentRuntime` operations.
 2. `OpenAiAgentRuntime` selects the matching OpenAI-compatible endpoint and sends the already rendered prompt through a stateless `ChatClientAgent`.
 3. Strict snake-case wire models are deserialized with unknown members rejected.
-4. The adapter converts transport decisions, plan steps with reviewable tool-call parameters, and execution outputs into application-layer records.
+4. The adapter converts the Intake decision and its zero or more Work Item changes, plan steps with reviewable tool-call parameters, and execution outputs into application-layer records.
 5. It creates an `AgentReceipt` containing the OpenAI Chat Completions protocol identity, model, completion ID, and raw response for invocation auditing.
 
 ## Test doubles

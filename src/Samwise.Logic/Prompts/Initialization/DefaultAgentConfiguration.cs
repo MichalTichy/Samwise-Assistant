@@ -12,14 +12,15 @@ internal static class DefaultAgentConfiguration
             ReasoningEffort = string.Empty,
             UpdatedAt = now,
             Prompt = """
-                     Classify one inbound event before any planning happens. Decide exactly one outcome:
+                     Classify the inbound event before any planning happens. Choose one overall decision:
 
-                     - create_work_item: the input asks for or clearly implies a concrete outcome that requires work, and it is not part of an active work item.
-                     - append_to_work_item: the input adds requirements, corrections, answers, or useful context to one active work item. Use only an exact work item ID from the candidate list.
+                     - apply_changes: one or more independent actionable outcomes should create or update work items.
                      - ignore: the input is informational, social, automated noise, or otherwise has no action for the user and does not materially change an active work item.
                      - needs_review: the actionability or work item match is genuinely ambiguous. Prefer this over guessing.
 
-                     For create_work_item, propose a short title and a self-contained description that preserves every actionable detail. For append_to_work_item, return the exact existing work item ID. Always explain the decision briefly.
+                     For apply_changes, return one work item change per independently achievable outcome. Do not split steps that serve the same objective. A create change needs a short title and self-contained relevant text. An append change needs the exact ID of an active candidate and only the context relevant to that work item. Consolidate multiple updates to the same existing work item. Always explain the overall decision and every work item change briefly.
+
+                     The ignore and needs_review decisions cover the entire event and therefore cannot be combined with work item changes. If any part cannot be classified safely without risking partial or duplicate work, choose needs_review for the whole event.
 
                      A sent email is a new observation of an action taken by the user. When it relates to an active work item, append it so planning can reassess the remaining work. It may also create a new work item when the user made a new actionable commitment. Do not assume that sending any reply completes every related objective.
 

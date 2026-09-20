@@ -211,7 +211,7 @@ internal sealed class ProcessEmailsUsecaseHandler(
             BodyText = message.BodyText,
             Attachments = message.Attachments,
             Replies = message.Replies,
-            Handling = isIgnored ? InboundHandlingKind.Ignore : InboundHandlingKind.Pending,
+            Status = isIgnored ? InboundEventStatus.Processed : InboundEventStatus.Pending,
             HandledAt = isIgnored ? now : null,
             Explanation = isIgnored
                 ? $"Ignored because {message.FromAddress} is in the ignored senders list."
@@ -236,7 +236,7 @@ internal sealed class ProcessEmailsUsecaseHandler(
             SentAt = message.SentAt,
             BodyText = message.BodyText,
             Attachments = message.Attachments,
-            Handling = InboundHandlingKind.Pending,
+            Status = InboundEventStatus.Pending,
             Explanation = "Waiting for intake classification."
         };
 

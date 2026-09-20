@@ -42,9 +42,12 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
 
         return new IntakeResult(
             ParseIntakeDecision(result.Decision),
-            ParseExistingWorkItemId(result.ExistingWorkItemId),
-            result.ProposedTitle,
-            result.ProposedDescription,
+            result.WorkItems.Select(workItem => new IntakeWorkItemChange(
+                ParseIntakeWorkItemAction(workItem.Action),
+                ParseExistingWorkItemId(workItem.ExistingWorkItemId),
+                workItem.ProposedTitle,
+                workItem.RelevantText,
+                workItem.Explanation)).ToList(),
             result.Explanation,
             CreateReceipt(response));
     }
@@ -212,11 +215,20 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         .Replace("-", string.Empty, StringComparison.Ordinal)
         .ToLowerInvariant() switch
     {
-        "createworkitem" => IntakeDecision.CreateWorkItem,
-        "appendtoworkitem" => IntakeDecision.AppendToWorkItem,
+        "applychanges" => IntakeDecision.ApplyChanges,
         "ignore" => IntakeDecision.Ignore,
         "needsreview" => IntakeDecision.NeedsReview,
         _ => throw new InvalidOperationException($"Unknown intake decision '{value}'.")
+    };
+
+    private static IntakeWorkItemAction ParseIntakeWorkItemAction(string value) => value
+        .Replace("_", string.Empty, StringComparison.Ordinal)
+        .Replace("-", string.Empty, StringComparison.Ordinal)
+        .ToLowerInvariant() switch
+    {
+        "create" => IntakeWorkItemAction.Create,
+        "append" => IntakeWorkItemAction.Append,
+        _ => throw new InvalidOperationException($"Unknown intake work item action '{value}'.")
     };
 
     private static string? ParseExistingWorkItemId(string? value)
@@ -286,6 +298,15 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
     {
         public required string Decision { get; init; }
 
+        public required List<IntakeWorkItemChangeWireResult> WorkItems { get; init; }
+
+        public required string Explanation { get; init; }
+    }
+
+    private sealed class IntakeWorkItemChangeWireResult
+    {
+        public required string Action { get; init; }
+
         [JsonRequired]
         public string? ExistingWorkItemId { get; init; }
 
@@ -293,7 +314,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         public string? ProposedTitle { get; init; }
 
         [JsonRequired]
-        public string? ProposedDescription { get; init; }
+        public required string RelevantText { get; init; }
 
         public required string Explanation { get; init; }
     }

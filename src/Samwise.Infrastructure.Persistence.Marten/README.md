@@ -6,6 +6,7 @@ This project applies Samwise-specific document mappings to the reusable shared M
 
 - `MartenInstaller` resolves the `samwise` PostgreSQL connection string, registers the Npgsql data source, supplies Samwise storage configuration, and enables the shared Marten repositories with tenancy disabled.
 - `SamwiseStorageConfiguration` selects the `samwise` schema and registers documents, indexes, and uniqueness rules.
+- `Migrations/` contains versioned `IMartenMigration` implementations for transforming existing Samwise documents when their persisted shape changes.
 
 ## Document layout
 
@@ -21,10 +22,11 @@ This project applies Samwise-specific document mappings to the reusable shared M
 
 1. Installer discovery invokes `MartenInstaller` during web startup.
 2. Shared Marten infrastructure builds the document store using `SamwiseStorageConfiguration`.
-3. Logic services and Blazor read paths request shared repository interfaces.
-4. Named specifications execute against Marten queries without callers referencing Marten.
-5. Work-item revisioning rejects stale concurrent updates instead of silently overwriting nested state.
-6. Intake classification uses the ambient unit of work when an inbound event and work item must change atomically.
+3. The shared database initializer applies schema changes and then runs pending Samwise migrations in version order inside transactions.
+4. Logic services and Blazor read paths request shared repository interfaces.
+5. Named specifications execute against Marten queries without callers referencing Marten.
+6. Work-item revisioning rejects stale concurrent updates instead of silently overwriting nested state.
+7. Intake classification uses the ambient unit of work when an inbound event and work item must change atomically.
 
 ## Boundary
 

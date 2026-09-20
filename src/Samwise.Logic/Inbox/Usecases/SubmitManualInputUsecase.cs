@@ -17,7 +17,7 @@ internal sealed class SubmitManualInputUsecaseHandler(
         {
             ManualInputId = Guid.NewGuid().ToString("N"),
             Input = request.Text.Trim(),
-            Handling = InboundHandlingKind.Pending
+            Status = InboundEventStatus.Pending
         }, cancellationToken);
 
         return result.InboundEventId;

@@ -28,27 +28,34 @@ public sealed class InboundEventTests
     {
         var inboundEvent = new ManualInboundEvent
         {
-            Handling = InboundHandlingKind.NeedsReview,
+            Status = InboundEventStatus.NeedsReview,
             HandledAt = DateTimeOffset.UtcNow,
-            WorkItemId = Guid.NewGuid().ToString(),
+            Outcomes =
+            [
+                new InboundEventOutcome
+                {
+                    WorkItemId = Guid.NewGuid().ToString()
+                }
+            ],
             Explanation = "Planner could not select a work item."
         };
 
         inboundEvent.PrepareForRetry();
 
-        Assert.Equal(InboundHandlingKind.Pending, inboundEvent.Handling);
+        Assert.Equal(InboundEventStatus.Pending, inboundEvent.Status);
         Assert.Null(inboundEvent.HandledAt);
-        Assert.Null(inboundEvent.WorkItemId);
+        Assert.Empty(inboundEvent.Outcomes);
         Assert.Equal("Retry requested; waiting for intake classification.", inboundEvent.Explanation);
     }
 
     [Fact]
     public void PrepareForRetryRejectsHandledEvent()
     {
-        var inboundEvent = new ManualInboundEvent { Handling = InboundHandlingKind.Ignore };
+        var inboundEvent = new ManualInboundEvent { Status = InboundEventStatus.Processed };
 
         var exception = Assert.Throws<InvalidOperationException>(inboundEvent.PrepareForRetry);
 
         Assert.Equal("Only an inbound event needing review can be retried.", exception.Message);
     }
+
 }

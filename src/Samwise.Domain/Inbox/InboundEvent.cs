@@ -4,23 +4,14 @@ using Shared.Infrastructure.Persistence;
 
 namespace Samwise.Domain.Inbox;
 
-public enum InboundHandlingKind
-{
-    Pending,
-    CreateWorkItem,
-    AppendToWorkItem,
-    Ignore,
-    NeedsReview
-}
-
 public abstract class InboundEvent : IItemWithId
 {
     public string Id { get; set; } = string.Empty;
     public string DedupeKey { get; set; } = string.Empty;
     public DateTimeOffset ReceivedAt { get; set; }
     public DateTimeOffset? HandledAt { get; set; }
-    public InboundHandlingKind Handling { get; set; }
-    public string? WorkItemId { get; set; }
+    public InboundEventStatus Status { get; set; }
+    public List<InboundEventOutcome> Outcomes { get; set; } = [];
     public string Explanation { get; set; } = string.Empty;
 
     public abstract string Source { get; }
@@ -42,14 +33,14 @@ public abstract class InboundEvent : IItemWithId
 
     public void PrepareForRetry()
     {
-        if (Handling != InboundHandlingKind.NeedsReview)
+        if (Status != InboundEventStatus.NeedsReview)
         {
             throw new InvalidOperationException("Only an inbound event needing review can be retried.");
         }
 
-        Handling = InboundHandlingKind.Pending;
+        Status = InboundEventStatus.Pending;
         HandledAt = null;
-        WorkItemId = null;
+        Outcomes = [];
         Explanation = "Retry requested; waiting for intake classification.";
     }
 }

@@ -26,10 +26,10 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. Both the timer and UI trigger `ProcessEmailsUsecase`: the timer selects `NewSinceCheckpoint` and captures new INBOX and Sent messages, while the UI selects `Unread` and checks only INBOX. The IMAP port supplies either `EmailInboundEvent` or `SentEmailInboundEvent` data.
 2. Both use `InboundEventCaptureService` to validate, deduplicate, persist, and continue pending inputs through `InboundEventProcessingService`.
-3. `InboundEventClassificationService` asks `AgentPromptBuilder` for a ready Intake prompt. The builder retrieves the input, active work items, enabled playbooks, configuration, time, and all three tool catalogs. Intake uses playbooks to recognize actionability but does not select one. The service records the Intake catalog with the invocation, calls `IAgentRuntime.ClassifyAsync`, and commits the decision.
-4. `Ignore` and `NeedsReview` finish without a work item.
-5. `CreateWorkItem` or `AppendToWorkItem` returns the actionable work-item ID.
-6. `InboundEventProcessingService` calls `WorkItemPlanningService` for that work item.
+3. `InboundEventClassificationService` asks `AgentPromptBuilder` for a ready Intake prompt. The builder retrieves the input, active work items, enabled playbooks, configuration, time, and all three tool catalogs. Intake uses playbooks to recognize actionability but does not select one. The service records the Intake catalog with the invocation and calls `IAgentRuntime.ClassifyAsync`.
+4. Intake returns one overall decision plus zero or more independent Work Item changes. Ignore and NeedsReview contain no changes; ApplyChanges contains one or more creates or updates with scoped relevant text. Validation rejects partial, contradictory, duplicate-target, or stale-target results before anything is written.
+5. All Work Item changes and the event's embedded outcomes commit together. New Work Items use the scoped relevant text rather than copying the complete source input into every result.
+6. `InboundEventProcessingService` calls `WorkItemPlanningService` once for every distinct affected Work Item.
 7. Planning asks `AgentPromptBuilder` for a ready prompt. The builder retrieves the work item, enabled playbooks, configuration, time, and both required catalogs before the configured planning model is called through `IAgentRuntime`.
 8. Planning returns an explicit disposition. `PlanRequired` validates and snapshots the selected playbook, decisions, and referenced execution tools before leaving the work item awaiting approval. `UserInputRequired` validates and stores one question with two to six mutually exclusive choices after tools and playbooks cannot resolve a material preference. `AlreadyResolved` completes work proven finished by new context; `NoLongerRelevant` discards work proven unnecessary. Both terminal outcomes retain the planner's reason and invocation ID without fabricating an empty plan.
 
@@ -44,7 +44,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 ## Shared services
 
-- `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when every invocation starts.
+- `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when every invocation starts. `AgentWorkflowSupport` validates multi-Work-Item intake responses as well as plans and planning questions.
 - `AgentPromptPlaceholders` declares every placeholder key once as a constant with its label, description, example, and applicable stages in `PromptPlaceholderAttribute`. The settings UI, builder, and renderer all consume that catalogue.
 - `AgentPromptBuilder` is the only component that renders runtime prompts. Workflow services pass identifiers rather than placeholder values; the builder retrieves each stage's data, uses catalogue constants for its value maps, and returns the rendered prompt, run configuration, and exact catalogs or playbooks required for validation and snapshots.
 - `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores for incoming mail, independent durable INBOX/Sent checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.

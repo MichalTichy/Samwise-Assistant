@@ -21,12 +21,14 @@ internal sealed class InboundEventClassificationService(
     TimeProvider timeProvider,
     ILogger<InboundEventClassificationService> logger) : IInboundEventClassificationService
 {
-    public async Task<string?> ClassifyAsync(string inboundEventId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> ClassifyAsync(
+        string inboundEventId,
+        CancellationToken cancellationToken)
     {
         var inboundEvent = await inboundRepository.GetRequiredByIdAsync(inboundEventId, cancellationToken);
-        if (inboundEvent.Handling != InboundHandlingKind.Pending)
+        if (inboundEvent.Status != InboundEventStatus.Pending)
         {
-            return null;
+            return [];
         }
 
         AgentInvocation? invocation = null;
@@ -52,49 +54,72 @@ internal sealed class InboundEventClassificationService(
                     prompt.Configuration),
                 cancellationToken);
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
+            AgentWorkflowSupport.ValidateIntakeResult(result);
 
             inboundEvent.HandledAt = timeProvider.GetUtcNow();
             inboundEvent.Explanation = string.IsNullOrWhiteSpace(result.Explanation)
                 ? "Intake completed without an explanation."
                 : result.Explanation.Trim();
 
-            DomainWorkItem? workItemToPlan = null;
+            var workItemsToPlan = new List<DomainWorkItem>();
+            var appendTargets = await ResolveAppendTargetsAsync(result, prompt.ActiveWorkItems, cancellationToken);
+            if (appendTargets is null)
+            {
+                MarkForReview(
+                    inboundEvent,
+                    "One or more selected work items are missing or are not active candidates.");
+                await inboundRepository.UpdateAsync(inboundEvent, cancellationToken);
+                return [];
+            }
+
             await using (var unitOfWork = new UnitOfWorkProvider())
             {
                 switch (result.Decision)
                 {
-                    case IntakeDecision.CreateWorkItem:
-                        workItemToPlan = DomainWorkItem.CreateFromInbound(
-                            inboundEvent.GetIntakeText(), result.ProposedTitle, timeProvider.GetUtcNow());
-                        await workItemRepository.AddAsync(workItemToPlan, cancellationToken);
-                        inboundEvent.Handling = InboundHandlingKind.CreateWorkItem;
-                        inboundEvent.WorkItemId = workItemToPlan.Id;
-                        break;
-
-                    case IntakeDecision.AppendToWorkItem:
-                        workItemToPlan = await FindAppendTargetAsync(
-                            result,
-                            prompt.ActiveWorkItems,
-                            cancellationToken);
-                        if (workItemToPlan is null)
+                    case IntakeDecision.ApplyChanges:
+                        foreach (var change in result.WorkItems)
                         {
-                            MarkForReview(
-                                inboundEvent,
-                                "The selected work item is missing or is not an active candidate.");
-                            break;
+                            var workItem = change.Action switch
+                            {
+                                IntakeWorkItemAction.Create => DomainWorkItem.CreateFromInbound(
+                                    change.RelevantText,
+                                    change.ProposedTitle,
+                                    timeProvider.GetUtcNow()),
+                                IntakeWorkItemAction.Append => appendTargets[change.ExistingWorkItemId!.Trim()],
+                                _ => throw new InvalidOperationException(
+                                    $"Unsupported intake work item action '{change.Action}'.")
+                            };
+
+                            if (change.Action == IntakeWorkItemAction.Create)
+                            {
+                                await workItemRepository.AddAsync(workItem, cancellationToken);
+                            }
+                            else
+                            {
+                                workItem.AddContext(change.RelevantText, timeProvider.GetUtcNow());
+                                await workItemRepository.UpdateAsync(workItem, cancellationToken);
+                            }
+
+                            inboundEvent.Outcomes.Add(new InboundEventOutcome
+                            {
+                                Id = Guid.NewGuid().ToString(),
+                                Kind = change.Action == IntakeWorkItemAction.Create
+                                    ? InboundEventOutcomeKind.CreatedWorkItem
+                                    : InboundEventOutcomeKind.UpdatedWorkItem,
+                                WorkItemId = workItem.Id,
+                                RelevantText = change.RelevantText.Trim(),
+                                Explanation = change.Explanation.Trim()
+                            });
+                            workItemsToPlan.Add(workItem);
                         }
 
-                        workItemToPlan.AddContext(inboundEvent.GetIntakeText(), timeProvider.GetUtcNow());
-                        await workItemRepository.UpdateAsync(workItemToPlan, cancellationToken);
-                        inboundEvent.Handling = InboundHandlingKind.AppendToWorkItem;
-                        inboundEvent.WorkItemId = workItemToPlan.Id;
+                        inboundEvent.Status = InboundEventStatus.Processed;
                         break;
-
                     case IntakeDecision.Ignore:
-                        inboundEvent.Handling = InboundHandlingKind.Ignore;
+                        inboundEvent.Status = InboundEventStatus.Processed;
                         break;
                     case IntakeDecision.NeedsReview:
-                        inboundEvent.Handling = InboundHandlingKind.NeedsReview;
+                        inboundEvent.Status = InboundEventStatus.NeedsReview;
                         break;
                     default:
                         throw new InvalidOperationException($"Unsupported intake decision '{result.Decision}'.");
@@ -104,7 +129,7 @@ internal sealed class InboundEventClassificationService(
                 await unitOfWork.CommitAsync();
             }
 
-            return workItemToPlan?.Id;
+            return workItemsToPlan.Select(workItem => workItem.Id).ToList();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -122,32 +147,53 @@ internal sealed class InboundEventClassificationService(
                     cancellationToken);
             }
 
-            inboundEvent.Handling = InboundHandlingKind.NeedsReview;
+            inboundEvent.Status = InboundEventStatus.NeedsReview;
+            inboundEvent.Outcomes = [];
             inboundEvent.HandledAt = timeProvider.GetUtcNow();
             inboundEvent.Explanation = $"Intake classification failed: {exception.Message}";
             await inboundRepository.UpdateAsync(inboundEvent, cancellationToken);
-            return null;
+            return [];
         }
     }
 
-    private async Task<DomainWorkItem?> FindAppendTargetAsync(
+    private async Task<IReadOnlyDictionary<string, DomainWorkItem>?> ResolveAppendTargetsAsync(
         IntakeResult result,
         IReadOnlyList<DomainWorkItem> candidates,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(result.ExistingWorkItemId) ||
-            !candidates.Any(workItem => workItem.Id == result.ExistingWorkItemId))
+        var candidateIds = candidates.Select(workItem => workItem.Id).ToHashSet(StringComparer.Ordinal);
+        var targetIds = result.WorkItems
+            .Where(change => change.Action == IntakeWorkItemAction.Append)
+            .Select(change => change.ExistingWorkItemId!.Trim())
+            .ToList();
+        if (targetIds.Any(id => !candidateIds.Contains(id)))
         {
             return null;
         }
 
-        var workItem = await workItemRepository.GetByIdAsync(result.ExistingWorkItemId, cancellationToken);
-        return workItem?.Status is WorkItemStatus.Completed or WorkItemStatus.Discarded ? null : workItem;
+        var targets = new Dictionary<string, DomainWorkItem>(StringComparer.Ordinal);
+        foreach (var targetId in targetIds)
+        {
+            var workItem = await workItemRepository.GetByIdAsync(targetId, cancellationToken);
+            if (workItem?.Status is null or
+                WorkItemStatus.Completed or
+                WorkItemStatus.Discarded or
+                WorkItemStatus.Executing or
+                WorkItemStatus.OutcomeUnknown)
+            {
+                return null;
+            }
+
+            targets.Add(targetId, workItem);
+        }
+
+        return targets;
     }
 
     private static void MarkForReview(InboundEvent inboundEvent, string reason)
     {
-        inboundEvent.Handling = InboundHandlingKind.NeedsReview;
+        inboundEvent.Status = InboundEventStatus.NeedsReview;
+        inboundEvent.Outcomes = [];
         inboundEvent.Explanation = reason;
     }
 }

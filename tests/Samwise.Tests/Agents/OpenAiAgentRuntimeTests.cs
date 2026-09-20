@@ -19,10 +19,26 @@ public sealed class OpenAiAgentRuntimeTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var responseBody = CreateChatCompletion(model, new
         {
-            decision = "create_work_item",
-            existing_work_item_id = (string?)null,
-            proposed_title = "Prepare the revised offer",
-            proposed_description = "Prepare and deliver the revised customer offer.",
+            decision = "apply_changes",
+            work_items = new[]
+            {
+                new
+                {
+                    action = "create",
+                    existing_work_item_id = (string?)null,
+                    proposed_title = (string?)"Prepare the revised offer",
+                    relevant_text = "Prepare and deliver the revised customer offer.",
+                    explanation = "This is an independent deliverable."
+                },
+                new
+                {
+                    action = "append",
+                    existing_work_item_id = (string?)"existing-meeting",
+                    proposed_title = (string?)null,
+                    relevant_text = "The customer moved the meeting to Tuesday.",
+                    explanation = "This changes an existing objective."
+                }
+            },
             explanation = "The input asks for a concrete deliverable."
         });
         var capturedRequestTask = server.CaptureAndRespondAsync(responseBody, timeout.Token);
@@ -60,9 +76,7 @@ public sealed class OpenAiAgentRuntimeTests
             .GetProperty("schema")
             .GetProperty("properties");
         Assert.True(schemaProperties.TryGetProperty("decision", out _));
-        Assert.True(schemaProperties.TryGetProperty("existing_work_item_id", out _));
-        Assert.True(schemaProperties.TryGetProperty("proposed_title", out _));
-        Assert.True(schemaProperties.TryGetProperty("proposed_description", out _));
+        Assert.True(schemaProperties.TryGetProperty("work_items", out _));
         Assert.True(schemaProperties.TryGetProperty("explanation", out _));
         var requiredProperties = jsonSchema
             .GetProperty("schema")
@@ -73,10 +87,15 @@ public sealed class OpenAiAgentRuntimeTests
         Assert.Equal(schemaProperties.EnumerateObject().Count(), requiredProperties.Count);
         Assert.All(schemaProperties.EnumerateObject(), property => Assert.Contains(property.Name, requiredProperties));
 
-        Assert.Equal(IntakeDecision.CreateWorkItem, result.Decision);
-        Assert.Null(result.ExistingWorkItemId);
-        Assert.Equal("Prepare the revised offer", result.ProposedTitle);
-        Assert.Equal("Prepare and deliver the revised customer offer.", result.ProposedDescription);
+        Assert.Equal(IntakeDecision.ApplyChanges, result.Decision);
+        Assert.Equal(2, result.WorkItems.Count);
+        var change = result.WorkItems[0];
+        Assert.Equal(IntakeWorkItemAction.Create, change.Action);
+        Assert.Null(change.ExistingWorkItemId);
+        Assert.Equal("Prepare the revised offer", change.ProposedTitle);
+        Assert.Equal("Prepare and deliver the revised customer offer.", change.RelevantText);
+        Assert.Equal(IntakeWorkItemAction.Append, result.WorkItems[1].Action);
+        Assert.Equal("existing-meeting", result.WorkItems[1].ExistingWorkItemId);
         Assert.Equal("The input asks for a concrete deliverable.", result.Explanation);
         Assert.Equal("OpenAI Chat Completions", result.Receipt.Provider);
         Assert.Equal(model, result.Receipt.Model);

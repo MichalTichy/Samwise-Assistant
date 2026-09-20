@@ -31,8 +31,14 @@ public sealed class InputEventTools(IReadOnlyRepository<InboundEvent> repository
                 inputEvent.ExternalId,
                 inputEvent.ReceivedAt,
                 inputEvent.HandledAt,
-                inputEvent.Handling,
-                inputEvent.WorkItemId,
+                inputEvent.Status,
+                outcomes = inputEvent.Outcomes.Select(outcome => new
+                {
+                    outcome.Kind,
+                    outcome.WorkItemId,
+                    outcome.RelevantText,
+                    outcome.Explanation
+                }),
                 inputEvent.Explanation,
                 inputPreview = SamwiseMcpJson.Truncate(inputEvent.GetIntakeText(), 500)
             })

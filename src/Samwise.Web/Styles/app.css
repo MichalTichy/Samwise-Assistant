@@ -250,7 +250,7 @@
     .status-awaitingapproval, .handling-needsreview { color: #86580f !important; background: #f8e8b9 !important; }
     .status-awaitinguserinput { color: #7b4617 !important; background: #f7dfc4 !important; }
     .status-planning, .status-approved, .status-executing, .handling-pending { color: #4d6073 !important; background: #e6edf1 !important; }
-    .status-completed, .handling-createworkitem, .handling-appendtoworkitem { color: #52672f !important; background: #e7edd6 !important; }
+    .status-completed, .handling-processed { color: #52672f !important; background: #e7edd6 !important; }
     .status-needsattention, .status-outcomeunknown { color: #944733 !important; background: #f8ded6 !important; }
     .status-discarded, .handling-ignore { color: #756b61 !important; background: #eae4dc !important; }
 
@@ -274,6 +274,10 @@
     .event-actions { display: flex; align-items: center; justify-content: flex-end; gap: .55rem; }
     .event-link { padding-top: .25rem; color: #a66c24; font-size: .72rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
     .event-link:hover { color: #754817; }
+    .event-outcomes { margin: 0; padding-left: 1.25rem; display: grid; gap: .65rem; }
+    .event-outcomes li { padding-left: .15rem; color: #8b7765; }
+    .event-outcomes .event-link { display: block; max-width: 24rem; overflow: hidden; text-overflow: ellipsis; }
+    .event-outcomes small { display: block; max-width: 24rem; margin-top: .15rem; color: #948779; font-size: .68rem; line-height: 1.4; }
 
     /* Prompt editor */
     .prompt-layout { display: grid; grid-template-columns: 225px minmax(0, 1fr); align-items: start; gap: 1.15rem; }

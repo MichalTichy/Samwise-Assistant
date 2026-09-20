@@ -31,7 +31,7 @@
                 <div class="event-source">@item.Source</div>
                 <div class="event-body">
                     <div class="event-meta">
-                        <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip handling-{item.Handling.ToString().ToLowerInvariant()}")">@FormatHandling(item.Handling)</LumexChip>
+                        <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip {StatusClass(item)}")">@FormatStatus(item)</LumexChip>
                         <time>@item.ReceivedAt.ToLocalTime().ToString("g")</time>
                     </div>
                     <p class="event-preview">@PreviewText(item.Text)</p>
@@ -51,11 +51,24 @@
                     }
                 </div>
                 <div class="event-actions">
-                    @if (item.WorkItemId is { } workItemId)
+                    @if (item.Outcomes.Count > 0)
                     {
-                        <a class="event-link" href="work-items/@workItemId">Open work item →</a>
+                        <ol class="event-outcomes">
+                            @foreach (var outcome in item.Outcomes)
+                            {
+                                <li>
+                                    <a class="event-link" href="work-items/@outcome.WorkItemId">
+                                        @FormatOutcome(outcome.Kind): @PreviewText(outcome.RelevantText) →
+                                    </a>
+                                    @if (!string.IsNullOrWhiteSpace(outcome.Explanation))
+                                    {
+                                        <small>@outcome.Explanation</small>
+                                    }
+                                </li>
+                            }
+                        </ol>
                     }
-                    @if (item.Handling == InboundHandlingKind.NeedsReview)
+                    @if (item.Status == InboundEventStatus.NeedsReview)
                     {
                         <LumexButton Size="@Size.Small"
                                      Variant="@Variant.Flat"

@@ -24,7 +24,7 @@ internal sealed class InboundEventCaptureService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inboundEvent.ExternalId);
         var intakeText = inboundEvent.GetIntakeText();
-        if (inboundEvent.Handling == InboundHandlingKind.Pending)
+        if (inboundEvent.Status == InboundEventStatus.Pending)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(intakeText);
         }
@@ -34,7 +34,7 @@ internal sealed class InboundEventCaptureService(
             new InboundEventByDedupeKeySpecification(dedupeKey), cancellationToken);
         if (existing is not null)
         {
-            if (existing.Handling == InboundHandlingKind.Pending)
+            if (existing.Status == InboundEventStatus.Pending)
             {
                 await processingService.ProcessAsync(existing.Id, cancellationToken);
             }
@@ -54,7 +54,7 @@ internal sealed class InboundEventCaptureService(
             : inboundEvent.Explanation.Trim();
 
         await repository.AddAsync(inboundEvent, cancellationToken);
-        if (inboundEvent.Handling == InboundHandlingKind.Pending)
+        if (inboundEvent.Status == InboundEventStatus.Pending)
         {
             await processingService.ProcessAsync(inboundEvent.Id, cancellationToken);
         }

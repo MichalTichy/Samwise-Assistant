@@ -4,9 +4,9 @@ using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Logic.Inbox.Services;
 
-internal sealed record InboundEventCaptureResult(string InboundEventId, bool AlreadyExisted);
+public sealed record InboundEventCaptureResult(string InboundEventId, bool AlreadyExisted);
 
-internal interface IInboundEventCaptureService
+public interface IInboundEventCaptureService
 {
     Task<InboundEventCaptureResult> CaptureAsync(
         InboundEvent inboundEvent,

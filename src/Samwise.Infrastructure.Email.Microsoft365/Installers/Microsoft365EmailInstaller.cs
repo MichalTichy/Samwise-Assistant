@@ -2,7 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Samwise.Infrastructure.Email.Imap.Authentication;
 using Samwise.Infrastructure.Email.Microsoft365.Authentication;
-using Samwise.Logic.Inputs.Email;
+using Samwise.Inputs.Email;
 using Shared.Infrastructure.IoC;
 
 namespace Samwise.Infrastructure.Email.Microsoft365.Installers;

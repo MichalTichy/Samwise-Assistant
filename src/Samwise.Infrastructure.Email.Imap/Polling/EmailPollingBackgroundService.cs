@@ -2,8 +2,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Samwise.Domain.Inputs.Email;
-using Samwise.Logic.Inputs.Email.Usecases;
+using Samwise.Inputs.Email;
+using Samwise.Inputs.Email.Usecases;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Infrastructure.Email.Imap.Polling;

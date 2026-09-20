@@ -3,6 +3,7 @@ using Samwise.Domain.Inbox;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
+using Samwise.Inputs.Manual.Events;
 using Samwise.Logic.Prompts;
 using Samwise.Logic.Prompts.Initialization;
 using Samwise.Logic.Prompts.Services;

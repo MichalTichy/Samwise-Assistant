@@ -25,6 +25,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Samwise.Logic\Samwise.Logic.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Domain\Samwise.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Samwise.Inputs.Email\Samwise.Inputs.Email.csproj" />
+    <ProjectReference Include="..\..\src\Samwise.Inputs.Manual\Samwise.Inputs.Manual.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.CodexGateway\Samwise.Infrastructure.CodexGateway.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Email.Imap\Samwise.Infrastructure.Email.Imap.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Email.Microsoft365\Samwise.Infrastructure.Email.Microsoft365.csproj" />

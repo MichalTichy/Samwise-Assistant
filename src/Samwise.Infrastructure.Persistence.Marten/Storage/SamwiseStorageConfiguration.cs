@@ -1,9 +1,11 @@
 using Marten;
 using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
-using Samwise.Domain.Inputs.Email;
+using Samwise.Inputs.Email;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
+using Samwise.Inputs.Manual.Events;
+using Samwise.Inputs.Email.Events;
 using Shared.Infrastructure.Persistence.Marten.StorageConfiguration;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 

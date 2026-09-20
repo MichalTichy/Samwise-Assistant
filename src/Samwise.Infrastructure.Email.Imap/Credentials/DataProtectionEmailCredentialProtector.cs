@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.DataProtection;
-using Samwise.Logic.Inputs.Email;
+using Samwise.Inputs.Email;
 
 namespace Samwise.Infrastructure.Email.Imap.Credentials;
 

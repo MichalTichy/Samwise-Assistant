@@ -1,6 +1,7 @@
 using Samwise.Logic.Agents;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Playbooks;
+using Samwise.Inputs.Manual.Events;
 
 namespace Samwise.Tests.Agents;
 

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Components;
-using Samwise.Logic.Inbox.Usecases;
+using Samwise.Inputs.Manual.Usecases;
 
 namespace Samwise.Web.Components.Pages;
 

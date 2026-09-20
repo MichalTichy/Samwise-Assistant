@@ -13,7 +13,7 @@ Each feature is grouped by responsibility:
 - `Agents/` contains separate `IAgentRuntime`, `IAgentModelCatalog`, and `IAgentToolCatalog` ports, stage-oriented request/result models under `Models/Intake`, `Models/Planning`, and `Models/Execution`, shared run/catalog models under `Models/Shared`, and invocation tracking.
 - `Prompts/` contains the attribute-driven placeholder catalogue, template validation/rendering, the single `AgentPromptBuilder` that retrieves and assembles every stage's prompt context, the startup initializer for the agent-configuration document, the UI-triggered full stage-settings use case, and the MCP-triggered prompt-only use case.
 - `Playbooks/` contains the UI- or MCP-triggered save use case and public read specification for reusable intake-and-planning guidance.
-- `Inputs/Email/` contains the IMAP adapter contracts, email-account and settings commands, account reads, checkpoint-based automatic processing, manual unread processing, and the startup initializer for email settings.
+- `Inbox/` owns only the source-neutral capture, deduplication, classification, and processing pipeline. Concrete event documents and their source-specific operations live in independently composed `Samwise.Inputs.*` modules.
 - `Installers/LogicInstaller` registers MediatR and application services.
 
 Top-level types live in separate files named after the type. Related models are grouped in feature-local `Models/` folders, prompt placeholder types in `Prompts/Placeholders/`, and service contracts beside their implementations. A type may share a file only when it is a private or nested implementation detail used exclusively by the containing type.
@@ -24,8 +24,8 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 
 ## Intake and planning flow
 
-1. `SubmitManualInputUsecase` creates a `ManualInboundEvent`. Both the timer and UI trigger `ProcessEmailsUsecase`: the timer selects `NewSinceCheckpoint` and captures new INBOX and Sent messages, while the UI selects `Unread` and checks only INBOX. The IMAP port supplies either `EmailInboundEvent` or `SentEmailInboundEvent` data.
-2. Both use `InboundEventCaptureService` to validate, deduplicate, persist, and continue pending inputs through `InboundEventProcessingService`.
+1. A source module creates its concrete `InboundEvent` and submits it through the public `IInboundEventCaptureService` port.
+2. `InboundEventCaptureService` validates, deduplicates, persists, and continues pending inputs through `InboundEventProcessingService`.
 3. `InboundEventClassificationService` asks `AgentPromptBuilder` for a ready Intake prompt. The builder retrieves the new input, its trusted source-guidance snapshot, separately labelled historical context, active work items, enabled playbooks, configuration, time, and all three tool catalogs. Historical context can explain the trigger but cannot independently create duplicate work. Intake uses playbooks to recognize actionability but does not select one. The service records the Intake catalog with the invocation and calls `IAgentRuntime.ClassifyAsync`. Work Items retain structured source references; planning and execution prompts always receive those references so an agent can explicitly retrieve source content when needed.
 4. Intake returns one overall decision plus zero or more independent Work Item changes. Ignore and NeedsReview contain no changes; ApplyChanges contains one or more creates or updates with scoped relevant text. Validation rejects partial, contradictory, duplicate-target, or stale-target results before anything is written.
 5. All Work Item changes and the event's embedded outcomes commit together. New Work Items use the scoped relevant text rather than copying the complete source input into every result.
@@ -47,8 +47,6 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 - `AgentInvocationService` owns the start/complete/fail lifecycle used by intake, planning, and execution and snapshots the exact tool catalog available when every invocation starts. `AgentWorkflowSupport` validates multi-Work-Item intake responses as well as plans and planning questions.
 - `AgentPromptPlaceholders` declares every placeholder key once as a constant with its label, description, example, and applicable stages in `PromptPlaceholderAttribute`. The settings UI, builder, and renderer all consume that catalogue.
 - `AgentPromptBuilder` is the only component that renders runtime prompts. Workflow services pass identifiers rather than placeholder values; the builder retrieves each stage's data, uses catalogue constants for its value maps, and returns the rendered prompt, run configuration, and exact catalogs or playbooks required for validation and snapshots.
-- `ProcessEmailsUsecaseHandler` coordinates both email read modes, exact-address ignores for incoming mail, independent durable INBOX/Sent checkpoint updates, and shared inbound capture. `EmailAccountProcessingLock` remains a reusable keyed service that prevents overlapping checks of one account.
-- `StartMicrosoftEmailAuthorizationUsecase` starts an explicit user-triggered Microsoft device-code sign-in. `SaveEmailAccountUsecase` consumes the completed authorization, protects the reusable token cache, verifies INBOX access, and then persists the account.
 - `PromptRenderer` validates templates against the catalogue and performs the final token replacement. `AgentWorkflowSupport` contains plan validation and snapshot helpers only.
 
 ## Architectural rules
@@ -59,4 +57,5 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 - Code shared by multiple external operations belongs in a service.
 - Reads use specifications and `IReadOnlyRepository<T>`; mutations use domain behavior through `IRepository<T>`.
 - Standard OpenAI execution, Gateway-specific catalog discovery, runtime selection, and persistence behavior belong in infrastructure projects.
+- Core application code must not reference a concrete input module. Each `Samwise.Inputs.*` project owns its event types, configuration, use cases, specifications, initialization, and adapter ports.
 - Keep one top-level class, record, interface, enum, or struct per file; use folders rather than grab-bag source files for organization.

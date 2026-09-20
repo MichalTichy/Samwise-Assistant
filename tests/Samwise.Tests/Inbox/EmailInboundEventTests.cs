@@ -32,16 +32,14 @@ public sealed class EmailInboundEventTests
             WasAnsweredWhenCaptured = true,
             BodyText = "Meet me there after supper.",
             Attachments = [new EmailAttachmentSummary("map.pdf", "application/pdf", 512)],
-            Replies =
+            Context =
             [
-                new EmailReplySnapshot(
-                    "reply-1@example.com",
-                    "Re: The Green Dragon",
-                    "sam@example.com",
-                    "Sam Gamgee",
-                    ["rosie@example.com"],
-                    new DateTimeOffset(2026, 9, 12, 8, 45, 0, TimeSpan.Zero),
-                    "I will be there.")
+                new InboundEventContextItem
+                {
+                    SourceItemId = "reply-1@example.com",
+                    Content = "Sam Gamgee <sam@example.com>: I will be there.",
+                    OccurredAt = new DateTimeOffset(2026, 9, 12, 8, 45, 0, TimeSpan.Zero)
+                }
             ]
         };
 
@@ -52,9 +50,8 @@ public sealed class EmailInboundEventTests
         Assert.Contains("Meet me there after supper.", text, StringComparison.Ordinal);
         Assert.Contains("map.pdf (application/pdf)", text, StringComparison.Ordinal);
         Assert.Contains("Mailbox state when captured: read, answered", text, StringComparison.Ordinal);
-        Assert.Contains("Replies already sent from this account:", text, StringComparison.Ordinal);
-        Assert.Contains("Sam Gamgee <sam@example.com>", text, StringComparison.Ordinal);
-        Assert.Contains("I will be there.", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("I will be there.", text, StringComparison.Ordinal);
+        Assert.Contains("I will be there.", Assert.Single(inboundEvent.Context).Content, StringComparison.Ordinal);
     }
 
     [Fact]

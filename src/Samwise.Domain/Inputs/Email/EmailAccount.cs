@@ -12,6 +12,7 @@ public sealed class EmailAccount : IItemWithId
     public EmailConnectionSecurity Security { get; set; }
     public EmailAuthenticationMethod AuthenticationMethod { get; set; }
     public string Username { get; set; } = string.Empty;
+    public string IntakeGuidance { get; set; } = string.Empty;
     public string ProtectedPassword { get; set; } = string.Empty;
     public string ProtectedOAuthTokenCache { get; set; } = string.Empty;
     public string? OAuthHomeAccountId { get; set; }

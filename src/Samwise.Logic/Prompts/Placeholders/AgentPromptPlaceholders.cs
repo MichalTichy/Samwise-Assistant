@@ -12,6 +12,20 @@ public static class AgentPromptPlaceholders
     public const string InputText = "input.text";
 
     [PromptPlaceholder(
+        "Source guidance",
+        "Trusted user-configured guidance captured for the input source.",
+        "This is the user's work mailbox...",
+        AgentStage.Intake)]
+    public const string InputSourceGuidance = "input.source_guidance";
+
+    [PromptPlaceholder(
+        "Input context",
+        "Prior source items supplied only to interpret the new input, as JSON.",
+        "[{...}]",
+        AgentStage.Intake)]
+    public const string InputContext = "input.context";
+
+    [PromptPlaceholder(
         "Active work items",
         "Compact JSON list of possible existing work items.",
         "[{...}]",

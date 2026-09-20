@@ -72,7 +72,7 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 ## Email-input flow
 
 1. `EmailInputs` lives at Configuration → Inputs → Emails and reads the singleton `EmailInputConfiguration` plus individual `EmailAccount` documents through repositories.
-2. Saving the interval or exact-address ignore list sends `SaveEmailInputConfigurationUsecase`. Accounts may use a protected password or Microsoft 365 OAuth. Microsoft sign-in starts through `StartMicrosoftEmailAuthorizationUsecase`; saving consumes that authorization through `SaveEmailAccountUsecase`, verifies INBOX access, and establishes the current INBOX and Sent UIDs as automatic-import starting points.
+2. Saving the interval or exact-address ignore list sends `SaveEmailInputConfigurationUsecase`. Each account also has trusted intake guidance captured with its future events. Accounts may use a protected password or Microsoft 365 OAuth. Microsoft sign-in starts through `StartMicrosoftEmailAuthorizationUsecase`; saving consumes that authorization through `SaveEmailAccountUsecase`, verifies INBOX access, and establishes the current INBOX and Sent UIDs as automatic-import starting points.
 3. Connection-test and per-account/global process buttons trigger their external use cases and display the returned outcome.
 4. Automatic processing is always active for enabled accounts. The timer triggers `ProcessEmailsUsecase(NewSinceCheckpoint)` to import new received and sent messages; the manual buttons trigger `ProcessEmailsUsecase(Unread)` and may import older unread INBOX messages only.
 5. Account passwords are never returned to the page, and editing with a blank password keeps the protected value already stored.

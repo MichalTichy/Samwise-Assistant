@@ -245,6 +245,16 @@
                         </div>
                     }
 
+                    <label class="email-field email-field-wide">
+                        <span>Intake guidance</span>
+                        <textarea class="configuration-input email-guidance-input"
+                                  rows="5"
+                                  placeholder="Describe what this account is used for and how messages from it should be interpreted."
+                                  @bind="intakeGuidance"
+                                  @bind:event="oninput"></textarea>
+                        <small>This trusted guidance is captured with every new input from this account. Do not paste email content here.</small>
+                    </label>
+
                     <label class="configuration-toggle email-field-wide">
                         <input type="checkbox" @bind="accountEnabled" />
                         <span>

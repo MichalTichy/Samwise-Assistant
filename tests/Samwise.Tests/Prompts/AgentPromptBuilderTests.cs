@@ -25,7 +25,19 @@ public sealed class AgentPromptBuilderTests
         {
             Id = "inbound-1",
             ManualInputId = "manual:1",
-            Input = "Prepare the release."
+            Input = "Prepare the release.",
+            SourceGuidance = "Treat release requests as work input.",
+            Context =
+            [
+                new InboundEventContextItem
+                {
+                    SourceItemId = "earlier-message",
+                    Content = "The release candidate passed QA.",
+                    PreviouslyProcessed = true,
+                    InboundEventId = "inbound-0",
+                    WorkItemIds = ["work-item-0"]
+                }
+            ]
         };
         var workItem = DomainWorkItem.CreateFromInbound("Ship the previous release.", "Previous release", Now);
         var configuration = DefaultAgentConfiguration.Create(Now);
@@ -45,6 +57,9 @@ public sealed class AgentPromptBuilderTests
         var result = await builder.BuildIntakeAsync(inboundEvent.Id, CancellationToken.None);
 
         Assert.Contains(inboundEvent.Input, result.Text, StringComparison.Ordinal);
+        Assert.Contains(inboundEvent.SourceGuidance, result.Text, StringComparison.Ordinal);
+        Assert.Contains("earlier-message", result.Text, StringComparison.Ordinal);
+        Assert.Contains("work-item-0", result.Text, StringComparison.Ordinal);
         Assert.Contains(workItem.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Description, result.Text, StringComparison.Ordinal);
@@ -59,9 +74,48 @@ public sealed class AgentPromptBuilderTests
     }
 
     [Fact]
+    public async Task ExistingIntakeTemplateStillReceivesGuidanceAndContext()
+    {
+        var inboundEvent = new ManualInboundEvent
+        {
+            Id = "inbound-1",
+            ManualInputId = "manual:1",
+            Input = "Yes, do it.",
+            SourceGuidance = "Treat this as a work conversation.",
+            Context =
+            [
+                new InboundEventContextItem
+                {
+                    SourceItemId = "message-1",
+                    Content = "Prepare the customer proposal.",
+                    PreviouslyProcessed = true,
+                    InboundEventId = "inbound-0",
+                    WorkItemIds = ["work-item-0"]
+                }
+            ]
+        };
+        var configuration = DefaultAgentConfiguration.Create(Now);
+        configuration.Intake.Prompt = "Classify this new input: {{input.text}}";
+        var builder = CreateBuilder(configuration, new RecordingToolCatalog(), [inboundEvent], [], []);
+
+        var result = await builder.BuildIntakeAsync(inboundEvent.Id, CancellationToken.None);
+
+        Assert.Contains(inboundEvent.SourceGuidance, result.Text, StringComparison.Ordinal);
+        Assert.Contains("Prepare the customer proposal.", result.Text, StringComparison.Ordinal);
+        Assert.Contains("work-item-0", result.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PlanningPromptRetrievesWorkItemPlaybooksAndExecutionTools()
     {
-        var workItem = DomainWorkItem.CreateFromInbound("Process the invoice.", "Process invoice", Now);
+        var source = new WorkItemSourceReference
+        {
+            InboundEventId = "teams-transcript-event",
+            Source = "Teams transcript",
+            ExternalId = "scheduledMeeting:meeting-1:transcript-1",
+            AddedAt = Now
+        };
+        var workItem = DomainWorkItem.CreateFromInbound("Process the invoice.", "Process invoice", Now, source);
         var playbook = new Playbook
         {
             Id = "invoice-processing",
@@ -80,6 +134,8 @@ public sealed class AgentPromptBuilderTests
         Assert.Contains(playbook.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Description, result.Text, StringComparison.Ordinal);
         Assert.Contains(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.Contains(source.InboundEventId, result.Text, StringComparison.Ordinal);
+        Assert.Contains(source.ExternalId, result.Text, StringComparison.Ordinal);
         Assert.Equal(playbook, Assert.Single(result.AvailablePlaybooks));
         Assert.Equal(catalogs[AgentStage.Planning], result.PlanningTools);
     }
@@ -87,7 +143,14 @@ public sealed class AgentPromptBuilderTests
     [Fact]
     public async Task ExecutionPromptRetrievesTheExactApprovedPlanAndCurrentTools()
     {
-        var workItem = DomainWorkItem.CreateFromInbound("Send the invoice.", "Send invoice", Now);
+        var source = new WorkItemSourceReference
+        {
+            InboundEventId = "teams-message-event",
+            Source = "Teams chat",
+            ExternalId = "chat:chat-1:message-1:v1",
+            AddedAt = Now
+        };
+        var workItem = DomainWorkItem.CreateFromInbound("Send the invoice.", "Send invoice", Now, source);
         var plan = new WorkItemPlan
         {
             Id = "plan-1",
@@ -113,6 +176,8 @@ public sealed class AgentPromptBuilderTests
         Assert.Contains(plan.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(plan.Summary, result.Text, StringComparison.Ordinal);
         Assert.Contains(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.Contains(source.InboundEventId, result.Text, StringComparison.Ordinal);
+        Assert.Contains(source.ExternalId, result.Text, StringComparison.Ordinal);
         Assert.Equal(catalogs[AgentStage.Execution], result.ExecutionTools);
     }
 

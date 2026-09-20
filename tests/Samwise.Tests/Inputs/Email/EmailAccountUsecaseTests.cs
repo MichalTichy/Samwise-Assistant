@@ -32,6 +32,7 @@ public sealed class EmailAccountUsecaseTests
         Assert.Equal(42u, account.InboxCheckpoint?.UidValidity);
         Assert.Equal(173u, account.InboxCheckpoint?.NextUid);
         Assert.Equal("protected:secret", account.ProtectedPassword);
+        Assert.Equal("Personal mailbox guidance.", account.IntakeGuidance);
     }
 
     [Fact]
@@ -206,6 +207,7 @@ public sealed class EmailAccountUsecaseTests
         "sam@example.com",
         "secret",
         null,
+        "Personal mailbox guidance.",
         true);
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider

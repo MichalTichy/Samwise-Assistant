@@ -7,6 +7,8 @@ using Samwise.Domain.Inbox;
 using Samwise.Domain.Inputs.Email;
 using Samwise.Domain.WorkItems;
 using Samwise.Infrastructure.Persistence.Marten.Storage;
+using Samwise.Logic.Inbox.Events;
+using Samwise.Logic.Inputs.Email.Events;
 using Shared.Infrastructure.CurrentTenancyProvider;
 using Shared.Infrastructure.Persistence.Marten.Repository.Document;
 using Shared.Infrastructure.Persistence.Marten.SessionFactory;

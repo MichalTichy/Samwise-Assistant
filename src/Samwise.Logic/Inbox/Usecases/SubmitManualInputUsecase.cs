@@ -1,5 +1,6 @@
 using MediatR;
 using Samwise.Domain.Inbox;
+using Samwise.Logic.Inbox.Events;
 using Samwise.Logic.Inbox.Services;
 
 namespace Samwise.Logic.Inbox.Usecases;

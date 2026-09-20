@@ -1,4 +1,4 @@
-namespace Samwise.Domain.Inbox;
+namespace Samwise.Logic.Inputs.Email;
 
 public sealed record EmailReplySnapshot(
     string? MessageId,

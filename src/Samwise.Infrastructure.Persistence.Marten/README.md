@@ -11,7 +11,7 @@ This project applies Samwise-specific document mappings to the reusable shared M
 ## Document layout
 
 - `WorkItem` is one revisioned aggregate document containing plans, selected-playbook snapshots, plan reviews, plan steps, comments, discard metadata, and tool snapshots.
-- `InboundEvent` is one polymorphic audit collection containing manual, received-email, and sent-email event documents, with received-time and unique deduplication-key indexes.
+- `InboundEvent` is one polymorphic audit collection with its base persistence contract in Domain and source-owned concrete documents for manual, received-email, and sent-email inputs. It has received-time and unique deduplication-key indexes.
 - `EmailAccount` is one document per IMAP account with independent nested INBOX and Sent checkpoints, so frequently changing synchronization state does not rewrite global configuration.
 - `EmailInputConfiguration` is one document containing the polling interval and nested ignored-sender addresses.
 - `AgentInvocation` is an independent operational document indexed by work-item ID.
@@ -30,4 +30,4 @@ This project applies Samwise-specific document mappings to the reusable shared M
 
 ## Boundary
 
-Document ownership is decided in `Samwise.Domain`; query intent lives in `Samwise.Logic`; reusable repository mechanics live in `Shared.Infrastructure.Persistence.Marten`. This project contains only Samwise's binding between them.
+The base persistence contract is owned by `Samwise.Domain`; source features in `Samwise.Logic` own concrete inbound-event documents; query intent also lives in `Samwise.Logic`; reusable repository mechanics live in `Shared.Infrastructure.Persistence.Marten`. This project contains only Samwise's binding between them. When a persisted CLR type moves between those boundaries, a versioned migration must update both its JSON `$type` metadata and Marten's `mt_dotnet_type` column.

@@ -1,4 +1,6 @@
 using Samwise.Domain.Inbox;
+using Samwise.Logic.Inputs.Email;
+using Samwise.Logic.Inputs.Email.Events;
 
 namespace Samwise.Tests.Inbox;
 

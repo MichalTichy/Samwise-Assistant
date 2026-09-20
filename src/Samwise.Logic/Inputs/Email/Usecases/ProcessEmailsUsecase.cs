@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Inputs.Email;
 using Samwise.Logic.Inbox.Services;
+using Samwise.Logic.Inputs.Email.Events;
 using Samwise.Logic.Inputs.Email.Services;
 using Samwise.Logic.Inputs.Email.Specifications;
 using Shared.Infrastructure.Persistence.Repositories;

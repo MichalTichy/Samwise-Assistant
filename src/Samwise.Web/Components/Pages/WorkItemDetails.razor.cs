@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.Agents;
+using Samwise.Domain.Inbox;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.WorkItems.Specifications;
 using Samwise.Logic.WorkItems.Usecases;
@@ -19,8 +20,12 @@ public partial class WorkItemDetails : IAsyncDisposable
     private WorkItemDetailsModel? details;
     private bool loading = true;
     private bool loadingInvocations;
+    private bool loadingSources;
     private string? invocationLoadStartedFor;
+    private string? sourceLoadStartedFor;
     private string? invocationLoadError;
+    private string? sourceLoadError;
+    private IReadOnlyList<InboundEvent> sourceEvents = [];
     private int loadVersion;
     private bool actionBusy;
     private string contextText = string.Empty;
@@ -46,6 +51,9 @@ public partial class WorkItemDetails : IAsyncDisposable
     private IReadOnlyRepository<AgentInvocation> InvocationRepository { get; set; } = default!;
 
     [Inject]
+    private IReadOnlyRepository<InboundEvent> InboundEventRepository { get; set; } = default!;
+
+    [Inject]
     private ILogger<WorkItemDetails> Logger { get; set; } = default!;
 
     [Parameter]
@@ -59,6 +67,51 @@ public partial class WorkItemDetails : IAsyncDisposable
         {
             refreshCancellation = new CancellationTokenSource();
             refreshTask = RefreshChangedWorkItemAsync(refreshCancellation.Token);
+        }
+
+        if (details is not null && loadingSources && sourceLoadStartedFor != details.WorkItem.Id)
+        {
+            var sourceWorkItemId = details.WorkItem.Id;
+            var sourceVersion = loadVersion;
+            var sourceIds = details.WorkItem.Sources
+                .Select(source => source.InboundEventId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.Ordinal)
+                .Reverse()
+                .ToList();
+            sourceLoadStartedFor = sourceWorkItemId;
+            try
+            {
+                var loaded = new List<InboundEvent>();
+                foreach (var sourceId in sourceIds)
+                {
+                    var source = await InboundEventRepository.GetByIdAsync(sourceId);
+                    if (source is not null)
+                    {
+                        loaded.Add(source);
+                    }
+                }
+
+                if (sourceVersion == loadVersion && details?.WorkItem.Id == sourceWorkItemId)
+                {
+                    sourceEvents = loaded;
+                }
+            }
+            catch (Exception exception)
+            {
+                if (sourceVersion == loadVersion)
+                {
+                    sourceLoadError = exception.Message;
+                }
+            }
+            finally
+            {
+                if (sourceVersion == loadVersion)
+                {
+                    loadingSources = false;
+                    StateHasChanged();
+                }
+            }
         }
 
         if (details is null || !loadingInvocations || invocationLoadStartedFor == details.WorkItem.Id)
@@ -112,6 +165,8 @@ public partial class WorkItemDetails : IAsyncDisposable
             if (workItem is null)
             {
                 details = null;
+                sourceEvents = [];
+                loadingSources = false;
                 loadingInvocations = false;
                 return;
             }
@@ -121,6 +176,10 @@ public partial class WorkItemDetails : IAsyncDisposable
                 workItem.FindCurrentPlan(),
                 workItem.Comments,
                 []);
+            sourceEvents = [];
+            loadingSources = workItem.Sources.Count > 0;
+            sourceLoadStartedFor = null;
+            sourceLoadError = null;
             loadingInvocations = true;
             invocationLoadStartedFor = null;
             invocationLoadError = null;

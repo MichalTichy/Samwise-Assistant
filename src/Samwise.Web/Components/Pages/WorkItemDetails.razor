@@ -73,16 +73,49 @@ else
                         <div class="detail-card-heading">
                             <div>
                                 <span class="page-kicker">Input</span>
-                                <h2>What Samwise observed</h2>
+                                <h2>Original input</h2>
                             </div>
                             <time>@workItem.CreatedAt.ToLocalTime().ToString("g")</time>
                         </div>
-                        <div class="readable-copy input-copy">
-                            @foreach (var paragraph in ReadableParagraphs(workItem.Description))
+                        @if (loadingSources)
+                        {
+                            <LoadingSkeleton Label="Loading original input" Rows="3" />
+                        }
+                        else if (sourceLoadError is not null)
+                        {
+                            <div class="inline-alert">Original input could not be loaded: @sourceLoadError</div>
+                        }
+                        else if (sourceEvents.Count > 0)
+                        {
+                            <div class="source-event-list">
+                                @foreach (var sourceEvent in sourceEvents)
+                                {
+                                    <WorkItemSourceEvent Event="sourceEvent" />
+                                }
+                            </div>
+                            <details class="work-item-interpretation">
+                                <summary>What Samwise took from the input</summary>
+                                <div class="readable-copy">
+                                    @foreach (var paragraph in ReadableParagraphs(workItem.Description))
+                                    {
+                                        <p>@paragraph</p>
+                                    }
+                                </div>
+                            </details>
+                        }
+                        else
+                        {
+                            <div class="readable-copy input-copy">
+                                @foreach (var paragraph in ReadableParagraphs(workItem.Description))
+                                {
+                                    <p>@paragraph</p>
+                                }
+                            </div>
+                            @if (workItem.Sources.Count > 0)
                             {
-                                <p>@paragraph</p>
+                                <p class="source-event-unavailable">The original input event is no longer available.</p>
                             }
-                        </div>
+                        }
                     </section>
 
                     @if (model.CurrentPlan is { } plan)

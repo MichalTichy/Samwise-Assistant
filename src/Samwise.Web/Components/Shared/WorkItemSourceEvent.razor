@@ -1,0 +1,105 @@
+@using Samwise.Inputs.Email.Events
+@using Samwise.Inputs.Manual.Events
+@using Samwise.Inputs.Teams.InboundEvents.Conversations
+@using Samwise.Inputs.Teams.InboundEvents.Transcripts
+@using Samwise.Inputs.Todoist.InboundEvents
+
+<article class="source-event">
+    <div class="source-event-heading">
+        <strong>@Event.Source</strong>
+        <time>@Event.ReceivedAt.ToLocalTime().ToString("g")</time>
+    </div>
+
+    @if (Event is TeamsConversationInboundEvent conversation)
+    {
+        <div class="source-event-location">
+            @if (conversation.Conversation is TeamsChannelThreadConversationSource channel)
+            {
+                <span>Team <strong>@channel.TeamName</strong></span>
+                <span>Channel <strong>@channel.ChannelName</strong></span>
+            }
+            else if (conversation.Conversation is TeamsChatConversationSource chat)
+            {
+                <span>Chat <strong>@(string.IsNullOrWhiteSpace(chat.ChatName) ? "Direct chat" : chat.ChatName)</strong></span>
+            }
+        </div>
+        <div class="source-event-messages">
+            @foreach (var message in conversation.Messages.OrderBy(message => message.SentAt))
+            {
+                <div class="source-event-message">
+                    <div class="source-event-message-heading">
+                        <strong>@(string.IsNullOrWhiteSpace(message.SenderName) ? "Unknown sender" : message.SenderName)</strong>
+                        <time>@message.SentAt.ToLocalTime().ToString("g")</time>
+                    </div>
+                    <p class="source-event-body">@message.BodyText</p>
+                </div>
+            }
+        </div>
+    }
+    else if (Event is EmailInboundEvent email)
+    {
+        <h3>@email.Subject</h3>
+        <dl class="source-event-fields">
+            <div><dt>From</dt><dd>@FormatSender(email.FromDisplayName, email.FromAddress)</dd></div>
+            <div><dt>To</dt><dd>@string.Join(", ", email.ToAddresses)</dd></div>
+            <div><dt>Received in</dt><dd>@FormatAccount(email.AccountName, email.AccountEmailAddress)</dd></div>
+        </dl>
+        <p class="source-event-body">@email.BodyText</p>
+        @if (email.Attachments.Count > 0)
+        {
+            <p class="source-event-attachments">Attachments: @string.Join(", ", email.Attachments.Select(attachment => attachment.FileName))</p>
+        }
+    }
+    else if (Event is SentEmailInboundEvent sentEmail)
+    {
+        <h3>@sentEmail.Subject</h3>
+        <dl class="source-event-fields">
+            <div><dt>From</dt><dd>@FormatSender(sentEmail.FromDisplayName, sentEmail.FromAddress)</dd></div>
+            <div><dt>To</dt><dd>@string.Join(", ", sentEmail.ToAddresses)</dd></div>
+            <div><dt>Sent from</dt><dd>@FormatAccount(sentEmail.AccountName, sentEmail.AccountEmailAddress)</dd></div>
+        </dl>
+        <p class="source-event-body">@sentEmail.BodyText</p>
+    }
+    else if (Event is TodoistTaskInboundEvent todoist)
+    {
+        <h3>@todoist.Content</h3>
+        <dl class="source-event-fields">
+            <div><dt>Project</dt><dd>@(todoist.ProjectName ?? "Unknown project")</dd></div>
+            <div><dt>Due</dt><dd>@(string.IsNullOrWhiteSpace(todoist.Due.Text) ? todoist.Due.Date : todoist.Due.Text)</dd></div>
+        </dl>
+        @if (!string.IsNullOrWhiteSpace(todoist.Description))
+        {
+            <p class="source-event-body">@todoist.Description</p>
+        }
+        @foreach (var comment in todoist.Comments.OrderBy(comment => comment.PostedAt))
+        {
+            <div class="source-event-message">
+                <div class="source-event-message-heading"><strong>Comment</strong><time>@comment.PostedAt?.ToLocalTime().ToString("g")</time></div>
+                <p class="source-event-body">@comment.Content</p>
+            </div>
+        }
+    }
+    else if (Event is ManualInboundEvent manual)
+    {
+        <p class="source-event-body">@manual.Input</p>
+    }
+    else if (Event is TeamsTranscriptInboundEvent transcript)
+    {
+        <p>Call organized by @transcript.OrganizerName. The transcript itself remains in Teams and was not copied into this input event.</p>
+    }
+    else
+    {
+        <p class="source-event-body">@Event.GetIntakeText()</p>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public InboundEvent Event { get; set; } = default!;
+
+    private static string FormatSender(string name, string address) =>
+        string.IsNullOrWhiteSpace(name) ? address : $"{name} <{address}>";
+
+    private static string FormatAccount(string name, string address) =>
+        string.IsNullOrWhiteSpace(name) ? address : $"{name} ({address})";
+}

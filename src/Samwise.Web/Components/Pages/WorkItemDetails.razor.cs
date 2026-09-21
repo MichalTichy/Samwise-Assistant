@@ -18,6 +18,10 @@ public partial class WorkItemDetails
     private const string OtherPlanningAnswer = "__other__";
     private WorkItemDetailsModel? details;
     private bool loading = true;
+    private bool loadingInvocations;
+    private string? invocationLoadStartedFor;
+    private string? invocationLoadError;
+    private int loadVersion;
     private bool actionBusy;
     private string contextText = string.Empty;
     private string rejectionFeedback = string.Empty;
@@ -42,8 +46,45 @@ public partial class WorkItemDetails
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (details is null || !loadingInvocations || invocationLoadStartedFor == details.WorkItem.Id)
+        {
+            return;
+        }
+
+        var workItemId = details.WorkItem.Id;
+        var version = loadVersion;
+        invocationLoadStartedFor = workItemId;
+        try
+        {
+            var invocations = await InvocationRepository.ListAsync(
+                new WorkItemInvocationsSpecification(workItemId));
+            if (version == loadVersion && details?.WorkItem.Id == workItemId)
+            {
+                details = details with { Invocations = invocations };
+            }
+        }
+        catch (Exception exception)
+        {
+            if (version == loadVersion)
+            {
+                invocationLoadError = exception.Message;
+            }
+        }
+        finally
+        {
+            if (version == loadVersion)
+            {
+                loadingInvocations = false;
+                StateHasChanged();
+            }
+        }
+    }
+
     private async Task LoadAsync()
     {
+        loadVersion++;
         loading = true;
         try
         {
@@ -51,16 +92,18 @@ public partial class WorkItemDetails
             if (workItem is null)
             {
                 details = null;
+                loadingInvocations = false;
                 return;
             }
 
-            var invocations = await InvocationRepository.ListAsync(
-                new WorkItemInvocationsSpecification(workItem.Id));
             details = new WorkItemDetailsModel(
                 workItem,
                 workItem.FindCurrentPlan(),
                 workItem.Comments,
-                invocations);
+                []);
+            loadingInvocations = true;
+            invocationLoadStartedFor = null;
+            invocationLoadError = null;
             if (loadedPlanningQuestionId != workItem.PendingPlanningQuestion?.Id)
             {
                 loadedPlanningQuestionId = workItem.PendingPlanningQuestion?.Id;

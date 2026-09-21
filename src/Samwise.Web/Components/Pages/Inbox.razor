@@ -21,7 +21,7 @@
 <section class="event-list">
     @if (loading && events.Count == 0)
     {
-        <div class="empty-state">Loading input events…</div>
+        <LoadingSkeleton Label="Loading input events" Rows="5" />
     }
 
     @foreach (var item in events)

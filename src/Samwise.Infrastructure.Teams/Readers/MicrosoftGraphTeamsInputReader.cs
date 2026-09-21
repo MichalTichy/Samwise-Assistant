@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -15,18 +16,20 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
 
     public async Task<TeamsInputCatalog> GetCatalogAsync(CancellationToken cancellationToken = default)
     {
-        var chats = await graph.GetDelegatedCollectionAsync(
-            RecentChatsPath,
-            cancellationToken);
+        var chatsTask = graph.GetDelegatedCollectionAsync(RecentChatsPath, cancellationToken);
+        var teamsTask = graph.GetDelegatedCollectionAsync("me/joinedTeams", cancellationToken);
+        await Task.WhenAll(chatsTask, teamsTask);
 
-        var people = new Dictionary<string, TeamsInputSourceOption>(StringComparer.Ordinal);
-        var chatOptions = new List<TeamsInputSourceOption>();
-        foreach (var chat in chats)
+        // Bound the fan-out so large Teams accounts load promptly without flooding Graph.
+        var options = new ParallelOptions { MaxDegreeOfParallelism = 6, CancellationToken = cancellationToken };
+        var people = new ConcurrentDictionary<string, TeamsInputSourceOption>(StringComparer.Ordinal);
+        var chatOptions = new ConcurrentBag<TeamsInputSourceOption>();
+        await Parallel.ForEachAsync(await chatsTask, options, async (chat, token) =>
         {
             var chatId = RequiredString(chat, "id");
             var members = await graph.GetDelegatedCollectionAsync(
                 $"chats/{TeamsGraphClient.Id(chatId)}/members",
-                cancellationToken);
+                token);
             var memberNames = new List<string>();
             foreach (var member in members)
             {
@@ -54,17 +57,16 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
                     ? string.Join(", ", memberNames.Take(4))
                     : chatType;
             chatOptions.Add(new TeamsInputSourceOption(chatId, label, FormatChatType(chatType)));
-        }
+        });
 
-        var teams = await graph.GetDelegatedCollectionAsync("me/joinedTeams", cancellationToken);
-        var channelOptions = new List<TeamsInputSourceOption>();
-        foreach (var team in teams)
+        var channelOptions = new ConcurrentBag<TeamsInputSourceOption>();
+        await Parallel.ForEachAsync(await teamsTask, options, async (team, token) =>
         {
             var teamId = RequiredString(team, "id");
             var teamName = OptionalString(team, "displayName") ?? teamId;
             var channels = await graph.GetDelegatedCollectionAsync(
                 $"teams/{TeamsGraphClient.Id(teamId)}/allChannels",
-                cancellationToken);
+                token);
             foreach (var channel in channels)
             {
                 var channelId = RequiredString(channel, "id");
@@ -74,7 +76,7 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
                     $"{teamName} / {channelName}",
                     teamName));
             }
-        }
+        });
 
         return new TeamsInputCatalog(
             people.Values.OrderBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),

@@ -23,6 +23,12 @@
     <div class="inline-alert email-page-message @(pageMessageIsSuccess ? "inline-success" : null)">@pageMessage</div>
 }
 
+@if (loadingSettings && accounts.Count == 0)
+{
+    <LoadingSkeleton Label="Loading email configuration" Rows="5" />
+}
+else
+{
 <div class="email-settings-grid">
     <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
         <LumexCardBody Class="email-card-body">
@@ -107,6 +113,7 @@
         </LumexCardBody>
     </LumexCard>
 </div>
+}
 
 <section class="email-accounts-section">
     <div class="email-accounts-heading">
@@ -114,12 +121,12 @@
             <h2>Email accounts</h2>
             <p>Credentials and Microsoft sessions are encrypted with Samwise's persisted data-protection keys.</p>
         </div>
-        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewAccount">Add account</LumexButton>
+        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewAccount" Disabled="@loading">Add account</LumexButton>
     </div>
 
     @if (loading)
     {
-        <div class="empty-state">Loading email accounts…</div>
+        <LoadingSkeleton Label="Loading email accounts" Rows="5" />
     }
     else if (accounts.Count == 0)
     {

@@ -71,6 +71,34 @@
     --color-stone: #85786b;
 }
 
+.loading-skeleton {
+    display: grid;
+    gap: .75rem;
+    padding: 1.25rem;
+    border: 1px solid var(--lumex-divider);
+    border-radius: var(--lumex-radius-large);
+    background: var(--lumex-surface1);
+}
+
+.loading-skeleton-line {
+    height: 1.1rem;
+    border-radius: .4rem;
+    background: linear-gradient(100deg, #e9dfd0 20%, #f5eee2 40%, #e9dfd0 60%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.loading-skeleton-line:first-child { width: 48%; height: 1.4rem; }
+.loading-skeleton-line:last-of-type { width: 70%; }
+
+@keyframes skeleton-shimmer {
+    to { background-position-x: -200%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-skeleton-line { animation: none; }
+}
+
 @layer base {
     * { box-sizing: border-box; }
     html, body { min-height: 100%; }

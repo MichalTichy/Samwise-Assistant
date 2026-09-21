@@ -7,7 +7,7 @@
 
 @if (loading)
 {
-    <div class="empty-state">Loading work item…</div>
+    <LoadingSkeleton Label="Loading work item" Rows="7" />
 }
 else if (details is null)
 {
@@ -436,8 +436,16 @@ else
                 </section>
 
                 <section class="detail-card activity-card">
-                    <div class="detail-card-heading"><h2>Agent activity</h2><span class="column-count">@model.Invocations.Count</span></div>
+                    <div class="detail-card-heading"><h2>Agent activity</h2><span class="column-count">@(loadingInvocations ? "…" : model.Invocations.Count.ToString())</span></div>
                     <div class="activity-list">
+                        @if (loadingInvocations)
+                        {
+                            <LoadingSkeleton Label="Loading agent activity" Rows="3" />
+                        }
+                        else if (invocationLoadError is not null)
+                        {
+                            <div class="inline-alert">Agent activity could not be loaded: @invocationLoadError</div>
+                        }
                         @foreach (var invocation in model.Invocations)
                         {
                             <button type="button"
@@ -461,7 +469,7 @@ else
                                 <span class="activity-open-indicator" aria-hidden="true">›</span>
                             </button>
                         }
-                        @if (model.Invocations.Count == 0)
+                        @if (!loadingInvocations && invocationLoadError is null && model.Invocations.Count == 0)
                         {
                             <div class="empty-inline">No agent runs yet.</div>
                         }

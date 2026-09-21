@@ -16,7 +16,8 @@ public partial class EmailInputs
     private int pollingIntervalMinutes = EmailInputConfiguration.DefaultPollingIntervalMinutes;
     private List<string> ignoredSenderAddresses = [];
     private string ignoredSenderInput = string.Empty;
-    private bool loading;
+    private bool loading = true;
+    private bool loadingSettings = true;
     private bool savingSettings;
     private string? settingsSaveMessage;
     private string? pageMessage;
@@ -50,17 +51,27 @@ public partial class EmailInputs
     [Inject]
     private IReadOnlyRepository<EmailAccount> AccountRepository { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAsync();
+            StateHasChanged();
+        }
+    }
 
     private async Task LoadAsync()
     {
         loading = true;
+        loadingSettings = true;
         try
         {
             var configuration = await ConfigurationRepository.GetRequiredByIdAsync(
                 EmailInputConfiguration.DocumentId);
             pollingIntervalMinutes = configuration.PollingIntervalMinutes;
             ignoredSenderAddresses = configuration.IgnoredSenderAddresses.ToList();
+            loadingSettings = false;
+            StateHasChanged();
             var storedAccounts = await AccountRepository.ListAsync(new EmailAccountsSpecification());
             accounts = storedAccounts.Select(account => new EmailAccountItem
             {
@@ -80,6 +91,7 @@ public partial class EmailInputs
         }
         finally
         {
+            loadingSettings = false;
             loading = false;
         }
     }

@@ -24,6 +24,9 @@ public partial class TeamsSourcePicker
     [Parameter]
     public string EmptyText { get; set; } = "Nothing is ignored.";
 
+    [Parameter]
+    public bool Loading { get; set; }
+
     private IReadOnlyList<TeamsInputSourceOption> FilteredOptions => Options
         .Where(option => Selected.All(source => !string.Equals(source.Id, option.Id, StringComparison.Ordinal)))
         .Where(option => string.IsNullOrWhiteSpace(query)

@@ -17,6 +17,7 @@ public partial class Playbooks
     private IReadOnlyList<string> errors = [];
     private string? saveMessage;
     private bool saving;
+    private bool loading = true;
 
     [Inject]
     private ISender Sender { get; set; } = default!;
@@ -24,11 +25,26 @@ public partial class Playbooks
     [Inject]
     private IReadOnlyRepository<Playbook> PlaybookRepository { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAsync();
+            StateHasChanged();
+        }
+    }
 
     private async Task LoadAsync()
     {
-        playbooks = await PlaybookRepository.ListAsync(new PlaybooksSpecification());
+        loading = true;
+        try
+        {
+            playbooks = await PlaybookRepository.ListAsync(new PlaybooksSpecification());
+        }
+        finally
+        {
+            loading = false;
+        }
     }
 
     private void NewPlaybook()

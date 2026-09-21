@@ -20,7 +20,7 @@
 
 @if (loading && workItems.Count == 0)
 {
-    <div class="empty-state">Loading work items…</div>
+    <LoadingSkeleton Label="Loading work items" Rows="5" />
 }
 
 else

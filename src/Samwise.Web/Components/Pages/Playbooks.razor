@@ -15,7 +15,11 @@
 
 <div class="prompt-layout">
     <aside class="prompt-tabs">
-        @if (playbooks.Count == 0)
+        @if (loading && playbooks.Count == 0)
+        {
+            <LoadingSkeleton Label="Loading playbooks" Rows="4" />
+        }
+        else if (playbooks.Count == 0)
         {
             <div class="empty-inline">No playbooks yet.</div>
         }

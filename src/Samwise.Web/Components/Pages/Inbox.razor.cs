@@ -11,7 +11,7 @@ namespace Samwise.Web.Components.Pages;
 public partial class Inbox
 {
     private IReadOnlyList<InboxEventItem> events = [];
-    private bool loading;
+    private bool loading = true;
     private string? retryingEventId;
     private string? actionError;
 
@@ -21,7 +21,14 @@ public partial class Inbox
     [Inject]
     private IReadOnlyRepository<InboundEvent> InboundEventRepository { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAsync();
+            StateHasChanged();
+        }
+    }
 
     private async Task LoadAsync()
     {

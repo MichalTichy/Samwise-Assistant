@@ -4,9 +4,14 @@
                value="@query"
                placeholder="@Placeholder"
                autocomplete="off"
+               disabled="@Loading"
                @oninput="QueryChanged"
                @onfocus="ShowSuggestions" />
-        @if (showSuggestions)
+        @if (Loading)
+        {
+            <LoadingSkeleton Label="Loading Teams choices" Rows="2" />
+        }
+        @if (showSuggestions && !Loading)
         {
             <div class="teams-source-suggestions">
                 @if (FilteredOptions.Count == 0)

@@ -11,11 +11,11 @@
         <p>Choose which Teams activity becomes input for Samwise and which conversations should stay quiet.</p>
     </div>
     <div class="heading-actions">
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(loading || !connectionState.Connected)">Refresh catalogue</LumexButton>
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadCatalogAsync" Disabled="@(loadingCatalog || !connectionState.Connected)">Refresh catalogue</LumexButton>
         <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(processing || !connectionState.Connected)">
             @(processing ? "Processing…" : "Process now")
         </LumexButton>
-        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@saving">
+        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@(saving || loading)">
             @(saving ? "Saving…" : "Save Teams settings")
         </LumexButton>
     </div>
@@ -26,6 +26,12 @@
     <div class="inline-alert teams-page-message @(pageMessageIsSuccess ? "inline-success" : null)">@pageMessage</div>
 }
 
+@if (loading)
+{
+    <LoadingSkeleton Label="Loading Teams settings" Rows="6" />
+}
+else
+{
 <div class="teams-settings-grid">
     <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
         <LumexCardBody Class="email-card-body">
@@ -152,7 +158,7 @@
 
                 @if (loadingCatalog)
                 {
-                    <div class="empty-inline">Loading people, chats, and channels…</div>
+                    <LoadingSkeleton Label="Loading people, chats, and channels" Rows="3" />
                 }
                 else
                 {
@@ -196,8 +202,8 @@
                 {
                     <div class="email-card-actions">
                         <small>After completing Microsoft sign-in, refresh the connection.</small>
-                        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">
-                            @(loading ? "Checking…" : "Refresh connection")
+                        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="RefreshConnectionAsync" Disabled="@refreshingConnection">
+                            @(refreshingConnection ? "Checking…" : "Refresh connection")
                         </LumexButton>
                     </div>
                 }
@@ -222,20 +228,21 @@
         <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
             <LumexCardBody Class="email-card-body">
                 <div class="teams-ignore-heading"><span>01</span><div><h3>People</h3><p>Ignore messages authored by selected people.</p></div></div>
-                <TeamsSourcePicker Options="@catalog.People" Selected="@ignoredPeople" SelectedChanged="SetIgnoredPeople" Placeholder="Search people…" EmptyText="No people ignored." />
+                <TeamsSourcePicker Options="@catalog.People" Selected="@ignoredPeople" SelectedChanged="SetIgnoredPeople" Loading="@loadingCatalog" Placeholder="Search people…" EmptyText="No people ignored." />
             </LumexCardBody>
         </LumexCard>
         <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
             <LumexCardBody Class="email-card-body">
                 <div class="teams-ignore-heading"><span>02</span><div><h3>Chats</h3><p>Ignore complete one-to-one, group, or meeting chats.</p></div></div>
-                <TeamsSourcePicker Options="@catalog.Chats" Selected="@ignoredChats" SelectedChanged="SetIgnoredChats" Placeholder="Search chats…" EmptyText="No chats ignored." />
+                <TeamsSourcePicker Options="@catalog.Chats" Selected="@ignoredChats" SelectedChanged="SetIgnoredChats" Loading="@loadingCatalog" Placeholder="Search chats…" EmptyText="No chats ignored." />
             </LumexCardBody>
         </LumexCard>
         <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
             <LumexCardBody Class="email-card-body">
                 <div class="teams-ignore-heading"><span>03</span><div><h3>Channels</h3><p>Ignore all posts and replies in selected channels.</p></div></div>
-                <TeamsSourcePicker Options="@catalog.Channels" Selected="@ignoredChannels" SelectedChanged="SetIgnoredChannels" Placeholder="Search channels or teams…" EmptyText="No channels ignored." />
+                <TeamsSourcePicker Options="@catalog.Channels" Selected="@ignoredChannels" SelectedChanged="SetIgnoredChannels" Loading="@loadingCatalog" Placeholder="Search channels or teams…" EmptyText="No channels ignored." />
             </LumexCardBody>
         </LumexCard>
     </div>
 </section>
+}

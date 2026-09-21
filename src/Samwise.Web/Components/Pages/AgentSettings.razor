@@ -22,7 +22,7 @@
                              Variant="@Variant.Light"
                              Color="@ThemeColor.Primary"
                              Class="@($"prompt-tab {(configuration.Stage == selected.Stage ? "active" : null)}")"
-                             OnClick="() => Select(configuration)">
+                             OnClick="() => SelectAsync(configuration)">
                     <strong>@configuration.Name</strong>
                     <span>@DescribeStage(configuration.Stage)</span>
                 </LumexButton>
@@ -75,10 +75,14 @@
                 </label>
             </div>
 
-            @if (availableModels.Count == 0)
+            @if (loadingModels)
+            {
+                <LoadingSkeleton Label="Loading model options" Rows="2" />
+            }
+            else if (availableModels.Count == 0)
             {
                 <div class="inline-alert">
-                    @(modelCatalogError ?? "The Gateway did not report any models for this stage.")
+                    @(SelectedModelCatalogError ?? "The Gateway did not report any models for this stage.")
                 </div>
             }
 
@@ -100,9 +104,13 @@
                 {
                     <div class="inline-alert">@toolError</div>
                 }
+                else if (loadingTools)
+                {
+                    <LoadingSkeleton Label="Loading Gateway MCP tools" Rows="3" />
+                }
                 else if (SelectedToolCatalog is not { } toolCatalog)
                 {
-                    <p class="stage-tool-empty">Loading the Gateway MCP catalog…</p>
+                    <p class="stage-tool-empty">The Gateway MCP catalog is unavailable.</p>
                 }
                 else if (toolCatalog.Servers.Count == 0)
                 {
@@ -212,7 +220,11 @@
         </LumexCard>
     </div>
 }
+else if (loadingConfigurations)
+{
+    <LoadingSkeleton Label="Loading agent settings" Rows="6" />
+}
 else
 {
-    <div class="empty-state">Loading agent settings…</div>
+    <div class="empty-state">Agent settings are unavailable.</div>
 }

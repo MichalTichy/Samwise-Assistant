@@ -21,12 +21,19 @@ public partial class Board
     ];
 
     private IReadOnlyList<WorkItemCard> workItems = [];
-    private bool loading;
+    private bool loading = true;
 
     [Inject]
     private IReadOnlyRepository<DomainWorkItem> WorkItemRepository { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAsync();
+            StateHasChanged();
+        }
+    }
 
     private async Task LoadAsync()
     {

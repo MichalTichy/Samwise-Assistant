@@ -29,8 +29,9 @@ public partial class TeamsInputs
     private List<TeamsInputSource> ignoredChannels = [];
     private TeamsInputCatalog catalog = new([], [], []);
     private DateTimeOffset? lastSuccessfulCheckAt;
-    private bool loading;
+    private bool loading = true;
     private bool loadingCatalog;
+    private bool refreshingConnection;
     private bool saving;
     private bool processing;
     private bool startingAuthorization;
@@ -51,12 +52,24 @@ public partial class TeamsInputs
     [Inject]
     private ITeamsAuthorizationService AuthorizationService { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+        if (connectionState.Connected)
+        {
+            await LoadCatalogAsync();
+        }
+    }
 
     private async Task LoadAsync()
     {
         loading = true;
-        loadingCatalog = true;
         pageMessage = null;
         pageMessageIsSuccess = false;
         try
@@ -79,9 +92,36 @@ public partial class TeamsInputs
             ignoredChannels = configuration.IgnoredChannels.ToList();
             lastSuccessfulCheckAt = configuration.LastSuccessfulCheckAt;
             connectionState = await AuthorizationService.GetStateAsync();
-            catalog = connectionState.Connected
-                ? await InputReader.GetCatalogAsync()
-                : new TeamsInputCatalog([], [], []);
+            loadingCatalog = connectionState.Connected;
+            if (!connectionState.Connected)
+            {
+                catalog = new TeamsInputCatalog([], [], []);
+            }
+        }
+        catch (Exception exception)
+        {
+            pageMessage = $"The Teams settings could not be loaded: {exception.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadCatalogAsync()
+    {
+        if (!connectionState.Connected || loading)
+        {
+            return;
+        }
+
+        loadingCatalog = true;
+        pageMessage = null;
+        pageMessageIsSuccess = false;
+        StateHasChanged();
+        try
+        {
+            catalog = await InputReader.GetCatalogAsync();
         }
         catch (Exception exception)
         {
@@ -90,7 +130,28 @@ public partial class TeamsInputs
         finally
         {
             loadingCatalog = false;
-            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshConnectionAsync()
+    {
+        refreshingConnection = true;
+        try
+        {
+            connectionState = await AuthorizationService.GetStateAsync();
+            if (connectionState.Connected)
+            {
+                await LoadCatalogAsync();
+            }
+            else
+            {
+                catalog = new TeamsInputCatalog([], [], []);
+            }
+        }
+        finally
+        {
+            refreshingConnection = false;
         }
     }
 

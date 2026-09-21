@@ -1,6 +1,6 @@
 # Container deployment
 
-`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, Teams MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL. Samwise itself does not depend on Teams MCP for intake: it connects directly to Microsoft Graph.
+`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, Teams MCP, Riganti IS MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL. Samwise itself does not depend on Teams MCP for intake: it connects directly to Microsoft Graph.
 
 ## First deployment
 
@@ -78,6 +78,21 @@ Do not configure an HTTP header for this server. The API token authenticates the
 ### Todoist input
 
 Samwise's Todoist input connects directly to the Todoist API and does not use the MCP server. It only reads. Paste a Todoist API token in **Configuration → Inputs → Todoist**. It may be the same token as `TODOIST_API_KEY`. Samwise protects it with the persisted Data Protection key ring before storing it. The page also sets the lead time, the overdue range, intake guidance, and ignored projects and labels.
+
+## Riganti IS MCP
+
+The standalone Riganti IS MCP image runs as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_BEARER_TOKEN` to the Riganti IS token and `RIGANTI_IS_MCP_API_KEY` to a different long random value. The bearer token reaches only the MCP container. Gateway receives only the MCP key. These values are visible to Portainer stack administrators; do not commit them or put them in chat.
+
+Register the server in Gateway admin UI:
+
+| Field | Value |
+| --- | --- |
+| Name | `Riganti IS` |
+| URL | `http://riganti-is-mcp:8080/mcp` |
+| Execution mode | `Gateway` |
+| Environment headers | `X-Api-Key=RIGANTI_IS_MCP_API_KEY` |
+
+Test discovery and enable the needed tools. Grant read tools to planning if it needs live Riganti context. Grant write tools only to execution, behind Samwise Work Item approval. In particular, `riganti_is_create_wage_bonus_request` and `riganti_is_create_invoice` create real records; invoice creation should follow the preview tool and explicit plan approval. The MCP server does not send invoices.
 
 ## iPhone notifications
 

@@ -1,10 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Samwise.Domain.Notifications;
-using Samwise.Domain.WorkItems;
+using Samwise.Domain.WorkItems.Events;
 using Samwise.Logic.Notifications;
 using Samwise.Logic.Notifications.Services;
 using Samwise.Logic.Notifications.Usecases;
+using Samwise.Logic.WorkItems.Services;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Repositories;
 using Shared.Infrastructure.Persistence.Specifications;
@@ -17,16 +18,12 @@ public sealed class NotificationTests
     private static readonly DateTimeOffset Now = new(2026, 9, 21, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task EnabledKindIsSentToEveryDeviceAsAWorkItemLink()
+    public async Task ProposedPlanIsSentToEveryDeviceAsAWorkItemLink()
     {
         var push = new RecordingPushService();
-        var handler = new WorkItemAttentionRequiredHandler(
-            new MemoryRepository<NotificationSettings>([new NotificationSettings()]),
-            push);
+        var handler = CreateHandler(new NotificationSettings(), push);
 
-        await handler.Handle(
-            new WorkItemAttentionRequired("wi-1", WorkItemStatus.AwaitingApproval, "Send Rosie the offer", null),
-            CancellationToken.None);
+        await handler.Handle(new PlanProposed("wi-1", "Send Rosie the offer", Now, "plan-1", 1), CancellationToken.None);
 
         var message = Assert.Single(push.Sent);
         Assert.Equal("Plan ready for approval", message.Title);
@@ -36,30 +33,30 @@ public sealed class NotificationTests
         Assert.True(message.Urgent);
     }
 
-    [Theory]
-    [InlineData(WorkItemStatus.Completed)]
-    [InlineData(WorkItemStatus.OutcomeUnknown)]
-    [InlineData(WorkItemStatus.Planning)]
-    public async Task DisabledOrUninterestingStatusIsNotSent(WorkItemStatus status)
+    [Fact]
+    public async Task DisabledFactsAreNotSent()
     {
         var push = new RecordingPushService();
-        var settings = new NotificationSettings { NotifyNeedsAttention = false, NotifyCompleted = false };
-        var handler = new WorkItemAttentionRequiredHandler(new MemoryRepository<NotificationSettings>([settings]), push);
+        var handler = CreateHandler(new NotificationSettings { NotifyNeedsAttention = false, NotifyCompleted = false }, push);
 
-        await handler.Handle(new WorkItemAttentionRequired("wi-1", status, "Title", null), CancellationToken.None);
+        await handler.Handle(new ExecutionCompleted("wi-1", "Title", Now, "Done"), CancellationToken.None);
+        await handler.Handle(new ExecutionOutcomeUnknown("wi-1", "Title", Now, "Lost response"), CancellationToken.None);
+        await handler.Handle(new PlanningFailed("wi-1", "Title", Now, null), CancellationToken.None);
 
         Assert.Empty(push.Sent);
     }
 
     [Fact]
-    public void QuestionDetailIsAppendedAndLongBodiesAreShortened()
+    public async Task QuestionPromptIsAppendedAndLongBodiesAreShortened()
     {
-        var message = WorkItemAttentionRequiredHandler.CreateMessage(new WorkItemAttentionRequired(
-            "wi-1",
-            WorkItemStatus.AwaitingUserInput,
-            "Plan the review",
-            new string('x', 400)));
+        var push = new RecordingPushService();
+        var handler = CreateHandler(new NotificationSettings(), push);
 
+        await handler.Handle(
+            new PlanningQuestionAsked("wi-1", "Plan the review", Now, "q-1", new string('x', 400)),
+            CancellationToken.None);
+
+        var message = Assert.Single(push.Sent);
         Assert.Equal("Samwise has a question", message.Title);
         Assert.StartsWith("Plan the review: xxx", message.Body);
         Assert.Equal(180, message.Body.Length);
@@ -128,15 +125,24 @@ public sealed class NotificationTests
     }
 
     [Fact]
-    public async Task NotifierNeverThrowsIntoTheWorkflow()
+    public async Task PublisherPublishesRecordedFactsOnceAndSurvivesFailingHandlers()
     {
-        var notifier = new WorkItemAttentionNotifier(
-            new ThrowingPublisher(),
-            NullLogger<WorkItemAttentionNotifier>.Instance);
+        var publisher = new RecordingPublisher(throwFor: typeof(WorkItemCreated));
+        var eventPublisher = new WorkItemEventPublisher(publisher, NullLogger<WorkItemEventPublisher>.Instance);
         var workItem = DomainWorkItem.CreateFromInbound("Reply to Rosie.", "Reply to Rosie", Now);
+        workItem.Discard(Now.AddMinutes(1));
 
-        await notifier.NotifyAsync(workItem);
+        await eventPublisher.PublishAsync(workItem);
+        await eventPublisher.PublishAsync(workItem);
+
+        Assert.Collection(
+            publisher.Published,
+            created => Assert.IsType<WorkItemCreated>(created),
+            discarded => Assert.Equal("Web", Assert.IsType<WorkItemDiscarded>(discarded).Source));
     }
+
+    private static WorkItemPushNotificationHandler CreateHandler(NotificationSettings settings, RecordingPushService push) =>
+        new(new MemoryRepository<NotificationSettings>([settings]), push);
 
     private static PushDevice Device(string name) => new()
     {
@@ -169,14 +175,20 @@ public sealed class NotificationTests
             CancellationToken cancellationToken) => Task.FromResult(send(device));
     }
 
-    private sealed class ThrowingPublisher : IPublisher
+    private sealed class RecordingPublisher(Type throwFor) : IPublisher
     {
-        public Task Publish(object notification, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("The push service is down.");
+        public List<object> Published { get; } = [];
+
+        public Task Publish(object notification, CancellationToken cancellationToken = default)
+        {
+            Published.Add(notification);
+            return notification.GetType() == throwFor
+                ? throw new InvalidOperationException("The handler failed.")
+                : Task.CompletedTask;
+        }
 
         public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default)
-            where TNotification : INotification =>
-            throw new InvalidOperationException("The push service is down.");
+            where TNotification : INotification => Publish((object)notification!, cancellationToken);
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

@@ -9,8 +9,7 @@ public sealed class NotificationsInstaller : IInstaller
 {
     public void Install(IServiceCollection services, IConfiguration configuration, bool isProduction)
     {
-        // MediatR handlers for the notification feature are registered by LogicInstaller's assembly scan.
-        services.AddScoped<IWorkItemAttentionNotifier, WorkItemAttentionNotifier>();
+        // WorkItemPushNotificationHandler is registered by LogicInstaller's MediatR assembly scan.
         services.AddScoped<IPushNotificationService, PushNotificationService>();
     }
 }

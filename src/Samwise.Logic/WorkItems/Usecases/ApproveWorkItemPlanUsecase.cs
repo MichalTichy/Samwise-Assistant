@@ -12,6 +12,7 @@ public sealed record ApproveWorkItemPlanUsecase(string WorkItemId, string PlanId
 internal sealed class ApproveWorkItemPlanUsecaseHandler(
     IRepository<DomainWorkItem> workItemRepository,
     IWorkItemExecutionService executionService,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider) : IRequestHandler<ApproveWorkItemPlanUsecase>
 {
     public async Task Handle(ApproveWorkItemPlanUsecase request, CancellationToken cancellationToken)
@@ -19,6 +20,7 @@ internal sealed class ApproveWorkItemPlanUsecaseHandler(
         var workItem = await workItemRepository.GetRequiredByIdAsync(request.WorkItemId, cancellationToken);
         workItem.Approve(request.PlanId, request.WorkItemRevision, timeProvider.GetUtcNow());
         await workItemRepository.UpdateAsync(workItem, cancellationToken);
+        await eventPublisher.PublishAsync(workItem);
         await executionService.ExecuteAsync(
             new WorkItemExecutionRequest(
                 workItem.Id,

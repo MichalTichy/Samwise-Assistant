@@ -3,7 +3,6 @@ using Samwise.Domain.Agents;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
-using Samwise.Logic.Notifications.Services;
 using Samwise.Logic.Prompts.Services;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
@@ -16,7 +15,7 @@ internal sealed class WorkItemPlanningService(
     IAgentRuntime runtime,
     IAgentPromptBuilder promptBuilder,
     IAgentInvocationService invocationService,
-    IWorkItemAttentionNotifier attentionNotifier,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider,
     ILogger<WorkItemPlanningService> logger) : IWorkItemPlanningService
 {
@@ -112,6 +111,7 @@ internal sealed class WorkItemPlanningService(
                     invocation.Id,
                     timeProvider.GetUtcNow());
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+                await eventPublisher.PublishAsync(currentWorkItem);
                 return;
             }
 
@@ -122,6 +122,7 @@ internal sealed class WorkItemPlanningService(
                     invocation.Id,
                     timeProvider.GetUtcNow());
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+                await eventPublisher.PublishAsync(currentWorkItem);
                 return;
             }
 
@@ -149,7 +150,7 @@ internal sealed class WorkItemPlanningService(
                     CreatedAt = timeProvider.GetUtcNow()
                 }, timeProvider.GetUtcNow());
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-                await attentionNotifier.NotifyAsync(currentWorkItem, currentWorkItem.PendingPlanningQuestion?.Prompt);
+                await eventPublisher.PublishAsync(currentWorkItem);
                 return;
             }
 
@@ -197,7 +198,7 @@ internal sealed class WorkItemPlanningService(
             };
             currentWorkItem.ApplyPlan(plan, timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-            await attentionNotifier.NotifyAsync(currentWorkItem);
+            await eventPublisher.PublishAsync(currentWorkItem);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -227,9 +228,9 @@ internal sealed class WorkItemPlanningService(
             var currentWorkItem = await workItemRepository.GetByIdAsync(workItem.Id, cancellationToken);
             if (currentWorkItem?.Revision == revision)
             {
-                currentWorkItem.MarkPlanningFailed(timeProvider.GetUtcNow());
+                currentWorkItem.MarkPlanningFailed(timeProvider.GetUtcNow(), exception.Message);
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-                await attentionNotifier.NotifyAsync(currentWorkItem);
+                await eventPublisher.PublishAsync(currentWorkItem);
             }
         }
     }

@@ -2,9 +2,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Samwise.Domain.Agents;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
+using Samwise.Domain.WorkItems.Events;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
-using Samwise.Logic.Notifications.Services;
 using Samwise.Logic.Prompts.Services;
 using Samwise.Logic.WorkItems.Services;
 using Shared.Infrastructure.Persistence.Repositories;
@@ -23,7 +23,7 @@ public sealed class WorkItemPlanningServiceTests
     {
         var workItem = DomainWorkItem.CreateFromInbound("Reply to Rosie.", "Reply to Rosie", Now);
         var invocationService = new StubInvocationService();
-        var notifier = new RecordingAttentionNotifier();
+        var events = new RecordingEventPublisher();
         var service = CreateService(
             workItem,
             new PlannerResult(
@@ -33,7 +33,7 @@ public sealed class WorkItemPlanningServiceTests
                 null,
                 Receipt()),
             invocationService,
-            notifier);
+            events);
 
         await service.PlanAsync(workItem.Id, CancellationToken.None);
 
@@ -43,7 +43,8 @@ public sealed class WorkItemPlanningServiceTests
         Assert.Equal(WorkItemCompletionKind.PlanningResolution, completion.Kind);
         Assert.Equal(invocationService.Invocation.Id, completion.AgentInvocationId);
         Assert.True(invocationService.Completed);
-        Assert.Empty(notifier.Notices);
+        var resolved = Assert.IsType<WorkItemResolvedDuringPlanning>(events.Published[^1]);
+        Assert.Equal("The newly captured sent email contains the requested reply.", resolved.Reason);
     }
 
     [Fact]
@@ -76,7 +77,7 @@ public sealed class WorkItemPlanningServiceTests
     {
         var workItem = DomainWorkItem.CreateFromInbound("Schedule the proposed meeting.", null, Now);
         var invocationService = new StubInvocationService();
-        var notifier = new RecordingAttentionNotifier();
+        var events = new RecordingEventPublisher();
         var service = CreateService(
             workItem,
             new PlannerResult(
@@ -92,7 +93,7 @@ public sealed class WorkItemPlanningServiceTests
                     ]),
                 Receipt()),
             invocationService,
-            notifier);
+            events);
 
         await service.PlanAsync(workItem.Id, CancellationToken.None);
 
@@ -103,21 +104,21 @@ public sealed class WorkItemPlanningServiceTests
         Assert.Equal(2, question.Options.Count);
         Assert.Equal(invocationService.Invocation.Id, question.PlanningInvocationId);
         Assert.True(invocationService.Completed);
-        var notice = Assert.Single(notifier.Notices);
-        Assert.Equal(WorkItemStatus.AwaitingUserInput, notice.Status);
-        Assert.Equal("How should the conflict be handled?", notice.Detail);
+        var asked = Assert.IsType<PlanningQuestionAsked>(events.Published[^1]);
+        Assert.Equal(question.Id, asked.QuestionId);
+        Assert.Equal("How should the conflict be handled?", asked.Prompt);
     }
 
     private static WorkItemPlanningService CreateService(
         DomainWorkItem workItem,
         PlannerResult result,
         StubInvocationService invocationService,
-        RecordingAttentionNotifier? notifier = null) => new(
+        RecordingEventPublisher? events = null) => new(
             new WorkItemRepository(workItem),
             new StubAgentRuntime(result),
             new StubPromptBuilder(),
             invocationService,
-            notifier ?? new RecordingAttentionNotifier(),
+            events ?? new RecordingEventPublisher(),
             new FixedTimeProvider(Now.AddMinutes(1)),
             NullLogger<WorkItemPlanningService>.Instance);
 
@@ -280,13 +281,13 @@ public sealed class WorkItemPlanningServiceTests
             string? tenantId = null) => throw new NotSupportedException();
     }
 
-    private sealed class RecordingAttentionNotifier : IWorkItemAttentionNotifier
+    private sealed class RecordingEventPublisher : IWorkItemEventPublisher
     {
-        public List<(WorkItemStatus Status, string? Detail)> Notices { get; } = [];
+        public List<WorkItemEvent> Published { get; } = [];
 
-        public Task NotifyAsync(DomainWorkItem workItem, string? detail = null)
+        public Task PublishAsync(DomainWorkItem workItem)
         {
-            Notices.Add((workItem.Status, detail));
+            Published.AddRange(workItem.DequeueEvents());
             return Task.CompletedTask;
         }
     }

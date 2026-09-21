@@ -1,4 +1,5 @@
 using Samwise.Domain.WorkItems;
+using Samwise.Domain.WorkItems.Events;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
@@ -328,6 +329,42 @@ public sealed class WorkItemTests
         Assert.Equal("The other participant cancelled the request.", workItem.DiscardReason);
         Assert.Equal("planning-invocation-id", workItem.DiscardInvocationId);
         Assert.Contains("cancelled", Assert.Single(workItem.Comments).Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EveryTransitionRecordsItsFactOnce()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Prepare the revised offer.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime), InitialTime);
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(1));
+        workItem.Approve(plan.Id, workItem.Revision, InitialTime.AddMinutes(2));
+        workItem.StartExecution(plan.Id, workItem.Revision, InitialTime.AddMinutes(3));
+        workItem.CompleteExecution("Sent the offer.", ["Draft created"], "execution-invocation-id", InitialTime.AddMinutes(4));
+
+        var events = workItem.DequeueEvents();
+
+        Assert.Collection(
+            events,
+            created => Assert.IsType<WorkItemCreated>(created),
+            proposed => Assert.Equal(plan.Id, Assert.IsType<PlanProposed>(proposed).PlanId),
+            approved => Assert.Equal("Web", Assert.IsType<PlanApproved>(approved).Source),
+            started => Assert.IsType<ExecutionStarted>(started),
+            completed => Assert.Equal("Sent the offer.", Assert.IsType<ExecutionCompleted>(completed).Summary));
+        Assert.All(events, recorded => Assert.Equal(workItem.Id, recorded.WorkItemId));
+        Assert.Empty(workItem.DequeueEvents());
+    }
+
+    [Fact]
+    public void PlanningDiscardRecordsItsReason()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Arrange the optional meeting.", null, InitialTime);
+        workItem.DequeueEvents();
+
+        workItem.DiscardDuringPlanning("The request was cancelled.", "planning-invocation-id", InitialTime.AddMinutes(1));
+
+        var discarded = Assert.IsType<WorkItemDiscarded>(Assert.Single(workItem.DequeueEvents()));
+        Assert.Equal("Planning agent", discarded.Source);
+        Assert.Equal("The request was cancelled.", discarded.Reason);
     }
 
     private static WorkItemPlan CreatePlan(DomainWorkItem workItem, int planNumber, DateTimeOffset createdAt) =>

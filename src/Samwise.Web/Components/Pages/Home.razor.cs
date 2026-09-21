@@ -24,7 +24,7 @@ public partial class Home
         try
         {
             await Sender.Send(new SubmitManualInputUsecase(input.Text));
-            Navigation.NavigateTo("/inbox");
+            Navigation.NavigateTo("/inbox?submitted=true");
         }
         catch (Exception exception)
         {

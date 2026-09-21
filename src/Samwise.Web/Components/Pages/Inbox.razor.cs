@@ -8,12 +8,17 @@ using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Web.Components.Pages;
 
-public partial class Inbox
+public partial class Inbox : IAsyncDisposable
 {
     private IReadOnlyList<InboxEventItem> events = [];
     private bool loading = true;
     private string? retryingEventId;
     private string? actionError;
+    private CancellationTokenSource? refreshCancellation;
+    private Task? refreshTask;
+
+    [Parameter, SupplyParameterFromQuery(Name = "submitted")]
+    public bool Submitted { get; set; }
 
     [Inject]
     private ISender Sender { get; set; } = default!;
@@ -21,13 +26,68 @@ public partial class Inbox
     [Inject]
     private IReadOnlyRepository<InboundEvent> InboundEventRepository { get; set; } = default!;
 
+    [Inject]
+    private ILogger<Inbox> Logger { get; set; } = default!;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            refreshCancellation = new CancellationTokenSource();
+            refreshTask = RefreshPendingAsync(refreshCancellation.Token);
             await LoadAsync();
             StateHasChanged();
         }
+    }
+
+    private async Task RefreshPendingAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                try
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        if (!loading && events.Any(item => item.Status == InboundEventStatus.Pending))
+                        {
+                            await LoadAsync();
+                            StateHasChanged();
+                        }
+                    });
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    Logger.LogWarning(exception, "Refreshing pending input events failed");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Navigation stopped the page refresh.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (refreshCancellation is null)
+        {
+            return;
+        }
+
+        await refreshCancellation.CancelAsync();
+        if (refreshTask is not null)
+        {
+            await refreshTask;
+        }
+
+        refreshCancellation.Dispose();
     }
 
     private async Task LoadAsync()

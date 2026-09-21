@@ -13,7 +13,7 @@ using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
 
 namespace Samwise.Web.Components.Pages;
 
-public partial class WorkItemDetails
+public partial class WorkItemDetails : IAsyncDisposable
 {
     private const string OtherPlanningAnswer = "__other__";
     private WorkItemDetailsModel? details;
@@ -31,6 +31,9 @@ public partial class WorkItemDetails
     private string selectedPlanningAnswer = string.Empty;
     private string otherPlanningAnswer = string.Empty;
     private string? loadedPlanningQuestionId;
+    private readonly SemaphoreSlim loadGate = new(1, 1);
+    private CancellationTokenSource? refreshCancellation;
+    private Task? refreshTask;
 
     [Inject]
     private ISender Sender { get; set; } = default!;
@@ -41,6 +44,9 @@ public partial class WorkItemDetails
     [Inject]
     private IReadOnlyRepository<AgentInvocation> InvocationRepository { get; set; } = default!;
 
+    [Inject]
+    private ILogger<WorkItemDetails> Logger { get; set; } = default!;
+
     [Parameter]
     public string WorkItemId { get; set; } = string.Empty;
 
@@ -48,6 +54,12 @@ public partial class WorkItemDetails
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            refreshCancellation = new CancellationTokenSource();
+            refreshTask = RefreshChangedWorkItemAsync(refreshCancellation.Token);
+        }
+
         if (details is null || !loadingInvocations || invocationLoadStartedFor == details.WorkItem.Id)
         {
             return;
@@ -84,11 +96,18 @@ public partial class WorkItemDetails
 
     private async Task LoadAsync()
     {
-        loadVersion++;
         loading = true;
+        await loadGate.WaitAsync();
         try
         {
-            var workItem = await WorkItemRepository.GetByIdAsync(WorkItemId);
+            var workItemId = WorkItemId;
+            var workItem = await WorkItemRepository.GetByIdAsync(workItemId);
+            if (workItemId != WorkItemId)
+            {
+                return;
+            }
+
+            loadVersion++;
             if (workItem is null)
             {
                 details = null;
@@ -114,7 +133,69 @@ public partial class WorkItemDetails
         finally
         {
             loading = false;
+            loadGate.Release();
         }
+    }
+
+    private async Task RefreshChangedWorkItemAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                try
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        if (loading || details is null)
+                        {
+                            return;
+                        }
+
+                        var workItemId = WorkItemId;
+                        var displayed = details.WorkItem;
+                        var current = await WorkItemRepository.GetByIdAsync(workItemId, cancellationToken);
+                        if (current is not null && workItemId == WorkItemId &&
+                            (current.UpdatedAt != displayed.UpdatedAt ||
+                             current.Version != displayed.Version ||
+                             current.Status != displayed.Status))
+                        {
+                            await LoadAsync();
+                            StateHasChanged();
+                        }
+                    });
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    Logger.LogWarning(exception, "Refreshing work item {WorkItemId} failed", WorkItemId);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Navigation stopped the page refresh.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (refreshCancellation is null)
+        {
+            return;
+        }
+
+        await refreshCancellation.CancelAsync();
+        if (refreshTask is not null)
+        {
+            await refreshTask;
+        }
+
+        refreshCancellation.Dispose();
     }
 
     private Task ApproveAsync()

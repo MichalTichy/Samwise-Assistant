@@ -46,14 +46,14 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 ## Manual-input flow
 
 1. `Home` validates the user's text and sends `SubmitManualInputUsecase`.
-2. The use case completes intake classification and any required planning through logic services.
-3. The page navigates to the inbox audit view.
+2. The use case persists a pending event and queues background processing without waiting for AI.
+3. The page navigates to the inbox audit view immediately. The inbox refreshes while pending events remain.
 4. `Inbox` reads `InboundEvent` documents with `InboxEventsSpecification` and can send a retry command for events needing review.
 
 ## Work-item flow
 
 1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards, including a separate Needs your input column for planning questions.
-2. `WorkItemDetails` loads the aggregate plus recent invocations through repositories and `WorkItemInvocationsSpecification`.
+2. `WorkItemDetails` loads the aggregate first, then agent invocations through `WorkItemInvocationsSpecification`. While open, it checks for aggregate changes and reloads after background planning or execution changes the status.
 3. Selecting an agent-activity row opens its full invocation record in a Lumex dialog, including the prompt, output, model metadata, error, and available-tool snapshot.
 4. Suggested tool arguments are rendered as labeled nested values, lists, booleans, and readable multiline content rather than requiring the user to decode JSON. Invalid historical argument payloads fall back to escaped plain text.
 5. When planning needs a material user preference, the detail presents two to six suggested choices plus Other. Submitting one stores the decision and immediately replans; the resulting plan displays the decisions it used.

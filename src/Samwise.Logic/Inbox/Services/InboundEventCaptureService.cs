@@ -11,6 +11,10 @@ public interface IInboundEventCaptureService
     Task<InboundEventCaptureResult> CaptureAsync(
         InboundEvent inboundEvent,
         CancellationToken cancellationToken);
+
+    Task<InboundEventCaptureResult> CaptureOnlyAsync(
+        InboundEvent inboundEvent,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class InboundEventCaptureService(
@@ -18,8 +22,19 @@ internal sealed class InboundEventCaptureService(
     IInboundEventProcessingService processingService,
     TimeProvider timeProvider) : IInboundEventCaptureService
 {
-    public async Task<InboundEventCaptureResult> CaptureAsync(
+    public Task<InboundEventCaptureResult> CaptureAsync(
         InboundEvent inboundEvent,
+        CancellationToken cancellationToken) =>
+        CaptureCoreAsync(inboundEvent, processImmediately: true, cancellationToken);
+
+    public Task<InboundEventCaptureResult> CaptureOnlyAsync(
+        InboundEvent inboundEvent,
+        CancellationToken cancellationToken) =>
+        CaptureCoreAsync(inboundEvent, processImmediately: false, cancellationToken);
+
+    private async Task<InboundEventCaptureResult> CaptureCoreAsync(
+        InboundEvent inboundEvent,
+        bool processImmediately,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inboundEvent.ExternalId);
@@ -34,7 +49,7 @@ internal sealed class InboundEventCaptureService(
             new InboundEventByDedupeKeySpecification(dedupeKey), cancellationToken);
         if (existing is not null)
         {
-            if (existing.Status == InboundEventStatus.Pending)
+            if (processImmediately && existing.Status == InboundEventStatus.Pending)
             {
                 await processingService.ProcessAsync(existing.Id, cancellationToken);
             }
@@ -54,7 +69,7 @@ internal sealed class InboundEventCaptureService(
             : inboundEvent.Explanation.Trim();
 
         await repository.AddAsync(inboundEvent, cancellationToken);
-        if (inboundEvent.Status == InboundEventStatus.Pending)
+        if (processImmediately && inboundEvent.Status == InboundEventStatus.Pending)
         {
             await processingService.ProcessAsync(inboundEvent.Id, cancellationToken);
         }

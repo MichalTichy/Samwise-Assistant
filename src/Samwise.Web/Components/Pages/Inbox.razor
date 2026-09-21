@@ -13,6 +13,11 @@
     <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
 </div>
 
+@if (Submitted)
+{
+    <div class="inline-alert inline-success" role="status">Input saved. Samwise will process it in the background.</div>
+}
+
 @if (!string.IsNullOrWhiteSpace(actionError))
 {
     <div class="inline-alert detail-alert">@actionError</div>

@@ -24,11 +24,11 @@ else
     var completion = ResolveCompletion(workItem.Completion, model.Comments);
     var conversationComments = ConversationComments(model.Comments, completion is not null);
 
-    <div class="work-item-detail-page">
+    <div class="work-item-detail-page @(workItem.Status == WorkItemStatus.AwaitingApproval ? "has-decision-bar" : null)">
         <div class="work-item-detail-nav">
             <a href="/board">← Board</a>
             <div class="work-item-detail-nav-actions">
-                <span>Revision @workItem.Revision</span>
+                <span class="detail-nav-revision">Revision @workItem.Revision</span>
                 <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(loading || actionBusy)">Refresh</LumexButton>
             </div>
         </div>
@@ -40,7 +40,7 @@ else
             </div>
             @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
             {
-                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy">Discard work item</LumexButton>
+                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy" Class="detail-discard-header">Discard work item</LumexButton>
             }
         </header>
 
@@ -172,6 +172,11 @@ else
 
                                             @if (step.ToolCalls.Count > 0)
                                             {
+                                                <details class="desktop-open-disclosure tool-calls-disclosure">
+                                                    <summary>
+                                                        <span>@FormatToolCallCount(step.ToolCalls.Count)</span>
+                                                        <code>@string.Join(", ", step.ToolCalls.Select(toolCall => toolCall.ToolId))</code>
+                                                    </summary>
                                                 <div class="suggested-tool-calls">
                                                     @foreach (var toolCall in step.ToolCalls)
                                                     {
@@ -187,6 +192,7 @@ else
                                                         </article>
                                                     }
                                                 </div>
+                                                </details>
                                             }
 
                                             <div class="success-criteria">
@@ -198,28 +204,7 @@ else
                                 }
                             </ol>
 
-                            @if (workItem.Status == WorkItemStatus.AwaitingApproval)
-                            {
-                                <div class="approval-panel">
-                                    <div class="approval-copy">
-                                        <h3>Your decision</h3>
-                                        <p>Approve this exact numbered plan, including its suggested tool parameters, or explain what Samwise should change.</p>
-                                    </div>
-                                    <div class="approval-buttons">
-                                        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
-                                        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ApproveAsync" Disabled="@actionBusy">Approve &amp; execute</LumexButton>
-                                    </div>
-                                    <LumexTextarea Class="feedback-textarea"
-                                                   MinRows="3"
-                                                   MaxRows="7"
-                                                   Behavior="@InputBehavior.OnInput"
-                                                   Variant="@InputVariant.Outlined"
-                                                   Placeholder="Feedback for a revised plan…"
-                                                   @bind-Value="rejectionFeedback" />
-                                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="RejectAsync" Disabled="@actionBusy">Reject with feedback</LumexButton>
-                                </div>
-                            }
-                            else if (workItem.Status == WorkItemStatus.NeedsAttention)
+                            @if (workItem.Status == WorkItemStatus.NeedsAttention)
                             {
                                 <div class="approval-panel">
                                     <div class="approval-copy">
@@ -416,6 +401,11 @@ else
                 </section>
             </main>
 
+            <details class="desktop-open-disclosure work-item-detail-side-disclosure">
+            <summary class="detail-card">
+                <span>Details &amp; agent activity</span>
+                <span class="column-count">@(loadingInvocations ? "…" : model.Invocations.Count.ToString())</span>
+            </summary>
             <aside class="work-item-detail-side">
                 <section class="detail-card metadata-card">
                     <h2>Work Item details</h2>
@@ -499,8 +489,62 @@ else
                     </section>
                 }
             </aside>
+            </details>
         </div>
+
+        @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
+        {
+            <div class="detail-discard-footer">
+                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy" FullWidth="true">Discard work item</LumexButton>
+            </div>
+        }
     </div>
+
+    @if (workItem.Status == WorkItemStatus.AwaitingApproval && model.CurrentPlan is not null)
+    {
+        <div class="decision-bar" role="region" aria-label="Your decision">
+            <span class="decision-bar-copy">Approve plan @model.CurrentPlan.PlanNumber, including its tool parameters, or tell Samwise what to change.</span>
+            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="OpenDecisionSheet" Disabled="@actionBusy">Reject…</LumexButton>
+            <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ApproveAsync" Disabled="@actionBusy">
+                @(actionBusy ? "Working…" : "Approve & execute")
+            </LumexButton>
+        </div>
+
+        @if (decisionSheetOpen)
+        {
+            <div class="mobile-sheet-backdrop" @onclick="CloseDecisionSheet"></div>
+            <div class="mobile-sheet decision-sheet" role="dialog" aria-modal="true" aria-label="Change the plan">
+                <div class="mobile-sheet-handle" aria-hidden="true"></div>
+                <div class="mobile-sheet-heading">
+                    <strong>Change the plan</strong>
+                    <button type="button" class="mobile-sheet-close" aria-label="Close" @onclick="CloseDecisionSheet">×</button>
+                </div>
+                <p class="mobile-sheet-copy">Tell Samwise what to change and it prepares a revised plan.</p>
+                @if (!string.IsNullOrWhiteSpace(actionError))
+                {
+                    <div class="inline-alert detail-alert">@actionError</div>
+                }
+                <LumexTextarea Class="feedback-textarea"
+                               MinRows="4"
+                               MaxRows="8"
+                               Behavior="@InputBehavior.OnInput"
+                               Variant="@InputVariant.Outlined"
+                               Placeholder="Feedback for a revised plan…"
+                               @bind-Value="rejectionFeedback" />
+                <div class="mobile-sheet-actions">
+                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="RejectAsync" Disabled="@actionBusy">Reject with feedback</LumexButton>
+                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" FullWidth="true" OnClick="ReplanAsync" Disabled="@actionBusy">Replan without feedback</LumexButton>
+                    <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" FullWidth="true" OnClick="DiscardAsync" Disabled="@actionBusy">Discard work item</LumexButton>
+                </div>
+            </div>
+        }
+    }
+    else if (workItem.Status == WorkItemStatus.NeedsAttention)
+    {
+        <div class="decision-bar decision-bar-single decision-bar-phone-only">
+            <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
+        </div>
+    }
 
     <AgentInvocationDetails Invocation="selectedInvocation" @bind-Open="activityDetailsOpen" />
 }

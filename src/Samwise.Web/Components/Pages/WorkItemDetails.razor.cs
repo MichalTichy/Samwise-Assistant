@@ -28,6 +28,7 @@ public partial class WorkItemDetails : IAsyncDisposable
     private string? actionError;
     private AgentInvocation? selectedInvocation;
     private bool activityDetailsOpen;
+    private bool decisionSheetOpen;
     private string selectedPlanningAnswer = string.Empty;
     private string otherPlanningAnswer = string.Empty;
     private string? loadedPlanningQuestionId;
@@ -205,6 +206,14 @@ public partial class WorkItemDetails : IAsyncDisposable
         return RunActionAsync(() => Sender.Send(new ApproveWorkItemPlanUsecase(workItem.Id, plan.Id, workItem.Revision)));
     }
 
+    private void OpenDecisionSheet()
+    {
+        actionError = null;
+        decisionSheetOpen = true;
+    }
+
+    private void CloseDecisionSheet() => decisionSheetOpen = false;
+
     private async Task RejectAsync()
     {
         if (string.IsNullOrWhiteSpace(rejectionFeedback))
@@ -285,6 +294,7 @@ public partial class WorkItemDetails : IAsyncDisposable
         try
         {
             await action();
+            decisionSheetOpen = false;
             await LoadAsync();
         }
         catch (Exception exception)
@@ -314,6 +324,9 @@ public partial class WorkItemDetails : IAsyncDisposable
         WorkItemStatus.OutcomeUnknown => "Outcome unknown",
         _ => status.ToString()
     };
+
+    private static string FormatToolCallCount(int count) =>
+        count == 1 ? "1 tool call" : $"{count} tool calls";
 
     private static string FormatAuthor(CommentAuthorKind author) => author switch
     {

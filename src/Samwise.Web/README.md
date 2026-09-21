@@ -75,6 +75,13 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 2. Saving the interval or exact-address ignore list sends `SaveEmailInputConfigurationUsecase`. Each account also has trusted intake guidance captured with its future events. Accounts may use a protected password or Microsoft 365 OAuth. Microsoft sign-in starts through `StartMicrosoftEmailAuthorizationUsecase`; saving consumes that authorization through `SaveEmailAccountUsecase`, verifies INBOX access, and establishes the current INBOX and Sent UIDs as automatic-import starting points.
 3. Connection-test and per-account/global process buttons trigger their external use cases and display the returned outcome.
 4. Automatic processing is always active for enabled accounts. The timer triggers `ProcessEmailsUsecase(NewSinceCheckpoint)` to import new received and sent messages; the manual buttons trigger `ProcessEmailsUsecase(Unread)` and may import older unread INBOX messages only.
+
+## Teams-input flow
+
+1. `TeamsInputs` lives at Configuration → Inputs → Microsoft Teams and edits the singleton `TeamsInputConfiguration`, including polling, conversation debounce, source guidance, and enabled activity kinds.
+2. The page configures the Entra application, protects its optional client secret, owns Microsoft device-code sign-in, and loads searchable people, chat, and channel options directly from Microsoft Graph. The reusable `TeamsSourcePicker` handles each ignored list.
+3. Users can enable chat messages, channel messages, and transcript metadata independently. Transcript content is never downloaded by polling.
+4. Automatic polling and the Process now action both send `ProcessTeamsInputsUsecase`. Messages in one chat or channel thread wait for the configured quiet period and become one conversation-update event. Previously processed messages are labelled context and linked to their earlier event outcomes. The shared inbound pipeline deduplicates resulting events and establishes a current-time baseline on first use.
 5. Account passwords are never returned to the page, and editing with a blank password keeps the protected value already stored.
 
 ## Frontend asset flow

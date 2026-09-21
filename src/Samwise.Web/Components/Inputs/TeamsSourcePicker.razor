@@ -1,0 +1,49 @@
+<div class="teams-source-picker">
+    <div class="teams-source-search">
+        <input class="configuration-input"
+               value="@query"
+               placeholder="@Placeholder"
+               autocomplete="off"
+               @oninput="QueryChanged"
+               @onfocus="ShowSuggestions" />
+        @if (showSuggestions)
+        {
+            <div class="teams-source-suggestions">
+                @if (FilteredOptions.Count == 0)
+                {
+                    <div class="teams-source-no-results">No matching options.</div>
+                }
+                else
+                {
+                    @foreach (var option in FilteredOptions)
+                    {
+                        <button type="button" @onclick="() => AddAsync(option)">
+                            <strong>@option.DisplayName</strong>
+                            @if (!string.IsNullOrWhiteSpace(option.Detail))
+                            {
+                                <small>@option.Detail</small>
+                            }
+                        </button>
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    @if (Selected.Count == 0)
+    {
+        <div class="empty-inline teams-source-empty">@EmptyText</div>
+    }
+    else
+    {
+        <div class="teams-source-selection">
+            @foreach (var source in Selected)
+            {
+                <span>
+                    @source.DisplayName
+                    <button type="button" title="Remove @source.DisplayName" @onclick="() => RemoveAsync(source.Id)">×</button>
+                </span>
+            }
+        </div>
+    }
+</div>

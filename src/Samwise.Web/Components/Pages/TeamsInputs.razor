@@ -1,0 +1,241 @@
+@page "/configuration/inputs/teams"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Microsoft Teams inputs · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Configuration · Inputs</span>
+        <h1>Microsoft Teams</h1>
+        <p>Choose which Teams activity becomes input for Samwise and which conversations should stay quiet.</p>
+    </div>
+    <div class="heading-actions">
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(loading || !connectionState.Connected)">Refresh catalogue</LumexButton>
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(processing || !connectionState.Connected)">
+            @(processing ? "Processing…" : "Process now")
+        </LumexButton>
+        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@saving">
+            @(saving ? "Saving…" : "Save Teams settings")
+        </LumexButton>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(pageMessage))
+{
+    <div class="inline-alert teams-page-message @(pageMessageIsSuccess ? "inline-success" : null)">@pageMessage</div>
+}
+
+<div class="teams-settings-grid">
+    <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="email-card-body">
+            <div class="email-section-heading">
+                <div>
+                    <span class="email-section-icon" aria-hidden="true">↻</span>
+                    <div>
+                        <h2>Automatic processing</h2>
+                        <p>New enabled Teams activity is checked continuously while Samwise is running.</p>
+                    </div>
+                </div>
+                <span class="email-live-indicator"><i></i> Always on</span>
+            </div>
+
+            <label class="email-field compact-field">
+                <span>Polling interval</span>
+                <div class="email-input-with-suffix">
+                    <input class="configuration-input" type="number" min="1" max="1440" @bind="pollingIntervalMinutes" />
+                    <span>minutes</span>
+                </div>
+            </label>
+
+            <label class="email-field compact-field">
+                <span>Conversation debounce</span>
+                <div class="email-input-with-suffix">
+                    <input class="configuration-input" type="number" min="0" max="60" @bind="debounceMinutes" />
+                    <span>minutes</span>
+                </div>
+                <small>Messages arriving in the same chat or channel thread are handled together after this quiet period.</small>
+            </label>
+
+            <div class="teams-input-toggles">
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="includeChatMessages" />
+                    <span><strong>Chat messages</strong><small>Process new messages from one-to-one, group, and meeting chats.</small></span>
+                </label>
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="includeChannelMessages" />
+                    <span><strong>Channel messages</strong><small>Process new channel posts and replies.</small></span>
+                </label>
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="includeCallTranscripts" />
+                    <span><strong>Call transcripts</strong><small>Process new transcripts from meetings and calls organized by the connected account.</small></span>
+                </label>
+            </div>
+
+            @if (includeCallTranscripts)
+            {
+                <div class="teams-permission-note">
+                    Transcripts require application permissions and tenant transcript access in Microsoft Graph. If either is unavailable, message intake continues and Samwise reports the transcript error here.
+                </div>
+            }
+
+            <label class="email-field">
+                <span>Intake guidance</span>
+                <textarea class="configuration-input email-guidance-input"
+                          rows="5"
+                          placeholder="Describe how Teams conversations should be interpreted."
+                          @bind="intakeGuidance"
+                          @bind:event="oninput"></textarea>
+                <small>This trusted guidance is captured with every new Teams input.</small>
+            </label>
+        </LumexCardBody>
+    </LumexCard>
+
+    <LumexCard Class="email-settings-card teams-connection-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="email-card-body">
+            <div class="email-section-heading">
+                <div>
+                    <span class="email-section-icon" aria-hidden="true">T</span>
+                    <div>
+                        <h2>Microsoft Teams account</h2>
+                        <p>Samwise connects directly to Microsoft Graph to read the Teams activity selected below.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="email-account-form">
+                <label class="email-field">
+                    <span>Tenant ID</span>
+                    <input class="configuration-input"
+                           placeholder="organizations or tenant GUID"
+                           @bind="tenantId"
+                           @bind:event="oninput" />
+                    <small>Use the tenant GUID for a single-tenant application.</small>
+                </label>
+                <label class="email-field">
+                    <span>Application client ID</span>
+                    <input class="configuration-input"
+                           placeholder="Microsoft Entra application ID"
+                           @bind="clientId"
+                           @bind:event="oninput" />
+                </label>
+                <label class="email-field email-field-wide">
+                    <span>Client secret <em>optional</em></span>
+                    <input class="configuration-input"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="@(hasClientSecret ? "Saved — leave blank to keep it" : "Required only for transcript intake")"
+                           @bind="clientSecret"
+                           @bind:event="oninput" />
+                    <small>The secret is protected before it is stored. Delegated messages do not require it.</small>
+                </label>
+                @if (hasClientSecret)
+                {
+                    <label class="configuration-toggle email-field-wide">
+                        <input type="checkbox" @bind="removeClientSecret" />
+                        <span><strong>Remove saved client secret</strong><small>Transcript discovery will stop until another secret is saved.</small></span>
+                    </label>
+                }
+            </div>
+
+            @if (connectionState.Connected)
+            {
+                <div class="microsoft-email-authorization">
+                    <div>
+                        <strong>Connected</strong>
+                        <small>@(connectionState.Username ?? "Microsoft account")</small>
+                    </div>
+                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="DisconnectAsync" Disabled="@disconnecting">
+                        @(disconnecting ? "Disconnecting…" : "Disconnect")
+                    </LumexButton>
+                </div>
+
+                @if (loadingCatalog)
+                {
+                    <div class="empty-inline">Loading people, chats, and channels…</div>
+                }
+                else
+                {
+                    <dl class="teams-catalog-summary">
+                        <div><dt>People</dt><dd>@catalog.People.Count</dd></div>
+                        <div><dt>Chats</dt><dd>@catalog.Chats.Count</dd></div>
+                        <div><dt>Channels</dt><dd>@catalog.Channels.Count</dd></div>
+                    </dl>
+                }
+            }
+            else
+            {
+                <div class="microsoft-email-authorization">
+                    <div>
+                        <strong>Not connected</strong>
+                        <small>Sign in with the account whose Teams communication Samwise should process.</small>
+                    </div>
+                    @if (connectionState.PendingChallenge is null)
+                    {
+                        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Flat" OnClick="StartAuthorizationAsync" Disabled="@startingAuthorization">
+                            @(startingAuthorization ? "Starting sign-in…" : "Connect Microsoft account")
+                        </LumexButton>
+                    }
+                    else
+                    {
+                        <div class="microsoft-device-code">
+                            <span>Enter this code</span>
+                            <code>@connectionState.PendingChallenge.UserCode</code>
+                            <a href="@connectionState.PendingChallenge.VerificationUrl" target="_blank" rel="noopener noreferrer">Open Microsoft sign-in ↗</a>
+                            <small>Expires @connectionState.PendingChallenge.ExpiresAt.ToLocalTime().ToString("t").</small>
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(connectionState.Error))
+                {
+                    <div class="inline-alert">@connectionState.Error</div>
+                }
+
+                @if (connectionState.PendingChallenge is not null)
+                {
+                    <div class="email-card-actions">
+                        <small>After completing Microsoft sign-in, refresh the connection.</small>
+                        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">
+                            @(loading ? "Checking…" : "Refresh connection")
+                        </LumexButton>
+                    </div>
+                }
+            }
+
+            <div class="email-card-actions">
+                <span class="save-state">@FormatLastCheck(lastSuccessfulCheckAt)</span>
+            </div>
+        </LumexCardBody>
+    </LumexCard>
+</div>
+
+<section class="teams-ignore-section">
+    <div class="email-accounts-heading">
+        <div>
+            <h2>Ignored Teams activity</h2>
+            <p>Search the connected catalogue. Ignored activity is recorded as configuration, but is not sent to AI.</p>
+        </div>
+    </div>
+
+    <div class="teams-ignore-grid">
+        <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+            <LumexCardBody Class="email-card-body">
+                <div class="teams-ignore-heading"><span>01</span><div><h3>People</h3><p>Ignore messages authored by selected people.</p></div></div>
+                <TeamsSourcePicker Options="@catalog.People" Selected="@ignoredPeople" SelectedChanged="SetIgnoredPeople" Placeholder="Search people…" EmptyText="No people ignored." />
+            </LumexCardBody>
+        </LumexCard>
+        <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+            <LumexCardBody Class="email-card-body">
+                <div class="teams-ignore-heading"><span>02</span><div><h3>Chats</h3><p>Ignore complete one-to-one, group, or meeting chats.</p></div></div>
+                <TeamsSourcePicker Options="@catalog.Chats" Selected="@ignoredChats" SelectedChanged="SetIgnoredChats" Placeholder="Search chats…" EmptyText="No chats ignored." />
+            </LumexCardBody>
+        </LumexCard>
+        <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+            <LumexCardBody Class="email-card-body">
+                <div class="teams-ignore-heading"><span>03</span><div><h3>Channels</h3><p>Ignore all posts and replies in selected channels.</p></div></div>
+                <TeamsSourcePicker Options="@catalog.Channels" Selected="@ignoredChannels" SelectedChanged="SetIgnoredChannels" Placeholder="Search channels or teams…" EmptyText="No channels ignored." />
+            </LumexCardBody>
+        </LumexCard>
+    </div>
+</section>

@@ -1,5 +1,5 @@
-// Closes the phone "More" sheet after navigating. Enhanced navigation keeps the layout DOM,
-// so an open popover would otherwise stay open over the next page.
+// Phone shell behavior. Closes the "More" sheet after navigating: enhanced navigation keeps the
+// layout DOM, so an open popover would otherwise stay open over the next page.
 (() => {
     const hideSheet = () => {
         const sheet = document.getElementById("mobile-more-sheet");
@@ -15,4 +15,9 @@
     });
 
     window.Blazor?.addEventListener?.("enhancedload", hideSheet);
+
+    // Keeping the service worker registered lets the Home Screen app receive Web Push.
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => { });
+    }
 })();

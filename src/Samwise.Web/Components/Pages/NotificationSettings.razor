@@ -1,0 +1,167 @@
+@page "/settings/notifications"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Samwise.Domain.Notifications
+
+<PageTitle>Notifications · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Configuration</span>
+        <h1>Notifications</h1>
+        <p>Get a push notification when Samwise needs you, such as a plan waiting for approval or a question.</p>
+    </div>
+    <div class="heading-actions">
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="SendTestAsync" Disabled="@(sendingTest || devices.Count == 0)">
+            @(sendingTest ? "Sending…" : "Send test notification")
+        </LumexButton>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(pageMessage))
+{
+    <div class="inline-alert teams-page-message @(pageMessageIsSuccess ? "inline-success" : null)">@pageMessage</div>
+}
+
+@if (loading)
+{
+    <LoadingSkeleton Label="Loading notification settings" Rows="5" />
+}
+else
+{
+<div class="teams-settings-grid">
+    <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="email-card-body">
+            <div class="email-section-heading">
+                <div>
+                    <span class="email-section-icon" aria-hidden="true">◉</span>
+                    <div>
+                        <h2>This device</h2>
+                        <p>Notifications are delivered to each browser or Home Screen app you enable.</p>
+                    </div>
+                </div>
+            </div>
+
+            @if (browserState is null)
+            {
+                <LoadingSkeleton Label="Checking this browser" Rows="2" />
+            }
+            else if (!browserState.Supported && browserState.AppleMobile && !browserState.Standalone)
+            {
+                <div class="notification-install-steps">
+                    <strong>Add Samwise to your Home Screen first</strong>
+                    <ol>
+                        <li>Tap the <b>Share</b> button in Safari.</li>
+                        <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+                        <li>Open Samwise from the new icon and come back to this page.</li>
+                    </ol>
+                    <small>iOS only delivers web notifications to sites opened from the Home Screen.</small>
+                </div>
+            }
+            else if (!browserState.Supported)
+            {
+                <div class="inline-alert">This browser does not support Web Push notifications.</div>
+            }
+            else if (ThisDevice is { } device)
+            {
+                <div class="microsoft-email-authorization">
+                    <div>
+                        <strong>Notifications are on</strong>
+                        <p>@device.Name</p>
+                    </div>
+                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="() => RemoveAsync(device)" Disabled="@busy">Turn off</LumexButton>
+                </div>
+            }
+            else
+            {
+                <div class="microsoft-email-authorization">
+                    <div>
+                        <strong>Notifications are off on this device</strong>
+                        <p>@(browserState.Permission == "denied"
+                            ? "Notifications are blocked for Samwise. Allow them in the system settings first."
+                            : "You will be asked to allow notifications.")</p>
+                    </div>
+                    <button type="button" class="button-link button-link-primary" @ref="enableButton">Enable notifications</button>
+                </div>
+            }
+        </LumexCardBody>
+    </LumexCard>
+
+    <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="email-card-body">
+            <div class="email-section-heading">
+                <div>
+                    <span class="email-section-icon" aria-hidden="true">!</span>
+                    <div>
+                        <h2>Notify me when</h2>
+                        <p>Applies to every enabled device.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="teams-input-toggles">
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="notifyPlanAwaitingApproval" />
+                    <span><strong>A plan is ready for approval</strong><small>Approve or reject it straight from the notification.</small></span>
+                </label>
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="notifyQuestionAsked" />
+                    <span><strong>Samwise has a question</strong><small>Planning is paused until you answer.</small></span>
+                </label>
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="notifyNeedsAttention" />
+                    <span><strong>Something needs attention</strong><small>Planning or execution failed, or the outcome is unknown.</small></span>
+                </label>
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="notifyCompleted" />
+                    <span><strong>A work item is completed</strong><small>An approved plan finished successfully.</small></span>
+                </label>
+            </div>
+            <div class="email-card-actions">
+                <span></span>
+                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@busy">Save</LumexButton>
+            </div>
+        </LumexCardBody>
+    </LumexCard>
+</div>
+
+<section class="teams-ignore-section">
+    <div class="email-accounts-heading">
+        <div>
+            <h2>Enabled devices</h2>
+            <p>Devices that stop accepting notifications are removed automatically.</p>
+        </div>
+    </div>
+    @if (devices.Count == 0)
+    {
+        <div class="empty-inline">No devices yet. Enable notifications on your phone to get started.</div>
+    }
+    else
+    {
+        <div class="email-account-list">
+            @foreach (var device in devices)
+            {
+                <article class="email-account-card notification-device-card">
+                    <span class="email-account-mark" aria-hidden="true">@DeviceMark(device)</span>
+                    <div class="email-account-main">
+                        <div class="email-account-title">
+                            <h3>@device.Name</h3>
+                            @if (device.Id == ThisDevice?.Id)
+                            {
+                                <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Class="email-account-enabled">This device</LumexChip>
+                            }
+                        </div>
+                        <p>Added @device.CreatedAt.ToLocalTime().ToString("g")@(device.LastSucceededAt is { } delivered ? $" · last delivered {delivered.ToLocalTime():g}" : string.Empty)</p>
+                        @if (!string.IsNullOrWhiteSpace(device.LastError))
+                        {
+                            <div class="email-account-error">@device.LastError</div>
+                        }
+                    </div>
+                    <div class="email-account-actions">
+                        <LumexButton Size="@Size.Small" Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="() => RemoveAsync(device)" Disabled="@busy">Remove</LumexButton>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+}

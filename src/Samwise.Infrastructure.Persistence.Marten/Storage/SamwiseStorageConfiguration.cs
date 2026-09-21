@@ -1,6 +1,7 @@
 using Marten;
 using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
+using Samwise.Domain.Notifications;
 using Samwise.Inputs.Email;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
@@ -11,6 +12,7 @@ using Samwise.Inputs.Teams.InboundEvents.Conversations;
 using Samwise.Inputs.Teams.InboundEvents.Transcripts;
 using Samwise.Inputs.Todoist.Configuration;
 using Samwise.Inputs.Todoist.InboundEvents;
+using Samwise.Logic.Notifications;
 using Shared.Infrastructure.Persistence.Marten.StorageConfiguration;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 
@@ -42,5 +44,8 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
         options.Schema.For<TodoistInputConfiguration>();
         options.Schema.For<AgentConfiguration>();
         options.Schema.For<Playbook>().Index(playbook => playbook.IsEnabled);
+        options.Schema.For<NotificationSettings>();
+        options.Schema.For<PushDevice>();
+        options.Schema.For<PushApplicationKeys>();
     }
 }

@@ -471,6 +471,10 @@
     .todoist-toggle-list { display: flex; flex-wrap: wrap; gap: .4rem; }
     .todoist-toggle-list button { padding: .42rem .62rem; border: 1px solid #e4d7c8; border-radius: .65rem; color: #63574c; background: #fffdf8; font-size: .68rem; cursor: pointer; }
     .todoist-toggle-list button:hover { background: #f8efe1; }
+    .notification-install-steps { padding: 1rem; border: 1px solid #e4cfae; border-radius: .85rem; color: #6c5a47; background: #fbf1df; font-size: .82rem; line-height: 1.55; }
+    .notification-install-steps ol { margin: .5rem 0; padding-left: 1.2rem; }
+    .notification-install-steps small { color: #8d7c6c; }
+    .notification-device-card { grid-template-columns: 42px minmax(0, 1fr) auto; }
     .todoist-toggle-list button.is-selected { border-color: #d9b98a; color: #85571f; background: #f4e3c5; font-weight: 700; }
 
     /* Authentication and settings */

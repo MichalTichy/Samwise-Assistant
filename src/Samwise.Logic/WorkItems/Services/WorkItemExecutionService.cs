@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
+using Samwise.Domain.Notifications;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
+using Samwise.Logic.Notifications.Services;
 using Samwise.Logic.Prompts.Services;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
@@ -14,6 +16,7 @@ internal sealed class WorkItemExecutionService(
     IAgentRuntime runtime,
     IAgentPromptBuilder promptBuilder,
     IAgentInvocationService invocationService,
+    IWorkItemAttentionNotifier attentionNotifier,
     TimeProvider timeProvider,
     ILogger<WorkItemExecutionService> logger) : IWorkItemExecutionService
 {
@@ -90,6 +93,9 @@ internal sealed class WorkItemExecutionService(
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+            await attentionNotifier.NotifyAsync(
+                currentWorkItem,
+                result.Succeeded ? WorkItemAttentionKind.Completed : WorkItemAttentionKind.OutcomeUnknown);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -129,6 +135,10 @@ internal sealed class WorkItemExecutionService(
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, CancellationToken.None);
+            await attentionNotifier.NotifyAsync(
+                currentWorkItem,
+                mayHaveSideEffects ? WorkItemAttentionKind.OutcomeUnknown : WorkItemAttentionKind.NeedsAttention,
+                exception.Message);
         }
     }
 }

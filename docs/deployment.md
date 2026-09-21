@@ -79,6 +79,17 @@ Do not configure an HTTP header for this server. The API token authenticates the
 
 Samwise's Todoist input connects directly to the Todoist API and does not use the MCP server. It only reads. Paste a Todoist API token in **Configuration → Inputs → Todoist**. It may be the same token as `TODOIST_API_KEY`. Samwise protects it with the persisted Data Protection key ring before storing it. The page also sets the lead time, the overdue range, intake guidance, and ignored projects and labels.
 
+## iPhone notifications
+
+Samwise sends Web Push notifications. The HTTPS requirement below applies to your iPhone only, because iOS accepts web notifications only from a site opened from the Home Screen over trusted HTTPS. The Samwise container itself needs outbound HTTPS to the push services, such as `*.push.apple.com`.
+
+1. Optionally set `SAMWISE_WEB_PUSH_SUBJECT` to a `mailto:` or `https:` contact. When it is empty, Samwise uses `mailto:` + `SAMWISE_OWNER_EMAIL`. Apple rejects pushes without a valid subject.
+2. Open Samwise in Safari on the iPhone, tap **Share → Add to Home Screen**, and open Samwise from the new icon.
+3. Sign in, open **More → Notifications**, tap **Enable notifications**, and allow them.
+4. Tap **Send test notification**.
+
+The VAPID keys are created on first start and stored in the database, with the private key protected by the Data Protection key ring. Keep the `data-protection-keys` volume: losing it makes the stored key unreadable, and every device has to enable notifications again.
+
 ## Samwise self-management MCP
 
 Samwise hosts its own MCP endpoint in the web container. Put a long random value in `SAMWISE_MCP_API_KEY`, then add this HTTP MCP server in the Gateway admin UI:

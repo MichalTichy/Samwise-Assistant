@@ -55,6 +55,7 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 - [Samwise.Infrastructure.Email.Microsoft365](src/Samwise.Infrastructure.Email.Microsoft365/README.md) — Microsoft device-code authorization, protected MSAL sessions, token refresh, and XOAUTH2 authentication
 - [Samwise.Infrastructure.Teams](src/Samwise.Infrastructure.Teams/README.md) — direct Microsoft Graph adapter for Teams sign-in, catalog lookup, message polling, and transcript discovery
 - [Samwise.Infrastructure.Todoist](src/Samwise.Infrastructure.Todoist/README.md) — read-only Todoist API v1 adapter and task polling
+- [Samwise.Infrastructure.WebPush](src/Samwise.Infrastructure.WebPush/README.md) — VAPID keys and Web Push delivery for work-item notifications
 - [Samwise.Infrastructure.Mcp](src/Samwise.Infrastructure.Mcp/README.md) — authenticated first-party MCP read tools plus prompt and Playbook commands
 - [Samwise.Infrastructure.Persistence.Identity](src/Samwise.Infrastructure.Persistence.Identity/README.md) — ASP.NET Core Identity storage, migration, and owner initializer
 - [Samwise.Web](src/Samwise.Web/README.md) — authenticated Blazor composition root and presentation

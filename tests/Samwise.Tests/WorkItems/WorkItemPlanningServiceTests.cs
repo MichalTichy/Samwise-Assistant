@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Samwise.Domain.Agents;
+using Samwise.Domain.Notifications;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
+using Samwise.Logic.Notifications.Services;
 using Samwise.Logic.Prompts.Services;
 using Samwise.Logic.WorkItems.Services;
 using Shared.Infrastructure.Persistence.Repositories;
@@ -22,6 +24,7 @@ public sealed class WorkItemPlanningServiceTests
     {
         var workItem = DomainWorkItem.CreateFromInbound("Reply to Rosie.", "Reply to Rosie", Now);
         var invocationService = new StubInvocationService();
+        var notifier = new RecordingAttentionNotifier();
         var service = CreateService(
             workItem,
             new PlannerResult(
@@ -30,7 +33,8 @@ public sealed class WorkItemPlanningServiceTests
                 EmptyPlan(),
                 null,
                 Receipt()),
-            invocationService);
+            invocationService,
+            notifier);
 
         await service.PlanAsync(workItem.Id, CancellationToken.None);
 
@@ -40,6 +44,7 @@ public sealed class WorkItemPlanningServiceTests
         Assert.Equal(WorkItemCompletionKind.PlanningResolution, completion.Kind);
         Assert.Equal(invocationService.Invocation.Id, completion.AgentInvocationId);
         Assert.True(invocationService.Completed);
+        Assert.Empty(notifier.Notices);
     }
 
     [Fact]
@@ -72,6 +77,7 @@ public sealed class WorkItemPlanningServiceTests
     {
         var workItem = DomainWorkItem.CreateFromInbound("Schedule the proposed meeting.", null, Now);
         var invocationService = new StubInvocationService();
+        var notifier = new RecordingAttentionNotifier();
         var service = CreateService(
             workItem,
             new PlannerResult(
@@ -86,7 +92,8 @@ public sealed class WorkItemPlanningServiceTests
                         new PlanningQuestionOptionDraft("Use Tuesday", "Reschedule the conflicting meeting.")
                     ]),
                 Receipt()),
-            invocationService);
+            invocationService,
+            notifier);
 
         await service.PlanAsync(workItem.Id, CancellationToken.None);
 
@@ -97,16 +104,21 @@ public sealed class WorkItemPlanningServiceTests
         Assert.Equal(2, question.Options.Count);
         Assert.Equal(invocationService.Invocation.Id, question.PlanningInvocationId);
         Assert.True(invocationService.Completed);
+        var notice = Assert.Single(notifier.Notices);
+        Assert.Equal(WorkItemAttentionKind.QuestionAsked, notice.Kind);
+        Assert.Equal("How should the conflict be handled?", notice.Detail);
     }
 
     private static WorkItemPlanningService CreateService(
         DomainWorkItem workItem,
         PlannerResult result,
-        StubInvocationService invocationService) => new(
+        StubInvocationService invocationService,
+        RecordingAttentionNotifier? notifier = null) => new(
             new WorkItemRepository(workItem),
             new StubAgentRuntime(result),
             new StubPromptBuilder(),
             invocationService,
+            notifier ?? new RecordingAttentionNotifier(),
             new FixedTimeProvider(Now.AddMinutes(1)),
             NullLogger<WorkItemPlanningService>.Instance);
 
@@ -267,5 +279,16 @@ public sealed class WorkItemPlanningServiceTests
             IEnumerable<string> ids,
             CancellationToken cancellationToken = default,
             string? tenantId = null) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingAttentionNotifier : IWorkItemAttentionNotifier
+    {
+        public List<(WorkItemAttentionKind Kind, string? Detail)> Notices { get; } = [];
+
+        public Task NotifyAsync(DomainWorkItem workItem, WorkItemAttentionKind kind, string? detail = null)
+        {
+            Notices.Add((kind, detail));
+            return Task.CompletedTask;
+        }
     }
 }

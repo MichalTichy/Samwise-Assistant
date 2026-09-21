@@ -48,7 +48,6 @@ services:
     restart: unless-stopped
     environment:
       RIGANTI_IS_BEARER_TOKEN: "${RIGANTI_IS_BEARER_TOKEN:?Set RIGANTI_IS_BEARER_TOKEN in the Portainer stack environment}"
-      RIGANTI_IS_MCP_API_KEY: "${RIGANTI_IS_MCP_API_KEY:?Set RIGANTI_IS_MCP_API_KEY in the Portainer stack environment}"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -97,7 +96,6 @@ services:
       AdminUi__Password: "${CODEX_GATEWAY_ADMIN_PASSWORD:?Set CODEX_GATEWAY_ADMIN_PASSWORD in an ignored .env file}"
       ConnectionStrings__Gateway: "${CODEX_GATEWAY_CONNECTION_STRING:?Set CODEX_GATEWAY_CONNECTION_STRING in an ignored .env file}"
       SAMWISE_MCP_API_KEY: "${SAMWISE_MCP_API_KEY:?Set SAMWISE_MCP_API_KEY in an ignored .env file}"
-      RIGANTI_IS_MCP_API_KEY: "${RIGANTI_IS_MCP_API_KEY:?Set RIGANTI_IS_MCP_API_KEY in the Portainer stack environment}"
       Codex__Container__EngineExecutablePath: docker
       Codex__Container__Image: "${CODEX_GATEWAY_RUNNER_IMAGE:-registry.tichymichal.net/codex-gateway-runner:latest}"
       Codex__Container__WorkspaceVolume: "${CODEX_GATEWAY_DATA_VOLUME:-codex-gateway-data}"

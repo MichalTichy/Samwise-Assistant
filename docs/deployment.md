@@ -81,7 +81,7 @@ Samwise's Todoist input connects directly to the Todoist API and does not use th
 
 ## Riganti IS MCP
 
-The standalone Riganti IS MCP image runs as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_BEARER_TOKEN` to the Riganti IS token and `RIGANTI_IS_MCP_API_KEY` to a different long random value. The bearer token reaches only the MCP container. Gateway receives only the MCP key. These values are visible to Portainer stack administrators; do not commit them or put them in chat.
+The standalone Riganti IS MCP image runs as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_BEARER_TOKEN` to the Riganti IS token. The bearer token reaches only the MCP container. Its HTTP endpoint has no separate API key; Gateway controls agent access through its own API keys and tool grants. The token is visible to Portainer stack administrators; do not commit it or put it in chat.
 
 Register the server in Gateway admin UI:
 
@@ -90,7 +90,8 @@ Register the server in Gateway admin UI:
 | Name | `Riganti IS` |
 | URL | `http://riganti-is-mcp:8080/mcp` |
 | Execution mode | `Gateway` |
-| Environment headers | `X-Api-Key=RIGANTI_IS_MCP_API_KEY` |
+
+Do not configure an HTTP environment header for this server.
 
 Test discovery and enable the needed tools. Grant read tools to planning if it needs live Riganti context. Grant write tools only to execution, behind Samwise Work Item approval. In particular, `riganti_is_create_wage_bonus_request` and `riganti_is_create_invoice` create real records; invoice creation should follow the preview tool and explicit plan approval. The MCP server does not send invoices.
 

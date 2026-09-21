@@ -1,18 +1,16 @@
 using MediatR;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Samwise.Domain.Inbox;
+using Samwise.Logic.Inbox.Services;
 using Samwise.Logic.Inbox.Specifications;
 using Samwise.Logic.Inbox.Usecases;
 using Shared.Infrastructure.Persistence.Repositories;
 
-namespace Samwise.Inputs.Manual.Processing;
+namespace Samwise.Web.InboxProcessing;
 
-internal sealed class ManualInputProcessingBackgroundService(
-    IManualInputProcessingQueue queue,
+internal sealed class InboundEventProcessingBackgroundService(
+    IInboundEventProcessingQueue queue,
     IServiceScopeFactory scopeFactory,
-    ILogger<ManualInputProcessingBackgroundService> logger) : BackgroundService
+    ILogger<InboundEventProcessingBackgroundService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -45,7 +43,7 @@ internal sealed class ManualInputProcessingBackgroundService(
             await using var scope = scopeFactory.CreateAsyncScope();
             var repository = scope.ServiceProvider.GetRequiredService<IReadOnlyRepository<InboundEvent>>();
             var pending = await repository.ListAsync(new PendingInboundEventsSpecification(), cancellationToken);
-            foreach (var inboundEvent in pending.Where(item => item.Source == "Manual"))
+            foreach (var inboundEvent in pending)
             {
                 queue.Enqueue(inboundEvent.Id);
             }
@@ -56,7 +54,7 @@ internal sealed class ManualInputProcessingBackgroundService(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Recovering pending manual inputs failed");
+            logger.LogError(exception, "Recovering pending inbound events failed");
         }
     }
 
@@ -74,7 +72,7 @@ internal sealed class ManualInputProcessingBackgroundService(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Processing manual input {InboundEventId} failed", inboundEventId);
+            logger.LogError(exception, "Processing inbound event {InboundEventId} failed", inboundEventId);
         }
     }
 }

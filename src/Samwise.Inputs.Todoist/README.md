@@ -10,6 +10,7 @@ This is the complete application module for Todoist input. It owns the Todoist c
 - All-day tasks are due at the start of their day; floating times use the task timezone, then the Todoist account timezone.
 - The external identity is the task ID plus its due value, so a reschedule or the next occurrence of a recurring task is a new input. Earlier occurrences of the same task are supplied as linked context so intake can append to the existing work item.
 - Tasks in ignored projects or with an ignored label are recorded without an AI call.
+- A check captures and queues every eligible task before AI processing begins. A failure to capture one task is reported without blocking later tasks; pending events are recovered by the shared worker.
 - The connector never writes to Todoist. Completing or commenting on a task is an ordinary plan step that execution performs with the Gateway Todoist MCP tools, using the task ID from the work item's source reference.
 
 ## Structure

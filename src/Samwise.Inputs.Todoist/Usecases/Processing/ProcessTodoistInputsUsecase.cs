@@ -65,9 +65,26 @@ internal sealed class ProcessTodoistInputsUsecaseHandler(
                 .Where(item => item.ContextKey == contextKey)
                 .ToList();
             var inboundEvent = CreateEvent(task, dueAt!.Value, contextKey, configuration, now);
-            if (previousEvents.Any(item => item.ExternalId == inboundEvent.ExternalId))
+            var previousOccurrence = previousEvents.FirstOrDefault(
+                item => item.ExternalId == inboundEvent.ExternalId);
+            if (previousOccurrence is { Status: not InboundEventStatus.Pending })
             {
                 alreadyProcessed++;
+                continue;
+            }
+
+            if (previousOccurrence is { Status: InboundEventStatus.Pending })
+            {
+                try
+                {
+                    await captureService.CaptureAsync(previousOccurrence, cancellationToken);
+                    alreadyProcessed++;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    errors.Add($"Todoist task {task.TaskId} could not be processed: {exception.Message}");
+                }
+
                 continue;
             }
 
@@ -101,7 +118,19 @@ internal sealed class ProcessTodoistInputsUsecaseHandler(
                 inboundEvent.Context = BuildContext(previousEvents);
             }
 
-            var capture = await captureService.CaptureAsync(inboundEvent, cancellationToken);
+            InboundEventCaptureResult capture;
+            try
+            {
+                capture = await captureService.CaptureAsync(inboundEvent, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // One failed capture must not prevent later due tasks from being captured.
+                // If persistence succeeded before an enqueue failure, the shared worker
+                // will recover the pending event on its next sweep.
+                errors.Add($"Todoist task {task.TaskId} could not be captured: {exception.Message}");
+                continue;
+            }
             if (capture.AlreadyExisted)
             {
                 alreadyProcessed++;

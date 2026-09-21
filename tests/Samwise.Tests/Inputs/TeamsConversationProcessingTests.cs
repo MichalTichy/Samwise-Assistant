@@ -300,9 +300,6 @@ public sealed class TeamsConversationProcessingTests
             return Task.FromResult(new InboundEventCaptureResult(inboundEvent.Id, false));
         }
 
-        public Task<InboundEventCaptureResult> CaptureOnlyAsync(
-            InboundEvent inboundEvent,
-            CancellationToken cancellationToken) => CaptureAsync(inboundEvent, cancellationToken);
     }
 
     private sealed class ImmediateLock : ITeamsInputProcessingLock

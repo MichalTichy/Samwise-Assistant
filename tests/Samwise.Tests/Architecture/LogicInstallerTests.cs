@@ -49,6 +49,7 @@ public sealed class LogicInstallerTests
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IAgentInvocationService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventClassificationService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventProcessingService));
+        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventProcessingQueue));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IInboundEventCaptureService));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(MediatR.IRequestHandler<
             Samwise.Logic.Inbox.Usecases.ProcessCapturedInboundEventUsecase>));
@@ -74,8 +75,6 @@ public sealed class LogicInstallerTests
             descriptor => descriptor.ServiceType == typeof(MediatR.IRequestHandler<
                 Samwise.Inputs.Manual.Usecases.SubmitManualInputUsecase,
                 string>));
-        Assert.Contains(services, descriptor => descriptor.ServiceType.Name == "IManualInputProcessingQueue");
-        Assert.Contains(services, descriptor => descriptor.ImplementationType?.Name == "ManualInputProcessingBackgroundService");
     }
 
     [Fact]

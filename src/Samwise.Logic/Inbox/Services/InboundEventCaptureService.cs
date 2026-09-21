@@ -11,30 +11,15 @@ public interface IInboundEventCaptureService
     Task<InboundEventCaptureResult> CaptureAsync(
         InboundEvent inboundEvent,
         CancellationToken cancellationToken);
-
-    Task<InboundEventCaptureResult> CaptureOnlyAsync(
-        InboundEvent inboundEvent,
-        CancellationToken cancellationToken);
 }
 
 internal sealed class InboundEventCaptureService(
     IRepository<InboundEvent> repository,
-    IInboundEventProcessingService processingService,
+    IInboundEventProcessingQueue processingQueue,
     TimeProvider timeProvider) : IInboundEventCaptureService
 {
-    public Task<InboundEventCaptureResult> CaptureAsync(
+    public async Task<InboundEventCaptureResult> CaptureAsync(
         InboundEvent inboundEvent,
-        CancellationToken cancellationToken) =>
-        CaptureCoreAsync(inboundEvent, processImmediately: true, cancellationToken);
-
-    public Task<InboundEventCaptureResult> CaptureOnlyAsync(
-        InboundEvent inboundEvent,
-        CancellationToken cancellationToken) =>
-        CaptureCoreAsync(inboundEvent, processImmediately: false, cancellationToken);
-
-    private async Task<InboundEventCaptureResult> CaptureCoreAsync(
-        InboundEvent inboundEvent,
-        bool processImmediately,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inboundEvent.ExternalId);
@@ -49,9 +34,9 @@ internal sealed class InboundEventCaptureService(
             new InboundEventByDedupeKeySpecification(dedupeKey), cancellationToken);
         if (existing is not null)
         {
-            if (processImmediately && existing.Status == InboundEventStatus.Pending)
+            if (existing.Status == InboundEventStatus.Pending)
             {
-                await processingService.ProcessAsync(existing.Id, cancellationToken);
+                processingQueue.Enqueue(existing.Id);
             }
 
             return new InboundEventCaptureResult(existing.Id, true);
@@ -69,9 +54,9 @@ internal sealed class InboundEventCaptureService(
             : inboundEvent.Explanation.Trim();
 
         await repository.AddAsync(inboundEvent, cancellationToken);
-        if (processImmediately && inboundEvent.Status == InboundEventStatus.Pending)
+        if (inboundEvent.Status == InboundEventStatus.Pending)
         {
-            await processingService.ProcessAsync(inboundEvent.Id, cancellationToken);
+            processingQueue.Enqueue(inboundEvent.Id);
         }
 
         return new InboundEventCaptureResult(inboundEvent.Id, false);

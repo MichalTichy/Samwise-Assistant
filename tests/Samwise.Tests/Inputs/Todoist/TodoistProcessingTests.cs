@@ -123,6 +123,41 @@ public sealed class TodoistProcessingTests
     }
 
     [Fact]
+    public async Task FailureForOneTaskDoesNotPreventLaterTasksFromBeingCaptured()
+    {
+        var configuration = CreateConfiguration();
+        var capture = new RecordingCaptureService { FailOnTaskId = "first" };
+        var handler = CreateHandler(configuration, [],
+            [DueTask("first", "2026-09-21T13:00:00Z"), DueTask("second", "2026-09-21T14:00:00Z")],
+            capture);
+
+        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
+
+        Assert.Equal(1, result.Imported);
+        Assert.Single(result.Errors);
+        Assert.Contains("first", result.Errors[0]);
+        Assert.Equal(["first", "second"], capture.Events.Cast<TodoistTaskInboundEvent>()
+            .Select(item => item.TaskId));
+    }
+
+    [Fact]
+    public async Task PreviouslyPendingOccurrenceIsRetried()
+    {
+        var configuration = CreateConfiguration();
+        var previous = PreviousEvent("task-1", "2026-09-21T15:00:00Z", "work-item-1");
+        previous.Status = InboundEventStatus.Pending;
+        var capture = new RecordingCaptureService();
+        var reader = new StubReader([DueTask("task-1", "2026-09-21T15:00:00Z")]);
+        var handler = CreateHandler(configuration, [previous], reader, capture);
+
+        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
+
+        Assert.Equal(1, result.AlreadyProcessed);
+        Assert.Same(previous, Assert.Single(capture.Events));
+        Assert.Equal(0, reader.CommentReads);
+    }
+
+    [Fact]
     public async Task RescheduledTaskIsANewInputLinkedToTheEarlierOccurrence()
     {
         var configuration = CreateConfiguration();
@@ -215,6 +250,7 @@ public sealed class TodoistProcessingTests
         Due = new TodoistDue { Date = due },
         ContextKey = TodoistTaskInboundEvent.CreateContextKey(taskId),
         ReceivedAt = Now.AddDays(-1),
+        Status = InboundEventStatus.Processed,
         Outcomes =
         [
             new InboundEventOutcome
@@ -252,6 +288,7 @@ public sealed class TodoistProcessingTests
     private sealed class RecordingCaptureService : IInboundEventCaptureService
     {
         public List<InboundEvent> Events { get; } = [];
+        public string? FailOnTaskId { get; init; }
 
         public Task<InboundEventCaptureResult> CaptureAsync(
             InboundEvent inboundEvent,
@@ -259,12 +296,13 @@ public sealed class TodoistProcessingTests
         {
             inboundEvent.Id = $"captured-{Events.Count + 1}";
             Events.Add(inboundEvent);
+            if (inboundEvent is TodoistTaskInboundEvent task && task.TaskId == FailOnTaskId)
+            {
+                throw new InvalidOperationException("Simulated intake failure.");
+            }
             return Task.FromResult(new InboundEventCaptureResult(inboundEvent.Id, false));
         }
 
-        public Task<InboundEventCaptureResult> CaptureOnlyAsync(
-            InboundEvent inboundEvent,
-            CancellationToken cancellationToken) => CaptureAsync(inboundEvent, cancellationToken);
     }
 
     private sealed class ImmediateLock : ITodoistInputProcessingLock

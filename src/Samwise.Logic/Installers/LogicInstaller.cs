@@ -18,6 +18,7 @@ public sealed class LogicInstaller : IInstaller
         services.AddScoped<IAgentInvocationService, AgentInvocationService>();
         services.AddScoped<IInboundEventClassificationService, InboundEventClassificationService>();
         services.AddScoped<IInboundEventProcessingService, InboundEventProcessingService>();
+        services.AddSingleton<IInboundEventProcessingQueue, InboundEventProcessingQueue>();
         services.AddScoped<IInboundEventCaptureService, InboundEventCaptureService>();
         services.AddScoped<IWorkItemPlanningService, WorkItemPlanningService>();
         services.AddScoped<IWorkItemExecutionService, WorkItemExecutionService>();

@@ -1,6 +1,6 @@
-namespace Samwise.Inputs.Manual.Processing;
+namespace Samwise.Logic.Inbox.Services;
 
-internal interface IManualInputProcessingQueue
+public interface IInboundEventProcessingQueue
 {
     void Enqueue(string inboundEventId);
 

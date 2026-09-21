@@ -50,6 +50,8 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 3. The page navigates to the inbox audit view immediately. The inbox refreshes while pending events remain.
 4. `Inbox` reads `InboundEvent` documents with `InboxEventsSpecification` and can send a retry command for events needing review.
 
+The Web-hosted `InboundEventProcessingBackgroundService` handles the shared queue for every input source. It runs Intake and Planning one event at a time, then periodically requeues persisted pending events so a restart cannot lose them. Connector checks and manual submission return after capture, not after AI processing.
+
 ## Work-item flow
 
 1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards, including a separate Needs your input column for planning questions.

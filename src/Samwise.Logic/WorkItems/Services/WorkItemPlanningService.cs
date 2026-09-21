@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
-using Samwise.Domain.Notifications;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
@@ -150,10 +149,7 @@ internal sealed class WorkItemPlanningService(
                     CreatedAt = timeProvider.GetUtcNow()
                 }, timeProvider.GetUtcNow());
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-                await attentionNotifier.NotifyAsync(
-                    currentWorkItem,
-                    WorkItemAttentionKind.QuestionAsked,
-                    currentWorkItem.PendingPlanningQuestion?.Prompt);
+                await attentionNotifier.NotifyAsync(currentWorkItem, currentWorkItem.PendingPlanningQuestion?.Prompt);
                 return;
             }
 
@@ -201,7 +197,7 @@ internal sealed class WorkItemPlanningService(
             };
             currentWorkItem.ApplyPlan(plan, timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-            await attentionNotifier.NotifyAsync(currentWorkItem, WorkItemAttentionKind.PlanAwaitingApproval);
+            await attentionNotifier.NotifyAsync(currentWorkItem);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -233,7 +229,7 @@ internal sealed class WorkItemPlanningService(
             {
                 currentWorkItem.MarkPlanningFailed(timeProvider.GetUtcNow());
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-                await attentionNotifier.NotifyAsync(currentWorkItem, WorkItemAttentionKind.NeedsAttention);
+                await attentionNotifier.NotifyAsync(currentWorkItem);
             }
         }
     }

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Samwise.Domain.Agents;
-using Samwise.Domain.Notifications;
 using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.Agents;
@@ -105,7 +104,7 @@ public sealed class WorkItemPlanningServiceTests
         Assert.Equal(invocationService.Invocation.Id, question.PlanningInvocationId);
         Assert.True(invocationService.Completed);
         var notice = Assert.Single(notifier.Notices);
-        Assert.Equal(WorkItemAttentionKind.QuestionAsked, notice.Kind);
+        Assert.Equal(WorkItemStatus.AwaitingUserInput, notice.Status);
         Assert.Equal("How should the conflict be handled?", notice.Detail);
     }
 
@@ -283,11 +282,11 @@ public sealed class WorkItemPlanningServiceTests
 
     private sealed class RecordingAttentionNotifier : IWorkItemAttentionNotifier
     {
-        public List<(WorkItemAttentionKind Kind, string? Detail)> Notices { get; } = [];
+        public List<(WorkItemStatus Status, string? Detail)> Notices { get; } = [];
 
-        public Task NotifyAsync(DomainWorkItem workItem, WorkItemAttentionKind kind, string? detail = null)
+        public Task NotifyAsync(DomainWorkItem workItem, string? detail = null)
         {
-            Notices.Add((kind, detail));
+            Notices.Add((workItem.Status, detail));
             return Task.CompletedTask;
         }
     }

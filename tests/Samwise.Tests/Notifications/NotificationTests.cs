@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Samwise.Domain.Notifications;
+using Samwise.Domain.WorkItems;
 using Samwise.Logic.Notifications;
 using Samwise.Logic.Notifications.Services;
 using Samwise.Logic.Notifications.Usecases;
@@ -24,7 +25,7 @@ public sealed class NotificationTests
             push);
 
         await handler.Handle(
-            new WorkItemAttentionRequired("wi-1", WorkItemAttentionKind.PlanAwaitingApproval, "Send Rosie the offer", null),
+            new WorkItemAttentionRequired("wi-1", WorkItemStatus.AwaitingApproval, "Send Rosie the offer", null),
             CancellationToken.None);
 
         var message = Assert.Single(push.Sent);
@@ -36,15 +37,16 @@ public sealed class NotificationTests
     }
 
     [Theory]
-    [InlineData(WorkItemAttentionKind.Completed)]
-    [InlineData(WorkItemAttentionKind.OutcomeUnknown)]
-    public async Task DisabledKindIsNotSent(WorkItemAttentionKind kind)
+    [InlineData(WorkItemStatus.Completed)]
+    [InlineData(WorkItemStatus.OutcomeUnknown)]
+    [InlineData(WorkItemStatus.Planning)]
+    public async Task DisabledOrUninterestingStatusIsNotSent(WorkItemStatus status)
     {
         var push = new RecordingPushService();
         var settings = new NotificationSettings { NotifyNeedsAttention = false, NotifyCompleted = false };
         var handler = new WorkItemAttentionRequiredHandler(new MemoryRepository<NotificationSettings>([settings]), push);
 
-        await handler.Handle(new WorkItemAttentionRequired("wi-1", kind, "Title", null), CancellationToken.None);
+        await handler.Handle(new WorkItemAttentionRequired("wi-1", status, "Title", null), CancellationToken.None);
 
         Assert.Empty(push.Sent);
     }
@@ -54,7 +56,7 @@ public sealed class NotificationTests
     {
         var message = WorkItemAttentionRequiredHandler.CreateMessage(new WorkItemAttentionRequired(
             "wi-1",
-            WorkItemAttentionKind.QuestionAsked,
+            WorkItemStatus.AwaitingUserInput,
             "Plan the review",
             new string('x', 400)));
 
@@ -133,7 +135,7 @@ public sealed class NotificationTests
             NullLogger<WorkItemAttentionNotifier>.Instance);
         var workItem = DomainWorkItem.CreateFromInbound("Reply to Rosie.", "Reply to Rosie", Now);
 
-        await notifier.NotifyAsync(workItem, WorkItemAttentionKind.PlanAwaitingApproval);
+        await notifier.NotifyAsync(workItem);
     }
 
     private static PushDevice Device(string name) => new()

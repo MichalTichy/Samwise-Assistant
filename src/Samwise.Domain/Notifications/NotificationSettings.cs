@@ -1,3 +1,4 @@
+using Samwise.Domain.WorkItems;
 using Shared.Infrastructure.Persistence;
 
 namespace Samwise.Domain.Notifications;
@@ -12,12 +13,13 @@ public sealed class NotificationSettings : IItemWithId
     public bool NotifyNeedsAttention { get; set; } = true;
     public bool NotifyCompleted { get; set; }
 
-    public bool IsEnabled(WorkItemAttentionKind kind) => kind switch
+    /// <summary>Whether reaching <paramref name="status"/> should notify the owner.</summary>
+    public bool IsEnabled(WorkItemStatus status) => status switch
     {
-        WorkItemAttentionKind.PlanAwaitingApproval => NotifyPlanAwaitingApproval,
-        WorkItemAttentionKind.QuestionAsked => NotifyQuestionAsked,
-        WorkItemAttentionKind.NeedsAttention or WorkItemAttentionKind.OutcomeUnknown => NotifyNeedsAttention,
-        WorkItemAttentionKind.Completed => NotifyCompleted,
+        WorkItemStatus.AwaitingApproval => NotifyPlanAwaitingApproval,
+        WorkItemStatus.AwaitingUserInput => NotifyQuestionAsked,
+        WorkItemStatus.NeedsAttention or WorkItemStatus.OutcomeUnknown => NotifyNeedsAttention,
+        WorkItemStatus.Completed => NotifyCompleted,
         _ => false
     };
 }

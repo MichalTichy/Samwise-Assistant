@@ -1,5 +1,6 @@
 using MediatR;
 using Samwise.Domain.Notifications;
+using Samwise.Domain.WorkItems;
 using Samwise.Logic.Notifications.Services;
 using Shared.Infrastructure.Persistence.Repositories;
 
@@ -15,7 +16,7 @@ internal sealed class WorkItemAttentionRequiredHandler(
     {
         var settings = await settingsRepository.GetByIdAsync(NotificationSettings.DocumentId, cancellationToken)
             ?? new NotificationSettings();
-        if (!settings.IsEnabled(notification.Kind))
+        if (!settings.IsEnabled(notification.Status))
         {
             return;
         }
@@ -25,13 +26,13 @@ internal sealed class WorkItemAttentionRequiredHandler(
 
     internal static PushNotification CreateMessage(WorkItemAttentionRequired notification)
     {
-        var title = notification.Kind switch
+        var title = notification.Status switch
         {
-            WorkItemAttentionKind.PlanAwaitingApproval => "Plan ready for approval",
-            WorkItemAttentionKind.QuestionAsked => "Samwise has a question",
-            WorkItemAttentionKind.NeedsAttention => "Work item needs attention",
-            WorkItemAttentionKind.OutcomeUnknown => "Execution outcome is unknown",
-            WorkItemAttentionKind.Completed => "Work item completed",
+            WorkItemStatus.AwaitingApproval => "Plan ready for approval",
+            WorkItemStatus.AwaitingUserInput => "Samwise has a question",
+            WorkItemStatus.NeedsAttention => "Work item needs attention",
+            WorkItemStatus.OutcomeUnknown => "Execution outcome is unknown",
+            WorkItemStatus.Completed => "Work item completed",
             _ => "Samwise"
         };
         var body = string.IsNullOrWhiteSpace(notification.Detail)
@@ -48,6 +49,6 @@ internal sealed class WorkItemAttentionRequiredHandler(
             $"/work-items/{Uri.EscapeDataString(notification.WorkItemId)}",
             // One notification per work item: a newer state replaces the older banner.
             $"workitem-{notification.WorkItemId}",
-            notification.Kind is WorkItemAttentionKind.PlanAwaitingApproval or WorkItemAttentionKind.QuestionAsked);
+            notification.Status is WorkItemStatus.AwaitingApproval or WorkItemStatus.AwaitingUserInput);
     }
 }

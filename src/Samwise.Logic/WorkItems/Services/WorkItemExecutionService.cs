@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Samwise.Domain.Agents;
-using Samwise.Domain.Notifications;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Agents.Services;
 using Samwise.Logic.Notifications.Services;
@@ -93,9 +92,7 @@ internal sealed class WorkItemExecutionService(
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-            await attentionNotifier.NotifyAsync(
-                currentWorkItem,
-                result.Succeeded ? WorkItemAttentionKind.Completed : WorkItemAttentionKind.OutcomeUnknown);
+            await attentionNotifier.NotifyAsync(currentWorkItem);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -135,10 +132,7 @@ internal sealed class WorkItemExecutionService(
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, CancellationToken.None);
-            await attentionNotifier.NotifyAsync(
-                currentWorkItem,
-                mayHaveSideEffects ? WorkItemAttentionKind.OutcomeUnknown : WorkItemAttentionKind.NeedsAttention,
-                exception.Message);
+            await attentionNotifier.NotifyAsync(currentWorkItem, exception.Message);
         }
     }
 }

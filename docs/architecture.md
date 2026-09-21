@@ -134,17 +134,17 @@ Samwise does not write to Todoist from the connector. Completing, commenting on,
 
 Samwise tells the owner when a work item needs them through standard Web Push, which also reaches an iPhone once Samwise is added to the Home Screen (iOS 16.4+).
 
-`WorkItemPlanningService` and `WorkItemExecutionService` call `IWorkItemAttentionNotifier` **after** persisting these transitions:
+`WorkItemPlanningService` and `WorkItemExecutionService` call `IWorkItemAttentionNotifier` **after** persisting a transition into one of these statuses. The notification carries the status the work item has just reached:
 
-| Transition | Kind | Default |
-|---|---|---|
-| plan applied (`AwaitingApproval`) | `PlanAwaitingApproval` | on |
-| planner question (`AwaitingUserInput`) | `QuestionAsked` | on |
-| planning or pre-execution failure (`NeedsAttention`) | `NeedsAttention` | on |
-| lost or uncertain execution result (`OutcomeUnknown`) | `OutcomeUnknown` | on (with needs attention) |
-| execution succeeded | `Completed` | off |
+| Status reached | Default |
+|---|---|
+| `AwaitingApproval` (plan applied) | on |
+| `AwaitingUserInput` (planner question) | on |
+| `NeedsAttention` (planning or pre-execution failure) | on |
+| `OutcomeUnknown` (lost or uncertain execution result) | on (with needs attention) |
+| `Completed` (execution succeeded) | off |
 
-The notifier publishes the MediatR `WorkItemAttentionRequired` notification and logs, never throws, so a push failure cannot change a workflow outcome. `WorkItemAttentionRequiredHandler` checks the singleton `NotificationSettings` document and sends one message per `PushDevice` with the work-item URL and a per-item tag, so a newer state replaces the older banner. Devices whose push service answers 404/410 are deleted, and other failures are recorded on the device.
+Only these call sites notify. For example, a work item that planning closes as already resolved also ends `Completed`, but it sends nothing. The notifier publishes the MediatR `WorkItemAttentionRequired` notification and logs, never throws, so a push failure cannot change a workflow outcome. `WorkItemAttentionRequiredHandler` checks the singleton `NotificationSettings` document and sends one message per `PushDevice` with the work-item URL and a per-item tag, so a newer state replaces the older banner. Devices whose push service answers 404/410 are deleted, and other failures are recorded on the device.
 
 `Samwise.Infrastructure.WebPush` implements the `IPushNotificationSender` port with Lib.Net.Http.WebPush (VAPID, aes128gcm). The VAPID key pair is generated once at startup into `PushApplicationKeys`, with the private key protected by Data Protection. The VAPID subject is `WebPush:Subject`, falling back to `mailto:` + the owner e-mail. Notification action buttons are not supported by iOS, so a tap opens the work item, and approval happens in the app's floating decision bar.
 

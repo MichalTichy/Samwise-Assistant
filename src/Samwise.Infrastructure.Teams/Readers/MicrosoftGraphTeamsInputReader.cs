@@ -10,10 +10,13 @@ namespace Samwise.Infrastructure.Teams.Readers;
 
 internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : ITeamsInputReader
 {
+    internal const string RecentChatsPath =
+        "me/chats?$top=50&$orderby=lastMessagePreview/createdDateTime desc";
+
     public async Task<TeamsInputCatalog> GetCatalogAsync(CancellationToken cancellationToken = default)
     {
         var chats = await graph.GetDelegatedCollectionAsync(
-            "me/chats?$top=50&$orderby=lastUpdatedDateTime desc",
+            RecentChatsPath,
             cancellationToken);
 
         var people = new Dictionary<string, TeamsInputSourceOption>(StringComparer.Ordinal);
@@ -141,7 +144,7 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         CancellationToken cancellationToken)
     {
         var chats = await client.GetDelegatedCollectionAsync(
-            "me/chats?$top=50&$orderby=lastUpdatedDateTime desc",
+            RecentChatsPath,
             cancellationToken);
         foreach (var chat in chats)
         {

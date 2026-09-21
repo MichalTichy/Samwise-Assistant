@@ -11,7 +11,7 @@ public sealed record TodoistTaskSnapshot(
     IReadOnlyList<string> Labels,
     int Priority,
     TodoistDue Due,
-    string? DeadlineDate,
+    DateOnly? DeadlineDate,
     string Url);
 
 public sealed record TodoistCommentSnapshot(string CommentId, DateTimeOffset? PostedAt, string Content);

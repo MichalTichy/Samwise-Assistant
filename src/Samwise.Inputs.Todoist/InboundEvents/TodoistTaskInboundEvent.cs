@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Samwise.Domain.Inbox;
 
@@ -16,7 +17,7 @@ public sealed class TodoistTaskInboundEvent : InboundEvent
     public int Priority { get; set; } = 1;
     public required TodoistDue Due { get; set; }
     public DateTimeOffset DueAt { get; set; }
-    public string? DeadlineDate { get; set; }
+    public DateOnly? DeadlineDate { get; set; }
     public string? Url { get; set; }
     public List<TodoistTaskComment> Comments { get; set; } = [];
 
@@ -58,9 +59,9 @@ public sealed class TodoistTaskInboundEvent : InboundEvent
         }
 
         text.AppendLine();
-        if (!string.IsNullOrWhiteSpace(DeadlineDate))
+        if (DeadlineDate is { } deadline)
         {
-            text.Append("Deadline: ").AppendLine(DeadlineDate);
+            text.Append("Deadline: ").AppendLine(deadline.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         }
 
         if (!string.IsNullOrWhiteSpace(Description))

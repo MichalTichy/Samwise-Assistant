@@ -57,7 +57,7 @@ public sealed class TodoistTaskMappingTests
         Assert.Equal("2026-09-22T09:00:00", task.Due.Date);
         Assert.Equal("Europe/Prague", task.Due.Timezone);
         Assert.Equal("tomorrow at 9", task.Due.Text);
-        Assert.Equal("2026-09-25", task.DeadlineDate);
+        Assert.Equal(new DateOnly(2026, 9, 25), task.DeadlineDate);
         Assert.Equal("https://app.todoist.com/app/task/6X7rM8997g3RQmvh", task.Url);
     }
 
@@ -70,6 +70,19 @@ public sealed class TodoistTaskMappingTests
         using var document = JsonDocument.Parse(json);
 
         Assert.Null(TodoistRestTaskReader.MapTask(document.RootElement, new Dictionary<string, string>()));
+    }
+
+    [Fact]
+    public void ReaderDropsAnUnreadableDeadline()
+    {
+        using var document = JsonDocument.Parse("""
+            { "id": "1", "content": "Odd", "due": { "date": "2026-09-22" }, "deadline": { "date": "soon" } }
+            """);
+
+        var task = TodoistRestTaskReader.MapTask(document.RootElement, new Dictionary<string, string>());
+
+        Assert.NotNull(task);
+        Assert.Null(task.DeadlineDate);
     }
 
     [Fact]
@@ -89,6 +102,7 @@ public sealed class TodoistTaskMappingTests
             TaskId = "task-1",
             Content = "Call Rosie",
             Due = new TodoistDue { Date = "2026-09-22", Text = "tomorrow", IsRecurring = true },
+            DeadlineDate = new DateOnly(2026, 9, 25),
             Comments = [new TodoistTaskComment { CommentId = "c-1", Content = "Ask about Friday" }]
         };
 
@@ -98,6 +112,8 @@ public sealed class TodoistTaskMappingTests
         Assert.NotNull(roundTrip);
         Assert.Equal(inboundEvent.ExternalId, roundTrip.ExternalId);
         Assert.True(roundTrip.Due.IsRecurring);
+        Assert.Equal(new DateOnly(2026, 9, 25), roundTrip.DeadlineDate);
+        Assert.Contains("Deadline: 2026-09-25", roundTrip.GetIntakeText());
         Assert.Equal("Ask about Friday", Assert.Single(roundTrip.Comments).Content);
     }
 

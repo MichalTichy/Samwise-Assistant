@@ -99,9 +99,17 @@ internal sealed class TodoistRestTaskReader(
                 .Select(label => label.GetString()!)
                 .ToList()
             : [];
-        var deadline = task.TryGetProperty("deadline", out var deadlineValue) && deadlineValue.ValueKind == JsonValueKind.Object
-            ? GetString(deadlineValue, "date")
-            : null;
+        // A deadline is a calendar date without time or timezone; an unreadable value is dropped, not fatal.
+        var deadline = task.TryGetProperty("deadline", out var deadlineValue)
+            && deadlineValue.ValueKind == JsonValueKind.Object
+            && DateOnly.TryParseExact(
+                GetString(deadlineValue, "date"),
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var deadlineDate)
+                ? deadlineDate
+                : (DateOnly?)null;
         return new TodoistTaskSnapshot(
             id,
             GetString(task, "content") ?? string.Empty,

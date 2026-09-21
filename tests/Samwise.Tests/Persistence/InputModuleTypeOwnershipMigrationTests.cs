@@ -1,14 +1,46 @@
 using Newtonsoft.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Samwise.Domain.Inbox;
+using Samwise.Infrastructure.Persistence.Marten.Installers;
+using Samwise.Infrastructure.Persistence.Marten.Initialization;
 using Samwise.Infrastructure.Persistence.Marten.Migrations;
 using Samwise.Inputs.Email;
 using Samwise.Inputs.Email.Events;
 using Samwise.Inputs.Manual.Events;
+using Shared.Infrastructure.Initializer;
+using Shared.Infrastructure.Persistence.Marten.Migration;
 
 namespace Samwise.Tests.Persistence;
 
 public sealed class InputModuleTypeOwnershipMigrationTests
 {
+    [Fact]
+    public void PersistenceInstallerRegistersMigrationsAndRunsThemBeforeDocumentInitializers()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:samwise"] = "Host=localhost;Database=samwise;Username=test;Password=test"
+        }).Build();
+        new MartenInstaller().Install(services, configuration, isProduction: false);
+        services.AddAllInitializers("Samwise");
+
+        using var provider = services.BuildServiceProvider();
+        var migrations = provider.GetServices<IMartenMigration>().ToList();
+
+        Assert.Contains(migrations, migration => migration is MigrateInputModuleTypeOwnership);
+        Assert.Contains(migrations, migration => migration is MigrateInboundEventsToMultipleOutcomes);
+        Assert.Contains(services, service => service.ServiceType == typeof(IInitializer)
+            && service.ImplementationType == typeof(SamwiseDatabaseMigrationInitializer));
+        var databaseInitializer = services.Single(service => service.ImplementationType ==
+            typeof(SamwiseDatabaseMigrationInitializer));
+        Assert.Equal(ServiceLifetime.Transient, databaseInitializer.Lifetime);
+        var databasePriority = new SamwiseDatabaseMigrationInitializer(null!, null!).Priority;
+        var emailPriority = new Samwise.Inputs.Email.Initialization.EmailInputConfigurationInitializer(null!).Priority;
+        Assert.True(databasePriority > emailPriority);
+    }
+
     [Theory]
     [InlineData(
         "Samwise.Domain.Inbox.ManualInboundEvent, Samwise.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",

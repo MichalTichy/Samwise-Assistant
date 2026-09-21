@@ -5,6 +5,7 @@ This project applies Samwise-specific document mappings to the reusable shared M
 ## Main components
 
 - `MartenInstaller` resolves the `samwise` PostgreSQL connection string, registers the Npgsql data source, supplies Samwise storage configuration, and enables the shared Marten repositories with tenancy disabled.
+- `SamwiseDatabaseMigrationInitializer` prepares the Marten schema and runs pending versioned migrations before configuration documents are read at startup. Samwise expects PostgreSQL itself to exist already.
 - `SamwiseStorageConfiguration` selects the `samwise` schema and registers documents, indexes, and uniqueness rules.
 - `Migrations/` contains versioned `IMartenMigration` implementations for transforming existing Samwise documents when their persisted shape changes.
 

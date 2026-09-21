@@ -2,7 +2,7 @@
 
 Samwise is a single-user personal assistant that turns incoming information into approved, executable work.
 
-Version 1 accepts manual text plus received and sent email messages from configured IMAP accounts in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline that future Microsoft Teams and Todoist connectors can also use:
+Version 1 accepts manual text, received and sent email messages, and configured Microsoft Teams activity in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline:
 
 ```mermaid
 flowchart LR
@@ -44,11 +44,15 @@ The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless
 
 - [Samwise.Domain](src/Samwise.Domain/README.md) — work item, plan, playbook, agent-stage configuration, inbound-event, comment, and invocation state
 - [Samwise.Logic](src/Samwise.Logic/README.md) — externally triggered MediatR use cases, reusable workflow services, public read specifications, playbook steering, prompt rendering, and UI-facing models
+- [Samwise.Inputs.Manual](src/Samwise.Inputs.Manual/README.md) — manual-input event and submit use case
+- [Samwise.Inputs.Email](src/Samwise.Inputs.Email/README.md) — email documents, events, ports, processing, configuration, and initialization
+- [Samwise.Inputs.Teams](src/Samwise.Inputs.Teams/README.md) — Teams documents, events, ports, processing, configuration, and initialization
 - [Samwise.Infrastructure.Persistence.Marten](src/Samwise.Infrastructure.Persistence.Marten/README.md) — only Marten registration and Samwise document mappings
 - [Samwise.Infrastructure.AgentRuntimes](src/Samwise.Infrastructure.AgentRuntimes/README.md) — provider-neutral endpoint configuration plus the standard OpenAI/Agent Framework implementation of `IAgentRuntime`
 - [Samwise.Infrastructure.CodexGateway](src/Samwise.Infrastructure.CodexGateway/README.md) — only the Gateway-specific model-capability and versioned MCP tool catalogs
 - [Samwise.Infrastructure.Email.Imap](src/Samwise.Infrastructure.Email.Imap/README.md) — provider-neutral read-only MailKit transport, password authentication, credential protection, and polling trigger
 - [Samwise.Infrastructure.Email.Microsoft365](src/Samwise.Infrastructure.Email.Microsoft365/README.md) — Microsoft device-code authorization, protected MSAL sessions, token refresh, and XOAUTH2 authentication
+- [Samwise.Infrastructure.Teams](src/Samwise.Infrastructure.Teams/README.md) — direct Microsoft Graph adapter for Teams sign-in, catalog lookup, message polling, and transcript discovery
 - [Samwise.Infrastructure.Mcp](src/Samwise.Infrastructure.Mcp/README.md) — authenticated first-party MCP read tools plus prompt and Playbook commands
 - [Samwise.Infrastructure.Persistence.Identity](src/Samwise.Infrastructure.Persistence.Identity/README.md) — ASP.NET Core Identity storage, migration, and owner initializer
 - [Samwise.Web](src/Samwise.Web/README.md) — authenticated Blazor composition root and presentation
@@ -131,7 +135,7 @@ dotnet test tests/Samwise.Tests/Samwise.Tests.csproj --no-build --no-restore
 
 ## Deploy with Docker Compose
 
-The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, and Todoist MCP, using an existing PostgreSQL instance. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
+The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, Teams MCP, and Todoist MCP, using an existing PostgreSQL instance. Samwise's Teams intake connects directly to Microsoft Graph; the separate Teams MCP is only an optional Gateway tool provider for agents. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
 
 Copy `.env.example` to the ignored `.env`, replace every secret placeholder, then run:
 

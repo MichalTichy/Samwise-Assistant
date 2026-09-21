@@ -5,6 +5,8 @@ using Samwise.Logic.Inbox.Services;
 using Samwise.Inputs.Email.Services;
 using Samwise.Inputs.Email.Installers;
 using Samwise.Inputs.Manual.Installers;
+using Samwise.Inputs.Teams.Installers;
+using Samwise.Inputs.Teams.Ingestion;
 using Samwise.Logic.Installers;
 using Samwise.Logic.Prompts;
 using Samwise.Logic.Prompts.Services;
@@ -61,8 +63,10 @@ public sealed class LogicInstallerTests
 
         new ManualInputInstaller().Install(services, configuration, isProduction: false);
         new EmailInputInstaller().Install(services, configuration, isProduction: false);
+        new TeamsInputModuleInstaller().Install(services, configuration, isProduction: false);
 
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IEmailAccountProcessingLock));
+        Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(ITeamsInputProcessingLock));
         Assert.Contains(
             services,
             descriptor => descriptor.ServiceType == typeof(MediatR.IRequestHandler<
@@ -104,6 +108,7 @@ public sealed class LogicInstallerTests
     [
         typeof(LogicInstaller).Assembly,
         typeof(ManualInputInstaller).Assembly,
-        typeof(EmailInputInstaller).Assembly
+        typeof(EmailInputInstaller).Assembly,
+        typeof(TeamsInputModuleInstaller).Assembly
     ];
 }

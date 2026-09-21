@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.89.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Samwise.Inputs.Teams\Samwise.Inputs.Teams.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.IoC\Shared.Infrastructure.IoC.csproj" />
+  </ItemGroup>
+</Project>

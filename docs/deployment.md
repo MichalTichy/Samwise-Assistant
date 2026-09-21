@@ -1,6 +1,6 @@
 # Container deployment
 
-`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL.
+`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, Teams MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL. Samwise itself does not depend on Teams MCP for intake: it connects directly to Microsoft Graph.
 
 ## First deployment
 
@@ -34,6 +34,12 @@ Exchange Online does not accept IMAP username/password or app-password authentic
 4. Recreate the `web` container. In **Configuration → Inputs → Emails**, select **Microsoft 365 sign-in**, open the displayed Microsoft URL, enter the code, and then save the account.
 
 Samwise requests delegated IMAP access only. Its refreshable MSAL token cache is encrypted in the `EmailAccount` document using the persisted Data Protection key ring.
+
+## Microsoft Teams ingestion
+
+Samwise reads Teams intake directly from Microsoft Graph; the Teams MCP server is not part of this intake path. Create a public-client Entra application and enable **Allow public client flows**. Grant only the delegated read permissions needed by intake: `User.Read`, `Chat.Read`, `Team.ReadBasic.All`, `Channel.ReadBasic.All`, and `ChannelMessage.Read.All`. Enter the tenant ID and application client ID, then connect the account under **Configuration → Inputs → Microsoft Teams**. No Teams intake credentials are required in the container environment. Agent writes remain the responsibility of the separately permissioned Teams MCP.
+
+Transcript discovery is optional. When it is enabled, also grant `CallRecords.Read.All`, `OnlineMeetingTranscript.Read.All`, and `CallTranscripts.Read.All` as application permissions, grant admin consent, create a client secret, and enter that secret in the same Teams configuration page. Samwise protects it with ASP.NET Core Data Protection before persistence and stores the delegated MSAL cache in its existing persisted data-protection volume. The standalone Teams MCP may still be registered with Gateway when planning or execution agents need Teams tools; it is an independent integration with its own connection and credentials.
 
 ## Mail, calendar, and contacts MCP
 

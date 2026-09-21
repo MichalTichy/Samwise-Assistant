@@ -6,6 +6,9 @@ using Samwise.Domain.Playbooks;
 using Samwise.Domain.WorkItems;
 using Samwise.Inputs.Manual.Events;
 using Samwise.Inputs.Email.Events;
+using Samwise.Inputs.Teams.Configuration;
+using Samwise.Inputs.Teams.InboundEvents.Conversations;
+using Samwise.Inputs.Teams.InboundEvents.Transcripts;
 using Shared.Infrastructure.Persistence.Marten.StorageConfiguration;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 
@@ -25,10 +28,14 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
             .AddSubClass<ManualInboundEvent>()
             .AddSubClass<EmailInboundEvent>()
             .AddSubClass<SentEmailInboundEvent>()
+            .AddSubClass<TeamsConversationInboundEvent>()
+            .AddSubClass<TeamsTranscriptInboundEvent>()
             .Index(item => item.ReceivedAt)
+            .Index(item => item.ContextKey)
             .UniqueIndex("ux_inbound_event_dedupe_key", item => item.DedupeKey);
         options.Schema.For<EmailInputConfiguration>();
         options.Schema.For<EmailAccount>().Index(account => account.IsEnabled);
+        options.Schema.For<TeamsInputConfiguration>();
         options.Schema.For<AgentConfiguration>();
         options.Schema.For<Playbook>().Index(playbook => playbook.IsEnabled);
     }

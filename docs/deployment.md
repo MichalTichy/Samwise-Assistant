@@ -63,7 +63,7 @@ The intake and planning keys do not need permission to invoke these MCP tools. S
 
 ## Todoist MCP
 
-The stack runs the official [`@doist/todoist-mcp`](https://github.com/Doist/todoist-mcp) HTTP server from its pinned npm release. It has no published host port: only Gateway can reach it on the private backend network. `TODOIST_API_KEY` is passed directly to that container and is not copied into Gateway or Samwise. The container downloads the pinned package on its first start, so it needs outbound access to the npm registry when it is created.
+The stack runs the official [`@doist/todoist-mcp`](https://github.com/Doist/todoist-mcp) HTTP server from its pinned npm release. It has no published host port: only Gateway can reach it on the private backend network. `TODOIST_API_KEY` is passed directly to that container and is not copied into Gateway. The container downloads the pinned package on its first start, so it needs outbound access to the npm registry when it is created.
 
 Create a Todoist API token in **Todoist → Settings → Integrations → Developer**, put it in the Portainer stack environment as `TODOIST_API_KEY`, and add this HTTP MCP server in the Gateway admin UI:
 
@@ -73,7 +73,11 @@ Create a Todoist API token in **Todoist → Settings → Integrations → Develo
 | URL | `http://todoist-mcp:8080/mcp` |
 | Execution mode | `Gateway` |
 
-Do not configure an HTTP header for this server. The API token authenticates the MCP server to Todoist; network access and Gateway project grants protect MCP invocation. Test discovery, enable the desired tools, and grant them to `samwise-execution`. Grant only read tools if the agent should inspect Todoist without changing it; task creation, update, completion, and deletion tools are separate execution capabilities.
+Do not configure an HTTP header for this server. The API token authenticates the MCP server to Todoist; network access and Gateway project grants protect MCP invocation. Test discovery, enable the desired tools, and grant them to `samwise-execution`. Grant only read tools if the agent should inspect Todoist without changing it; task creation, update, completion, and deletion tools are separate execution capabilities. Grant the completion tool if plans should close the Todoist tasks they handle.
+
+### Todoist input
+
+Samwise's Todoist input connects directly to the Todoist API and does not use the MCP server. It only reads. Paste a Todoist API token in **Configuration → Inputs → Todoist**. It may be the same token as `TODOIST_API_KEY`. Samwise protects it with the persisted Data Protection key ring before storing it. The page also sets the lead time, the overdue range, intake guidance, and ignored projects and labels.
 
 ## Samwise self-management MCP
 

@@ -32,6 +32,10 @@
     <Project Path="src/Samwise.Inputs.Teams/Samwise.Inputs.Teams.csproj" />
     <Project Path="src/Samwise.Infrastructure.Teams/Samwise.Infrastructure.Teams.csproj" />
   </Folder>
+  <Folder Name="/src/Inputs/Todoist/">
+    <Project Path="src/Samwise.Inputs.Todoist/Samwise.Inputs.Todoist.csproj" />
+    <Project Path="src/Samwise.Infrastructure.Todoist/Samwise.Infrastructure.Todoist.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Samwise.Tests/Samwise.Tests.csproj" />
   </Folder>

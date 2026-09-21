@@ -23,6 +23,9 @@ COPY src/Samwise.Infrastructure.Mcp/Samwise.Infrastructure.Mcp.csproj src/Samwis
 COPY src/Samwise.Infrastructure.Teams/Samwise.Infrastructure.Teams.csproj src/Samwise.Infrastructure.Teams/
 COPY src/Samwise.Infrastructure.Persistence.Identity/Samwise.Infrastructure.Persistence.Identity.csproj src/Samwise.Infrastructure.Persistence.Identity/
 COPY src/Samwise.Infrastructure.Persistence.Marten/Samwise.Infrastructure.Persistence.Marten.csproj src/Samwise.Infrastructure.Persistence.Marten/
+COPY src/Samwise.Inputs.Email/Samwise.Inputs.Email.csproj src/Samwise.Inputs.Email/
+COPY src/Samwise.Inputs.Manual/Samwise.Inputs.Manual.csproj src/Samwise.Inputs.Manual/
+COPY src/Samwise.Inputs.Teams/Samwise.Inputs.Teams.csproj src/Samwise.Inputs.Teams/
 COPY src/Samwise.Logic/Samwise.Logic.csproj src/Samwise.Logic/
 COPY src/Samwise.ServiceDefaults/Samwise.ServiceDefaults.csproj src/Samwise.ServiceDefaults/
 COPY src/Samwise.Web/Samwise.Web.csproj src/Samwise.Web/

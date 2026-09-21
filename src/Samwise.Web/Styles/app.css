@@ -463,6 +463,11 @@
     .teams-source-selection button { width: 19px; height: 19px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; color: #9c8e81; background: #e9dfd2; cursor: pointer; line-height: 1; }
     .teams-source-selection button:hover { color: #8d3f2e; background: #f1d9d1; }
     .teams-source-empty { margin-top: .75rem; }
+    .todoist-ignore-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .todoist-toggle-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .todoist-toggle-list button { padding: .42rem .62rem; border: 1px solid #e4d7c8; border-radius: .65rem; color: #63574c; background: #fffdf8; font-size: .68rem; cursor: pointer; }
+    .todoist-toggle-list button:hover { background: #f8efe1; }
+    .todoist-toggle-list button.is-selected { border-color: #d9b98a; color: #85571f; background: #f4e3c5; font-weight: 700; }
 
     /* Authentication and settings */
     .auth-page { width: min(100%, 1180px); min-height: 100svh; margin: 0 auto; padding: clamp(2rem, 6vh, 4rem) clamp(1.5rem, 4vw, 3rem); display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 420px); align-items: center; gap: clamp(3rem, 6vw, 5.5rem); }
@@ -693,7 +698,7 @@
     .work-item-detail-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .auth-page { grid-template-columns: minmax(280px, 1fr) minmax(340px, 430px); gap: 3rem; }
     .email-settings-grid { grid-template-columns: 1fr; }
-    .teams-settings-grid, .teams-ignore-grid { grid-template-columns: 1fr; }
+    .teams-settings-grid, .teams-ignore-grid, .todoist-ignore-grid { grid-template-columns: 1fr; }
     .email-account-card { grid-template-columns: 42px minmax(0, 1fr) auto; }
     .email-account-status { display: none; }
 }

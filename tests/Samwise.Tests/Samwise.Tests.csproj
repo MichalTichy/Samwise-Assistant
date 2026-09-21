@@ -28,11 +28,13 @@
     <ProjectReference Include="..\..\src\Samwise.Inputs.Email\Samwise.Inputs.Email.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Inputs.Manual\Samwise.Inputs.Manual.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Inputs.Teams\Samwise.Inputs.Teams.csproj" />
+    <ProjectReference Include="..\..\src\Samwise.Inputs.Todoist\Samwise.Inputs.Todoist.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.CodexGateway\Samwise.Infrastructure.CodexGateway.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Email.Imap\Samwise.Infrastructure.Email.Imap.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Email.Microsoft365\Samwise.Infrastructure.Email.Microsoft365.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Mcp\Samwise.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Teams\Samwise.Infrastructure.Teams.csproj" />
+    <ProjectReference Include="..\..\src\Samwise.Infrastructure.Todoist\Samwise.Infrastructure.Todoist.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Persistence.Marten\Samwise.Infrastructure.Persistence.Marten.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Persistence.Identity\Samwise.Infrastructure.Persistence.Identity.csproj" />

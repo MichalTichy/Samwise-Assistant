@@ -15,11 +15,13 @@ SubmitManualInputUsecase -> ManualInboundEvent
 ProcessEmailsUsecase(NewSinceCheckpoint) -> EmailInboundEvent
 ProcessEmailsUsecase(NewSinceCheckpoint) -> SentEmailInboundEvent
 ProcessEmailsUsecase(Unread) -> EmailInboundEvent
+ProcessTeamsInputsUsecase -> TeamsConversationInboundEvent | TeamsTranscriptInboundEvent
+ProcessTodoistInputsUsecase -> TodoistTaskInboundEvent
 ```
 
 Both operations call `InboundEventCaptureService`, which uses `Source + ExternalId` for connector-level deduplication. A deterministic key has a database unique constraint. The service stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.
 
-Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapter stores account and message metadata plus a normalized body on `EmailInboundEvent` or `SentEmailInboundEvent`; their stable external identity is account ID, mailbox, UIDVALIDITY, and UID. Each derived event computes its intake text from its source fields. A related sent message is appended to an active Work Item like any other new context, invalidating the current plan before reassessment. Future Teams and Todoist sources follow the same rule. Connectors do not create or modify work items themselves.
+Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapter stores account and message metadata plus a normalized body on `EmailInboundEvent` or `SentEmailInboundEvent`; their stable external identity is account ID, mailbox, UIDVALIDITY, and UID. Each derived event computes its intake text from its source fields. A related sent message is appended to an active Work Item like any other new context, invalidating the current plan before reassessment. Teams and Todoist sources follow the same rule. Connectors do not create or modify work items themselves.
 
 Use cases represent external triggers only: a user action, an endpoint request, or a newly received input event. A use-case handler coordinates the integral steps of that operation by calling scoped processing, classification, planning, execution, and invocation-lifecycle services. It never sends another use case.
 
@@ -120,6 +122,14 @@ The authenticated Configuration → Inputs → Emails page owns the polling inte
 
 Received-email events snapshot read and answered state. For answered messages, the adapter opens the server-designated Sent folder read-only and finds up to five replies using `Message-ID`, `In-Reply-To`, and `References`; their normalized bodies are included in intake context. Sent-email events independently capture newly sent message bodies and attachment metadata for intake. Failure to discover Sent disables sent tracking without blocking INBOX capture. Attachment metadata is recorded without downloading attachment bodies. Exact ignored senders apply only to received mail and are recorded without an AI call, body download, or sent-reply lookup. Sending, full thread synchronization, and IMAP IDLE are outside V1.
 
+## Todoist input
+
+The authenticated Configuration → Inputs → Todoist page owns the API token, polling interval, lead time, overdue range, intake guidance, and ignored projects and labels. `TodoistInputConfiguration` is a singleton Marten document. Its token is protected with ASP.NET Data Protection and never returned to the UI.
+
+`Samwise.Infrastructure.Todoist` lists active tasks through the Todoist API v1 and only reads. Every task whose due instant falls between `now − OverdueDays` and `now + LeadHours` becomes one `TodoistTaskInboundEvent`. All-day tasks are due at the start of their day. Floating times use the task timezone, then the Todoist account timezone. The external identity is the task ID plus its due value, so a reschedule or the next occurrence of a recurring task is a new input. Earlier occurrences of the same task (`ContextKey = todoist:task:<id>`) are supplied as linked context, so intake can append to their active work item. Tasks in ignored projects or carrying an ignored label are recorded without an AI call. The planning lead time means a plan can be waiting for approval before the task is due. Execution still runs at approval; there is no scheduled-execution state.
+
+Samwise does not write to Todoist from the connector. Completing, commenting on, or creating tasks are ordinary plan steps that run through the Gateway Todoist MCP tools after approval. The Todoist task ID reaches planning and execution through the work item's source reference. This also allows **deferred actions**: an approved plan can create a Todoist task with a future due date, and when that task enters the lead window it returns as normal input. Samwise-created tasks get no special treatment, so a deferred task should be due later than the lead window if it is not meant to come back immediately.
+
 ## UI
 
 - **New input** — manual capture form and a four-step explanation of capture, triage, planning, and approval.
@@ -129,11 +139,14 @@ Received-email events snapshot read and answered state. For answered messages, t
 - **Agent settings** — model, reasoning effort, prompt editor, and placeholder legend for each stage.
 - **Playbooks** — create, edit, enable, and disable reusable planning guidance.
 - **Configuration → Inputs → Emails** — polling interval, exact ignored senders, IMAP account management, connection tests, and manual unread processing.
+- **Configuration → Inputs → Todoist** — API token, polling interval, lead time, overdue range, intake guidance, ignored projects and labels, connection test, and manual processing.
 - **Account** — two Samwise-owned pages: password-only login and change password. Startup seeds the one owner from `OwnerAccount` configuration. There is no generated Identity UI, registration, email confirmation/recovery, external login, 2FA, or passkey flow.
 
 Work item comments are first-class owned values inside the work item aggregate. This supports ordinary context and rejection feedback immediately, makes the work item revision and its new context one atomic document update, and lets a future Todoist projection treat comments as another command surface without changing the work item model.
 
 ## Future Todoist UI adapter
+
+Todoist is already an input source (see *Todoist input*). The following two-way board mirror remains future work.
 
 Samwise remains authoritative. A future adapter can mirror one Samwise work item into a dedicated Todoist board and store an `ExternalWorkItemLink` mapping. Plan snapshots can be posted as comments. Approval commands should be strict, revision-bound comment commands such as `/samwise approve <one-time-code>`, deduplicated by Todoist comment ID and routed into the same approve/reject/discard application commands as Blazor.
 

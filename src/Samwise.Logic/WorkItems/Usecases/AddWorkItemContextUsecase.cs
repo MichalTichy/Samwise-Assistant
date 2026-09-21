@@ -12,6 +12,7 @@ public sealed record AddWorkItemContextUsecase(string WorkItemId, string Text) :
 internal sealed class AddWorkItemContextUsecaseHandler(
     IRepository<DomainWorkItem> workItemRepository,
     IWorkItemPlanningService planningService,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider) : IRequestHandler<AddWorkItemContextUsecase>
 {
     public async Task Handle(AddWorkItemContextUsecase request, CancellationToken cancellationToken)
@@ -19,6 +20,7 @@ internal sealed class AddWorkItemContextUsecaseHandler(
         var workItem = await workItemRepository.GetRequiredByIdAsync(request.WorkItemId, cancellationToken);
         workItem.AddContext(request.Text, timeProvider.GetUtcNow());
         await workItemRepository.UpdateAsync(workItem, cancellationToken);
+        await eventPublisher.PublishAsync(workItem);
         await planningService.PlanAsync(workItem.Id, cancellationToken);
     }
 }

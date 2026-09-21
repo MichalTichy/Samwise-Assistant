@@ -1,10 +1,14 @@
 using JasperFx;
+using Samwise.Domain.WorkItems.Events;
 using Shared.Infrastructure.Persistence;
 
 namespace Samwise.Domain.WorkItems;
 
 public sealed class WorkItem : IItemWithId, IRevisioned
 {
+    // Facts recorded by transitions since the last dequeue. A private field, so it is never persisted.
+    private readonly List<WorkItemEvent> pendingEvents = [];
+
     public string Id { get; set; } = string.Empty;
     public int Version { get; set; }
     public string Title { get; set; } = string.Empty;
@@ -59,7 +63,16 @@ public sealed class WorkItem : IItemWithId, IRevisioned
             workItem.Sources.Add(source);
         }
 
+        workItem.Record(new WorkItemCreated(workItem.Id, workItem.Title, now));
         return workItem;
+    }
+
+    /// <summary>Returns and clears the facts recorded since the last call; publish them after persisting.</summary>
+    public IReadOnlyList<WorkItemEvent> DequeueEvents()
+    {
+        var events = pendingEvents.ToList();
+        pendingEvents.Clear();
+        return events;
     }
 
     public int ReservePlanNumber(DateTimeOffset now)
@@ -97,6 +110,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         Status = WorkItemStatus.AwaitingApproval;
         LatestPlanningFeedback = null;
         UpdatedAt = now;
+        Record(new PlanProposed(Id, Title, now, plan.Id, plan.PlanNumber));
     }
 
     public void Approve(string planId, int workItemRevision, DateTimeOffset now, string source = "Web")
@@ -109,6 +123,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         SetPlanReview(planId, PlanReviewKind.Approved, null, source, now);
         Status = WorkItemStatus.Approved;
         UpdatedAt = now;
+        Record(new PlanApproved(Id, Title, now, planId, source));
     }
 
     public void Reject(
@@ -137,6 +152,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         LatestPlanningFeedback = normalizedFeedback;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
+        Record(new PlanRejected(Id, Title, now, planId, normalizedFeedback, source));
     }
 
     public void AddContext(
@@ -154,14 +170,16 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         LatestPlanningFeedback = normalizedText;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
+        Record(new WorkItemContextAdded(Id, Title, now, normalizedText, authorKind));
     }
 
-    public void MarkPlanningFailed(DateTimeOffset now)
+    public void MarkPlanningFailed(DateTimeOffset now, string? reason = null)
     {
         if (Status == WorkItemStatus.Planning)
         {
             Status = WorkItemStatus.NeedsAttention;
             UpdatedAt = now;
+            Record(new PlanningFailed(Id, Title, now, reason));
         }
     }
 
@@ -188,6 +206,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         CurrentPlanId = null;
         Status = WorkItemStatus.AwaitingUserInput;
         UpdatedAt = now;
+        Record(new PlanningQuestionAsked(Id, Title, now, question.Id, question.Prompt));
     }
 
     public void AddInboundContext(
@@ -247,6 +266,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         LatestPlanningFeedback = answer;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
+        Record(new PlanningQuestionAnswered(Id, Title, now, questionId, answer));
     }
 
     public void Replan(DateTimeOffset now)
@@ -260,6 +280,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         PendingPlanningQuestion = null;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
+        Record(new ReplanRequested(Id, Title, now));
     }
 
     public void StartExecution(string planId, int workItemRevision, DateTimeOffset now)
@@ -271,6 +292,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
 
         Status = WorkItemStatus.Executing;
         UpdatedAt = now;
+        Record(new ExecutionStarted(Id, Title, now, planId));
     }
 
     public void CompleteExecution(
@@ -301,14 +323,16 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         };
         CompletedAt = now;
         UpdatedAt = now;
+        Record(new ExecutionCompleted(Id, Title, now, Completion.Summary));
     }
 
-    public void MarkExecutionUncertain(DateTimeOffset now)
+    public void MarkExecutionUncertain(DateTimeOffset now, string? reason = null)
     {
         if (Status == WorkItemStatus.Executing)
         {
             Status = WorkItemStatus.OutcomeUnknown;
             UpdatedAt = now;
+            Record(new ExecutionOutcomeUnknown(Id, Title, now, reason));
         }
     }
 
@@ -336,6 +360,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         };
         CompletedAt = now;
         UpdatedAt = now;
+        Record(new WorkItemResolvedDuringPlanning(Id, Title, now, Completion.Summary));
     }
 
     public void DiscardDuringPlanning(
@@ -350,9 +375,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
             throw new InvalidOperationException("Only a work item being planned can be discarded by planning.");
         }
 
-        Discard(now, "Planning agent");
-        DiscardReason = reason.Trim();
-        DiscardInvocationId = planningInvocationId.Trim();
+        Discard(now, "Planning agent", reason.Trim(), planningInvocationId.Trim());
         Comments.Add(CreateComment(
             $"Discarded during planning: {DiscardReason}",
             CommentAuthorKind.System,
@@ -375,18 +398,22 @@ public sealed class WorkItem : IItemWithId, IRevisioned
 
         Status = WorkItemStatus.Approved;
         UpdatedAt = now;
+        Record(new ExecutionRetryRequested(Id, Title, now));
     }
 
-    public void MarkApprovedExecutionFailed(DateTimeOffset now)
+    public void MarkApprovedExecutionFailed(DateTimeOffset now, string? reason = null)
     {
         if (Status == WorkItemStatus.Approved)
         {
             Status = WorkItemStatus.NeedsAttention;
             UpdatedAt = now;
+            Record(new ExecutionFailed(Id, Title, now, reason));
         }
     }
 
-    public void Discard(DateTimeOffset now, string source = "Web")
+    public void Discard(DateTimeOffset now, string source = "Web") => Discard(now, source, null, null);
+
+    private void Discard(DateTimeOffset now, string source, string? reason, string? invocationId)
     {
         if (Status == WorkItemStatus.Executing)
         {
@@ -403,9 +430,10 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         PendingPlanningQuestion = null;
         DiscardedAt = now;
         DiscardedFrom = source;
-        DiscardReason = null;
-        DiscardInvocationId = null;
+        DiscardReason = reason;
+        DiscardInvocationId = invocationId;
         UpdatedAt = now;
+        Record(new WorkItemDiscarded(Id, Title, now, source, reason));
     }
 
     public void Restore(DateTimeOffset now, string source = "Web")
@@ -426,6 +454,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
             WorkItemCommentKind.Context,
             now));
         UpdatedAt = now;
+        Record(new WorkItemRestored(Id, Title, now, source));
     }
 
     public void AddExecutionUpdate(string body, DateTimeOffset now)
@@ -446,6 +475,8 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public WorkItemPlan? FindLatestPlan() => Plans.Count == 0
         ? null
         : Plans.MaxBy(plan => plan.PlanNumber);
+
+    private void Record(WorkItemEvent workItemEvent) => pendingEvents.Add(workItemEvent);
 
     private static WorkItemComment CreateComment(
         string body,

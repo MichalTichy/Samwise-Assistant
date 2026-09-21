@@ -98,10 +98,7 @@
     }
 
     .app-sidebar {
-        position: static;
-        height: auto;
-        border-right: 0;
-        border-bottom: 1px solid rgba(104, 67, 41, .1);
+        display: none;
     }
 
     .app-header {
@@ -109,6 +106,6 @@
     }
 
     .app-content {
-        padding: 28px 18px 52px;
+        padding: 20px 16px calc(96px + env(safe-area-inset-bottom));
     }
 }

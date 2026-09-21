@@ -136,6 +136,7 @@ services:
       SamwiseMcp__ApiKey: "${SAMWISE_MCP_API_KEY:?Set SAMWISE_MCP_API_KEY in an ignored .env file}"
       Email__Microsoft365__ClientId: "${SAMWISE_MICROSOFT365_CLIENT_ID:-}"
       Email__Microsoft365__TenantId: "${SAMWISE_MICROSOFT365_TENANT_ID:-organizations}"
+      WebPush__Subject: "${SAMWISE_WEB_PUSH_SUBJECT:-}"
     volumes:
       - data-protection-keys:/app/data-protection
     networks:

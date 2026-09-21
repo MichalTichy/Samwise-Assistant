@@ -25,7 +25,7 @@ Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapte
 
 Use cases represent external triggers only: a user action, an endpoint request, or a newly received input event. A use-case handler coordinates the integral steps of that operation by calling scoped processing, classification, planning, execution, and invocation-lifecycle services. It never sends another use case.
 
-Reusable behavior belongs in services. Notifications are reserved for independent post-completion reactions that do not form part of the operation's required control flow; V1 currently needs no such notifications.
+Reusable behavior belongs in services. Notifications are reserved for independent post-completion reactions that do not form part of the operation's required control flow. Work item facts (see *Work item events*) are published this way, and features such as push notifications react to them in their own handlers.
 
 Use-case handlers and workflow services use the copied shared-infrastructure `IRepository<T>` and `IReadOnlyRepository<T>` abstractions. Named specifications live beside their consuming feature in `Samwise.Logic`. Blazor pages execute public specifications through `IReadOnlyRepository<T>` for reads and send use cases for operations. They never depend on Marten directly.
 
@@ -130,6 +130,36 @@ The authenticated Configuration → Inputs → Todoist page owns the API token, 
 
 Samwise does not write to Todoist from the connector. Completing, commenting on, or creating tasks are ordinary plan steps that run through the Gateway Todoist MCP tools after approval. The Todoist task ID reaches planning and execution through the work item's source reference. This also allows **deferred actions**: an approved plan can create a Todoist task with a future due date, and when that task enters the lead window it returns as normal input. Samwise-created tasks get no special treatment, so a deferred task should be due later than the lead window if it is not meant to come back immediately.
 
+## Work item events
+
+Every `WorkItem` transition records a specific fact, a MediatR notification in `Samwise.Domain.WorkItems.Events`:
+- lifecycle: `WorkItemCreated`, `WorkItemContextAdded`, `WorkItemDiscarded`, `WorkItemRestored`
+- planning: `PlanProposed`, `PlanApproved`, `PlanRejected`, `PlanningQuestionAsked`, `PlanningQuestionAnswered`, `PlanningFailed`, `ReplanRequested`, `WorkItemResolvedDuringPlanning`
+- execution: `ExecutionStarted`, `ExecutionCompleted`, `ExecutionFailed`, `ExecutionOutcomeUnknown`, `ExecutionRetryRequested`
+
+The aggregate keeps them in a private, never-persisted list. Whoever persists the work item calls `IWorkItemEventPublisher.PublishAsync(workItem)` right after the save; intake does so only after its unit of work commits. The publisher dequeues the facts, so each one is published once. It logs a failing handler instead of throwing, because the fact has already happened. Publishers know nothing about their consumers: a feature that cares handles the concrete event type.
+
+## Notifications
+
+Samwise tells the owner when a work item needs them through standard Web Push, which also reaches an iPhone once Samwise is added to the Home Screen (iOS 16.4+).
+
+`WorkItemPushNotificationHandler` is one such event consumer:
+
+| Fact | Setting | Default |
+|---|---|---|
+| `PlanProposed` | plan ready for approval | on |
+| `PlanningQuestionAsked` | question | on |
+| `PlanningFailed`, `ExecutionFailed`, `ExecutionOutcomeUnknown` | needs attention | on |
+| `ExecutionCompleted` | completed | off |
+
+It checks the singleton `NotificationSettings` document and sends one message per `PushDevice` with the work-item URL and a per-item tag, so a newer message replaces the older banner. Devices whose push service answers 404/410 are deleted, and other failures are recorded on the device.
+
+`Samwise.Infrastructure.WebPush` implements the `IPushNotificationSender` port with Lib.Net.Http.WebPush (VAPID, aes128gcm). The VAPID key pair is generated once at startup into `PushApplicationKeys`, with the private key protected by Data Protection. The VAPID subject is `WebPush:Subject`, falling back to `mailto:` + the owner e-mail. Notification action buttons are not supported by iOS, so a tap opens the work item, and approval happens in the app's floating decision bar.
+
+## Mobile / PWA
+
+The web UI is an installable PWA: a `manifest.webmanifest`, Home Screen icons, and a root-scope `sw.js` that only handles `push` and `notificationclick`. Blazor Server needs a live circuit, so nothing is cached for offline use. Below 820px the sidebar becomes a top bar, a bottom tab bar, and a "More" sheet. The Board shows one column at a time behind tabs, and a work item keeps Approve / Reject in a floating bar at every screen width. The Configuration → Notifications page enables the current device. Its Enable button is bound in JavaScript, because iOS only shows the permission prompt inside the tap itself.
+
 ## UI
 
 - **New input** — manual capture form and a four-step explanation of capture, triage, planning, and approval.
@@ -139,6 +169,7 @@ Samwise does not write to Todoist from the connector. Completing, commenting on,
 - **Agent settings** — model, reasoning effort, prompt editor, and placeholder legend for each stage.
 - **Playbooks** — create, edit, enable, and disable reusable planning guidance.
 - **Configuration → Inputs → Emails** — polling interval, exact ignored senders, IMAP account management, connection tests, and manual unread processing.
+- **Configuration → Notifications** — enable push on this device, choose which events notify, list and remove devices, and send a test.
 - **Configuration → Inputs → Todoist** — API token, polling interval, lead time, overdue range, intake guidance, ignored projects and labels, connection test, and manual processing.
 - **Account** — two Samwise-owned pages: password-only login and change password. Startup seeds the one owner from `OwnerAccount` configuration. There is no generated Identity UI, registration, email confirmation/recovery, external login, 2FA, or passkey flow.
 

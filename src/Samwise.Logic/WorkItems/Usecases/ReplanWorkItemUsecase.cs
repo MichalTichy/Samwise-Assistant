@@ -10,6 +10,7 @@ public sealed record ReplanWorkItemUsecase(string WorkItemId) : IRequest;
 internal sealed class ReplanWorkItemUsecaseHandler(
     IRepository<DomainWorkItem> repository,
     IWorkItemPlanningService planningService,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider) : IRequestHandler<ReplanWorkItemUsecase>
 {
     public async Task Handle(ReplanWorkItemUsecase request, CancellationToken cancellationToken)
@@ -17,6 +18,7 @@ internal sealed class ReplanWorkItemUsecaseHandler(
         var workItem = await repository.GetRequiredByIdAsync(request.WorkItemId, cancellationToken);
         workItem.Replan(timeProvider.GetUtcNow());
         await repository.UpdateAsync(workItem, cancellationToken);
+        await eventPublisher.PublishAsync(workItem);
         await planningService.PlanAsync(workItem.Id, cancellationToken);
     }
 }

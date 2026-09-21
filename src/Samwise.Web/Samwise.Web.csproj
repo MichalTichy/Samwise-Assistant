@@ -21,6 +21,7 @@
     <ProjectReference Include="..\Samwise.Infrastructure.Mcp\Samwise.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Teams\Samwise.Infrastructure.Teams.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Todoist\Samwise.Infrastructure.Todoist.csproj" />
+    <ProjectReference Include="..\Samwise.Infrastructure.WebPush\Samwise.Infrastructure.WebPush.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Persistence.Identity\Samwise.Infrastructure.Persistence.Identity.csproj" />
     <ProjectReference Include="..\Samwise.Infrastructure.Persistence.Marten\Samwise.Infrastructure.Persistence.Marten.csproj" />

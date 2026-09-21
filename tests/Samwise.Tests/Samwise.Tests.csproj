@@ -35,6 +35,7 @@
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Mcp\Samwise.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Teams\Samwise.Infrastructure.Teams.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Todoist\Samwise.Infrastructure.Todoist.csproj" />
+    <ProjectReference Include="..\..\src\Samwise.Infrastructure.WebPush\Samwise.Infrastructure.WebPush.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.AgentRuntimes\Samwise.Infrastructure.AgentRuntimes.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Persistence.Marten\Samwise.Infrastructure.Persistence.Marten.csproj" />
     <ProjectReference Include="..\..\src\Samwise.Infrastructure.Persistence.Identity\Samwise.Infrastructure.Persistence.Identity.csproj" />

@@ -14,6 +14,7 @@ internal sealed class WorkItemExecutionService(
     IAgentRuntime runtime,
     IAgentPromptBuilder promptBuilder,
     IAgentInvocationService invocationService,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider,
     ILogger<WorkItemExecutionService> logger) : IWorkItemExecutionService
 {
@@ -59,6 +60,7 @@ internal sealed class WorkItemExecutionService(
                 cancellationToken);
             workItem.StartExecution(plan.Id, request.WorkItemRevision, timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(workItem, cancellationToken);
+            await eventPublisher.PublishAsync(workItem);
             executionStarted = true;
 
             var result = await runtime.ExecuteAsync(
@@ -90,6 +92,7 @@ internal sealed class WorkItemExecutionService(
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+            await eventPublisher.PublishAsync(currentWorkItem);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -121,14 +124,15 @@ internal sealed class WorkItemExecutionService(
 
             if (mayHaveSideEffects)
             {
-                currentWorkItem.MarkExecutionUncertain(timeProvider.GetUtcNow());
+                currentWorkItem.MarkExecutionUncertain(timeProvider.GetUtcNow(), exception.Message);
             }
             else
             {
-                currentWorkItem.MarkApprovedExecutionFailed(timeProvider.GetUtcNow());
+                currentWorkItem.MarkApprovedExecutionFailed(timeProvider.GetUtcNow(), exception.Message);
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, CancellationToken.None);
+            await eventPublisher.PublishAsync(currentWorkItem);
         }
     }
 }

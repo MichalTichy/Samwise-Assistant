@@ -14,7 +14,7 @@
     </div>
     <div class="heading-actions">
         <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
-        <a class="button-link button-link-primary" href="/">New input</a>
+        <a class="button-link button-link-primary board-new-input" href="/">New input</a>
     </div>
 </div>
 
@@ -25,11 +25,28 @@
 
 else
 {
+    var activeColumn = ActiveColumnKey;
+    <div class="board-tabs" role="tablist" aria-label="Board columns">
+        @foreach (var column in MobileColumns)
+        {
+            var isActive = column.Key == activeColumn;
+            <button type="button"
+                    role="tab"
+                    class="board-tab @(isActive ? "is-active" : null)"
+                    aria-selected="@isActive"
+                    @onclick="() => SelectColumn(column.Key)">
+                <span class="column-dot @column.CssClass"></span>
+                <span>@column.Name</span>
+                <span class="column-count">@CardsFor(column).Count</span>
+            </button>
+        }
+    </div>
+
     <div class="work-item-board">
         @foreach (var column in Columns)
         {
-            var cards = workItems.Where(workItem => column.Statuses.Contains(workItem.Status)).ToList();
-            <section class="board-column">
+            var cards = CardsFor(column);
+            <section class="board-column" data-active="@(column.Key == activeColumn ? "true" : "false")">
                 <header>
                     <span class="column-dot @column.CssClass"></span>
                     <h2>@column.Name</h2>

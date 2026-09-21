@@ -10,6 +10,7 @@ public sealed record RetryWorkItemExecutionUsecase(string WorkItemId) : IRequest
 internal sealed class RetryWorkItemExecutionUsecaseHandler(
     IRepository<DomainWorkItem> repository,
     IWorkItemExecutionService executionService,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider) : IRequestHandler<RetryWorkItemExecutionUsecase>
 {
     public async Task Handle(
@@ -21,6 +22,7 @@ internal sealed class RetryWorkItemExecutionUsecaseHandler(
         var plan = workItem.FindCurrentPlan()
             ?? throw new InvalidOperationException("The approved plan for this execution could not be found.");
         await repository.UpdateAsync(workItem, cancellationToken);
+        await eventPublisher.PublishAsync(workItem);
         await executionService.ExecuteAsync(
             new WorkItemExecutionRequest(workItem.Id, plan.Id, workItem.Revision),
             cancellationToken);

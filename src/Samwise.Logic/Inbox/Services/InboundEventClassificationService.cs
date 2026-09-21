@@ -9,6 +9,7 @@ using Shared.Infrastructure.Persistence.Marten.UnitOfWorks;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus;
+using Samwise.Logic.WorkItems.Services;
 
 namespace Samwise.Logic.Inbox.Services;
 
@@ -18,6 +19,7 @@ internal sealed class InboundEventClassificationService(
     IAgentRuntime runtime,
     IAgentPromptBuilder promptBuilder,
     IAgentInvocationService invocationService,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider,
     ILogger<InboundEventClassificationService> logger) : IInboundEventClassificationService
 {
@@ -131,6 +133,11 @@ internal sealed class InboundEventClassificationService(
 
                 await inboundRepository.UpdateAsync(inboundEvent, cancellationToken);
                 await unitOfWork.CommitAsync();
+            }
+
+            foreach (var workItem in workItemsToPlan)
+            {
+                await eventPublisher.PublishAsync(workItem);
             }
 
             return workItemsToPlan.Select(workItem => workItem.Id).ToList();

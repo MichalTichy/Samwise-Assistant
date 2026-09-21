@@ -15,6 +15,7 @@ public sealed record AnswerPlanningQuestionUsecase(
 internal sealed class AnswerPlanningQuestionUsecaseHandler(
     IRepository<DomainWorkItem> workItemRepository,
     IWorkItemPlanningService planningService,
+    IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider) : IRequestHandler<AnswerPlanningQuestionUsecase>
 {
     public async Task Handle(AnswerPlanningQuestionUsecase request, CancellationToken cancellationToken)
@@ -26,6 +27,7 @@ internal sealed class AnswerPlanningQuestionUsecaseHandler(
             request.OtherAnswer,
             timeProvider.GetUtcNow());
         await workItemRepository.UpdateAsync(workItem, cancellationToken);
+        await eventPublisher.PublishAsync(workItem);
         await planningService.PlanAsync(workItem.Id, cancellationToken);
     }
 }

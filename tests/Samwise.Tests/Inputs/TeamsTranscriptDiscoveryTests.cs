@@ -16,7 +16,8 @@ public sealed class TeamsTranscriptDiscoveryTests
 
         var result = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, Since, Until, CancellationToken.None);
 
-        var transcript = Assert.Single(result);
+        var transcript = Assert.Single(result.Transcripts);
+        Assert.Empty(result.Errors);
         Assert.Equal("transcript-1", transcript.GetProperty("id").GetString());
         Assert.Equal("meeting-1", transcript.GetProperty("meetingId").GetString());
         Assert.Equal("colleague-1", transcript.GetProperty("organizerId").GetString());
@@ -43,7 +44,7 @@ public sealed class TeamsTranscriptDiscoveryTests
 
         var result = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, Since, Until, CancellationToken.None);
 
-        Assert.Single(result);
+        Assert.Single(result.Transcripts);
     }
 
     [Fact]
@@ -53,7 +54,18 @@ public sealed class TeamsTranscriptDiscoveryTests
 
         var result = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, Since, Until, CancellationToken.None);
 
-        Assert.Empty(result);
+        Assert.Empty(result.Transcripts);
+    }
+
+    [Fact]
+    public async Task InaccessibleMeetingDoesNotHideAnotherMeetingsTranscript()
+    {
+        var graph = new RecordingGraphClient(includeInaccessibleMeeting: true);
+
+        var result = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, Since, Until, CancellationToken.None);
+
+        Assert.Single(result.Transcripts);
+        Assert.Contains("403", Assert.Single(result.Errors));
     }
 
     [Fact]
@@ -68,7 +80,8 @@ public sealed class TeamsTranscriptDiscoveryTests
 
     private sealed class RecordingGraphClient(
         DateTimeOffset? createdAt = null,
-        bool includeOrganizedTranscript = false) : ITeamsGraphClient
+        bool includeOrganizedTranscript = false,
+        bool includeInaccessibleMeeting = false) : ITeamsGraphClient
     {
         public List<string> DelegatedPaths { get; } = [];
 
@@ -83,10 +96,17 @@ public sealed class TeamsTranscriptDiscoveryTests
             CancellationToken cancellationToken)
         {
             DelegatedPaths.Add(path);
+            if (path.Contains("inaccessible", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Microsoft Graph returned 403");
+            }
+
             var items = path switch
             {
                 _ when path.StartsWith("me/calendarView?", StringComparison.Ordinal) =>
-                    """[{"onlineMeeting":{"joinUrl":"https://teams.example/meeting"},"organizer":{"emailAddress":{"name":"Colleague"}}}]""",
+                    includeInaccessibleMeeting
+                        ? """[{"subject":"Accessible","onlineMeeting":{"joinUrl":"https://teams.example/meeting"},"organizer":{"emailAddress":{"name":"Colleague"}}},{"subject":"Inaccessible","onlineMeeting":{"joinUrl":"https://teams.example/inaccessible"}}]"""
+                        : """[{"onlineMeeting":{"joinUrl":"https://teams.example/meeting"},"organizer":{"emailAddress":{"name":"Colleague"}}}]""",
                 _ when path.StartsWith("me/onlineMeetings?$filter=", StringComparison.Ordinal) =>
                     """[{"id":"meeting-1","participants":{"organizer":{"identity":{"user":{"id":"colleague-1"}}}}}]""",
                 _ when path.StartsWith("me/onlineMeetings/meeting-1/transcripts?", StringComparison.Ordinal) =>

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Samwise.Infrastructure.Teams.Graph;
 
@@ -41,7 +42,7 @@ internal static class TeamsTranscriptDiscovery
             .ToList();
     }
 
-    public static async Task<IReadOnlyList<JsonElement>> ReadInvitedAsync(
+    public static async Task<TeamsTranscriptDiscoveryResult> ReadInvitedAsync(
         ITeamsGraphClient client,
         DateTimeOffset since,
         DateTimeOffset until,
@@ -50,53 +51,72 @@ internal static class TeamsTranscriptDiscovery
         var meetings = await client.GetDelegatedCollectionAsync(
             CalendarViewPath(since.AddDays(-CalendarLookbackDays), until),
             cancellationToken);
-        var transcripts = new List<JsonElement>();
-        var seenJoinUrls = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var calendarEvent in meetings)
+        var candidates = meetings
+            .Where(item => item.TryGetProperty("onlineMeeting", out var onlineMeeting)
+                && onlineMeeting.ValueKind == JsonValueKind.Object
+                && !string.IsNullOrWhiteSpace(OptionalString(onlineMeeting, "joinUrl")))
+            .DistinctBy(item => OptionalString(item.GetProperty("onlineMeeting"), "joinUrl"), StringComparer.Ordinal)
+            .ToList();
+        var transcripts = new ConcurrentBag<JsonElement>();
+        var errors = new ConcurrentBag<string>();
+        await Parallel.ForEachAsync(candidates, new ParallelOptions
         {
-            if (!calendarEvent.TryGetProperty("onlineMeeting", out var onlineMeeting)
-                || onlineMeeting.ValueKind != JsonValueKind.Object
-                || OptionalString(onlineMeeting, "joinUrl") is not { } joinUrl
-                || !seenJoinUrls.Add(joinUrl))
+            MaxDegreeOfParallelism = 4,
+            CancellationToken = cancellationToken
+        }, async (calendarEvent, token) =>
+        {
+            try
             {
-                continue;
-            }
+                var joinUrl = RequiredString(calendarEvent.GetProperty("onlineMeeting"), "joinUrl");
+                var resolvedMeetings = await client.GetDelegatedCollectionAsync(
+                    MeetingResolutionPath(joinUrl), token);
+                foreach (var meeting in resolvedMeetings)
+                {
+                    var meetingId = RequiredString(meeting, "id");
+                    var organizer = meeting.TryGetProperty("participants", out var participants)
+                        && participants.TryGetProperty("organizer", out var value)
+                        ? value : default;
+                    var identity = organizer.ValueKind == JsonValueKind.Object
+                        && organizer.TryGetProperty("identity", out var organizerIdentity)
+                        && organizerIdentity.TryGetProperty("user", out var user)
+                        ? user : default;
+                    var organizerId = identity.ValueKind == JsonValueKind.Object
+                        ? OptionalString(identity, "id") : null;
+                    var eventOrganizer = calendarEvent.TryGetProperty("organizer", out var eventOrganizerValue)
+                        && eventOrganizerValue.ValueKind == JsonValueKind.Object
+                        && eventOrganizerValue.TryGetProperty("emailAddress", out var emailAddress)
+                        ? emailAddress : default;
+                    var organizerName = eventOrganizer.ValueKind == JsonValueKind.Object
+                        ? OptionalString(eventOrganizer, "name") : null;
 
-            var resolvedMeetings = await client.GetDelegatedCollectionAsync(
-                MeetingResolutionPath(joinUrl), cancellationToken);
-            foreach (var meeting in resolvedMeetings)
+                    var meetingTranscripts = await client.GetDelegatedCollectionAsync(
+                        $"me/onlineMeetings/{TeamsGraphClient.Id(meetingId)}/transcripts?$top={ResultLimit}",
+                        token);
+                    foreach (var transcript in meetingTranscripts)
+                    {
+                        transcripts.Add(EnrichTranscript(
+                            transcript, "scheduledMeeting", organizerId,
+                            organizerName ?? "Meeting organizer", meetingId));
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                var meetingId = RequiredString(meeting, "id");
-                var organizer = meeting.TryGetProperty("participants", out var participants)
-                    && participants.TryGetProperty("organizer", out var value)
-                    ? value : default;
-                var identity = organizer.ValueKind == JsonValueKind.Object
-                    && organizer.TryGetProperty("identity", out var organizerIdentity)
-                    && organizerIdentity.TryGetProperty("user", out var user)
-                    ? user : default;
-                var organizerId = identity.ValueKind == JsonValueKind.Object
-                    ? OptionalString(identity, "id") : null;
-                var eventOrganizer = calendarEvent.TryGetProperty("organizer", out var eventOrganizerValue)
-                    && eventOrganizerValue.TryGetProperty("emailAddress", out var emailAddress)
-                    ? emailAddress : default;
-                var organizerName = eventOrganizer.ValueKind == JsonValueKind.Object
-                    ? OptionalString(eventOrganizer, "name") : null;
-
-                var meetingTranscripts = await client.GetDelegatedCollectionAsync(
-                    $"me/onlineMeetings/{TeamsGraphClient.Id(meetingId)}/transcripts?$top={ResultLimit}",
-                    cancellationToken);
-                transcripts.AddRange(meetingTranscripts.Select(item => EnrichTranscript(
-                    item, "scheduledMeeting", organizerId, organizerName ?? "Meeting organizer", meetingId)));
+                errors.Add(exception.Message);
             }
-        }
+        });
 
         // Revisit recent participant transcripts that the organizer-only poll missed before this feature.
         // Inbound-event external IDs make repeated discovery safe.
-        return transcripts
+        return new TeamsTranscriptDiscoveryResult(transcripts
             .Where(item => IsInWindow(item, since.AddDays(-TranscriptReplayDays), until))
             .OrderByDescending(item => DateTimeOffset.Parse(RequiredString(item, "createdDateTime")))
             .Take(ResultLimit)
-            .ToList();
+            .ToList(), errors
+                .GroupBy(error => error, StringComparer.Ordinal)
+                .Select(group => $"{group.Count()} meeting(s): {group.Key}")
+                .Order(StringComparer.Ordinal)
+                .ToList());
     }
 
     internal static string CalendarViewPath(DateTimeOffset start, DateTimeOffset end) =>

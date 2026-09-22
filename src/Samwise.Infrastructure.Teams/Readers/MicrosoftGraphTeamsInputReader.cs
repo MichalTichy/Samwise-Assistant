@@ -123,8 +123,8 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         {
             try
             {
-                await ReadTranscriptsAsync(
-                    TeamsTranscriptDiscovery.ReadOrganizedAsync(graph, since, until, cancellationToken),
+                AddTranscriptSnapshots(
+                    await TeamsTranscriptDiscovery.ReadOrganizedAsync(graph, since, until, cancellationToken),
                     activities);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -134,9 +134,9 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
 
             try
             {
-                await ReadTranscriptsAsync(
-                    TeamsTranscriptDiscovery.ReadInvitedAsync(graph, since, until, cancellationToken),
-                    activities);
+                var invited = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, since, until, cancellationToken);
+                AddTranscriptSnapshots(invited.Transcripts, activities);
+                errors.AddRange(invited.Errors.Select(error => $"Teams invited transcript intake failed: {error}"));
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -256,11 +256,10 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         }
     }
 
-    private static async Task ReadTranscriptsAsync(
-        Task<IReadOnlyList<JsonElement>> discovery,
+    private static void AddTranscriptSnapshots(
+        IReadOnlyList<JsonElement> transcripts,
         ICollection<TeamsActivitySnapshot> activities)
     {
-        var transcripts = await discovery;
         foreach (var transcript in transcripts)
         {
             var createdAt = RequiredDateTime(transcript, "createdDateTime");

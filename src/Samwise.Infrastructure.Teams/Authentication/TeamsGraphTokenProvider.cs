@@ -15,6 +15,9 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
     [
         "User.Read",
         "Chat.Read",
+        "Calendars.Read",
+        "OnlineMeetings.Read",
+        "OnlineMeetingTranscript.Read.All",
         "Team.ReadBasic.All",
         "Channel.ReadBasic.All",
         "ChannelMessage.Read.All"

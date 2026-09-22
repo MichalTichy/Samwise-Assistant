@@ -123,11 +123,24 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         {
             try
             {
-                await ReadTranscriptsAsync(graph, since, until, activities, cancellationToken);
+                await ReadTranscriptsAsync(
+                    TeamsTranscriptDiscovery.ReadOrganizedAsync(graph, since, until, cancellationToken),
+                    activities);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                errors.Add($"Teams transcript intake failed: {exception.Message}");
+                errors.Add($"Teams organized transcript intake failed: {exception.Message}");
+            }
+
+            try
+            {
+                await ReadTranscriptsAsync(
+                    TeamsTranscriptDiscovery.ReadInvitedAsync(graph, since, until, cancellationToken),
+                    activities);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                errors.Add($"Teams invited transcript intake failed: {exception.Message}");
             }
         }
 
@@ -244,13 +257,10 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
     }
 
     private static async Task ReadTranscriptsAsync(
-        TeamsGraphClient client,
-        DateTimeOffset since,
-        DateTimeOffset until,
-        ICollection<TeamsActivitySnapshot> activities,
-        CancellationToken cancellationToken)
+        Task<IReadOnlyList<JsonElement>> discovery,
+        ICollection<TeamsActivitySnapshot> activities)
     {
-        var transcripts = await ReadRecentTranscriptsAsync(client, since, until, cancellationToken);
+        var transcripts = await discovery;
         foreach (var transcript in transcripts)
         {
             var createdAt = RequiredDateTime(transcript, "createdDateTime");
@@ -332,56 +342,6 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
             sender.ValueKind == JsonValueKind.Object ? OptionalString(sender, "displayName") : null,
             OptionalString(message, "replyToId"),
             OptionalString(message, "webUrl"));
-    }
-
-    private static async Task<IReadOnlyList<JsonElement>> ReadRecentTranscriptsAsync(
-        TeamsGraphClient client,
-        DateTimeOffset fromDateTime,
-        DateTimeOffset toDateTime,
-        CancellationToken cancellationToken)
-    {
-        const int limit = 50;
-        var connectedUser = await client.GetDelegatedAsync("me?$select=id,displayName", cancellationToken);
-        var userId = RequiredString(connectedUser, "id");
-        var organizerName = OptionalString(connectedUser, "displayName") ?? "Connected Microsoft account";
-        var from = Uri.EscapeDataString(fromDateTime.ToUniversalTime().ToString("O"));
-        var to = Uri.EscapeDataString(toDateTime.ToUniversalTime().ToString("O"));
-        var escapedUserId = TeamsGraphClient.Id(userId);
-        var scheduledTask = client.GetApplicationCollectionAsync(
-            $"users/{escapedUserId}/onlineMeetings/getAllTranscripts("
-            + $"meetingOrganizerUserId='{escapedUserId}',startDateTime={from},endDateTime={to})?$top={limit}",
-            cancellationToken);
-        var adhocTask = client.GetApplicationCollectionAsync(
-            $"users/{escapedUserId}/adhocCalls/getAllTranscripts("
-            + $"userId={escapedUserId},startDateTime={from},endDateTime={to})?$top={limit}",
-            cancellationToken);
-        await Task.WhenAll(scheduledTask, adhocTask);
-
-        return (await scheduledTask).Select(item => EnrichTranscript(item, "scheduledMeeting", userId, organizerName))
-            .Concat((await adhocTask).Select(item => EnrichTranscript(item, "adhocCall", userId, organizerName)))
-            .OrderByDescending(item => OptionalDateTime(item, "createdDateTime"))
-            .Take(limit)
-            .ToList();
-    }
-
-    private static JsonElement EnrichTranscript(
-        JsonElement transcript,
-        string kind,
-        string organizerId,
-        string organizerName)
-    {
-        var values = new Dictionary<string, object?>
-        {
-            ["id"] = RequiredString(transcript, "id"),
-            ["kind"] = kind,
-            ["meetingId"] = OptionalString(transcript, "meetingId"),
-            ["callId"] = OptionalString(transcript, "callId"),
-            ["organizerId"] = organizerId,
-            ["organizerName"] = organizerName,
-            ["createdDateTime"] = RequiredString(transcript, "createdDateTime"),
-            ["endDateTime"] = OptionalString(transcript, "endDateTime")
-        };
-        return JsonSerializer.SerializeToElement(values);
     }
 
     private static string RequiredString(JsonElement item, string propertyName) =>

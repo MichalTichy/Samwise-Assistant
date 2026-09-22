@@ -6,7 +6,7 @@ namespace Samwise.Infrastructure.Teams.Graph;
 
 internal sealed class TeamsGraphClient(
     HttpClient httpClient,
-    TeamsGraphTokenProvider tokens)
+    TeamsGraphTokenProvider tokens) : ITeamsGraphClient
 {
     public Task<JsonElement> GetDelegatedAsync(string path, CancellationToken cancellationToken) =>
         SendAsync(path, tokens.GetDelegatedTokenAsync, cancellationToken);

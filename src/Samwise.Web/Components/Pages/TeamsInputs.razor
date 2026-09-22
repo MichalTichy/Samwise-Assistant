@@ -74,14 +74,14 @@ else
                 </label>
                 <label class="configuration-toggle">
                     <input type="checkbox" @bind="includeCallTranscripts" />
-                    <span><strong>Call transcripts</strong><small>Process new transcripts from meetings and calls organized by the connected account.</small></span>
+                    <span><strong>Call transcripts</strong><small>Process new transcripts from your own meetings and meetings in your calendar organized by others.</small></span>
                 </label>
             </div>
 
             @if (includeCallTranscripts)
             {
                 <div class="teams-permission-note">
-                    Transcripts require application permissions and tenant transcript access in Microsoft Graph. If either is unavailable, message intake continues and Samwise reports the transcript error here.
+                    Transcripts require application permissions for your own meetings, delegated calendar and transcript permissions for meetings organized by others, and tenant transcript access in Microsoft Graph. After adding these permissions, disconnect and reconnect the Microsoft account. If access is unavailable, message intake continues and Samwise reports the transcript error here.
                 </div>
             }
 

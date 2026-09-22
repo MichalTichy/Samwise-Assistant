@@ -38,4 +38,21 @@ public sealed class WorkItemActionTools(ISender sender)
             restoreCompleted = true
         });
     }
+
+    [McpServerTool(Name = "reopen_completed_work_item")]
+    [Description("Reopens a completed Work Item whose real-world outcome remains unfinished, preserves its previous completion in the history, and generates a new plan. Does not repeat the previous execution automatically.")]
+    public async Task<string> ReopenCompletedWorkItemAsync(
+        [Description("The completed Work Item ID returned by list_work_items.")]
+        string workItemId,
+        [Description("Why the real-world outcome is still unfinished. This becomes planning context.")]
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        await sender.Send(new ReopenCompletedWorkItemUsecase(workItemId, reason, "MCP"), cancellationToken);
+        return SamwiseMcpJson.Serialize(new
+        {
+            workItemId,
+            reopened = true
+        });
+    }
 }

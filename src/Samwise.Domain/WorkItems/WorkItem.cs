@@ -457,6 +457,39 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         Record(new WorkItemRestored(Id, Title, now, source));
     }
 
+    public void ReopenCompleted(string reason, DateTimeOffset now, string source = "Web")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        if (Status != WorkItemStatus.Completed)
+        {
+            throw new InvalidOperationException("Only a completed work item can be reopened.");
+        }
+
+        var normalizedReason = reason.Trim();
+        var previousCompletion = Completion;
+        var previousResult = previousCompletion is null
+            ? "No structured completion was recorded."
+            : $"Previous completion ({previousCompletion.CompletedAt:u}): {previousCompletion.Summary}" +
+              (previousCompletion.Outputs.Count == 0
+                  ? string.Empty
+                  : $"\n\nPrevious outputs:\n- {string.Join("\n- ", previousCompletion.Outputs)}");
+
+        Comments.Add(CreateComment(
+            $"Reopened through {source}: {normalizedReason}\n\n{previousResult}",
+            CommentAuthorKind.System,
+            WorkItemCommentKind.Context,
+            now));
+        Status = WorkItemStatus.Planning;
+        Revision++;
+        CurrentPlanId = null;
+        PendingPlanningQuestion = null;
+        LatestPlanningFeedback = normalizedReason;
+        Completion = null;
+        CompletedAt = null;
+        UpdatedAt = now;
+        Record(new WorkItemReopened(Id, Title, now, source, normalizedReason));
+    }
+
     public void AddExecutionUpdate(string body, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(body);

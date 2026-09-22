@@ -310,6 +310,10 @@ public partial class WorkItemDetails : IAsyncDisposable
 
     private Task RestoreAsync() => RunActionAsync(() => Sender.Send(new RestoreWorkItemUsecase(WorkItemId)));
 
+    private Task ReopenCompletedAsync() => RunActionAsync(() => Sender.Send(new ReopenCompletedWorkItemUsecase(
+        WorkItemId,
+        "The intended outcome remains unfinished; reassess the current external state before planning.")));
+
     private Task RetryExecutionAsync() =>
         RunActionAsync(() => Sender.Send(new RetryWorkItemExecutionUsecase(WorkItemId)));
 

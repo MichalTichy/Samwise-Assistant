@@ -296,6 +296,48 @@ public sealed class WorkItemTests
     }
 
     [Fact]
+    public void CompletedWorkItemCanBeReopenedWithoutRepeatingItsPreviousExecution()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Create an invoice.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime), InitialTime);
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(1));
+        workItem.Approve(plan.Id, workItem.Revision, InitialTime.AddMinutes(2));
+        workItem.StartExecution(plan.Id, workItem.Revision, InitialTime.AddMinutes(3));
+        workItem.CompleteExecution(
+            "Prepared billing figures, but no invoice was created.",
+            ["Added the figures to the existing task."],
+            "execution-invocation-id",
+            InitialTime.AddMinutes(4));
+        workItem.DequeueEvents();
+
+        workItem.ReopenCompleted("The invoice is still outstanding.", InitialTime.AddMinutes(5), "MCP");
+
+        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
+        Assert.Equal(2, workItem.Revision);
+        Assert.Null(workItem.CurrentPlanId);
+        Assert.Null(workItem.Completion);
+        Assert.Null(workItem.CompletedAt);
+        Assert.Equal("The invoice is still outstanding.", workItem.LatestPlanningFeedback);
+        Assert.Same(plan, Assert.Single(workItem.Plans));
+        var comment = Assert.Single(workItem.Comments);
+        Assert.Contains("The invoice is still outstanding.", comment.Body);
+        Assert.Contains("Prepared billing figures, but no invoice was created.", comment.Body);
+        Assert.Contains("Added the figures to the existing task.", comment.Body);
+        Assert.Equal(WorkItemCommentKind.Context, comment.Kind);
+        var reopened = Assert.IsType<WorkItemReopened>(Assert.Single(workItem.DequeueEvents()));
+        Assert.Equal("MCP", reopened.Source);
+    }
+
+    [Fact]
+    public void ReopenCompletedIsRejectedForAnActiveWorkItem()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Create an invoice.", null, InitialTime);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            workItem.ReopenCompleted("Still outstanding.", InitialTime.AddMinutes(1)));
+    }
+
+    [Fact]
     public void PlanningCanCompleteAWorkItemWhenNewContextProvesItIsResolved()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Reply to Rosie.", null, InitialTime);

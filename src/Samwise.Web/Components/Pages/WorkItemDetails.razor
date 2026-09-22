@@ -384,6 +384,12 @@ else
                         {
                             <p class="completion-empty">No structured completion details were recorded for this Work Item.</p>
                         }
+                        <LumexButton Color="@ThemeColor.Primary"
+                                     Variant="@Variant.Light"
+                                     OnClick="ReopenCompletedAsync"
+                                     Disabled="@actionBusy">
+                            @(actionBusy ? "Reopening…" : "Outcome still unfinished · reopen & replan")
+                        </LumexButton>
                     </section>
                 }
 

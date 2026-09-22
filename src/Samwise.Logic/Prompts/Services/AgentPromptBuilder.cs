@@ -75,9 +75,9 @@ internal sealed class AgentPromptBuilder(
                         updated_at = workItem.UpdatedAt
                     }),
                     JsonOptions)),
-                (AgentPromptPlaceholders.Playbooks, SerializePlaybooks(playbooks)),
-                (AgentPromptPlaceholders.PlanningTools, planningTools.RawJson),
-                (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
+                (AgentPromptPlaceholders.Playbooks, SerializePlaybookIndex(playbooks)),
+                (AgentPromptPlaceholders.PlanningTools, SerializeToolIndex(planningTools)),
+                (AgentPromptPlaceholders.ExecutionTools, SerializeToolIndex(executionTools)),
                 (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
         configuredText = AppendMissingInputContext(
             stageConfiguration.Prompt,
@@ -124,9 +124,23 @@ internal sealed class AgentPromptBuilder(
                     ? JsonSerializer.Serialize(previousPlan, JsonOptions)
                     : string.Empty),
                 (AgentPromptPlaceholders.RejectionFeedback, workItem.LatestPlanningFeedback),
-                (AgentPromptPlaceholders.Playbooks, SerializePlaybooks(playbooks)),
-                (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
+                (AgentPromptPlaceholders.Playbooks, HasTool(planningTools, "get_playbook")
+                    ? SerializePlaybookIndex(playbooks)
+                    : SerializePlaybooks(playbooks)),
+                (AgentPromptPlaceholders.ExecutionTools, HasTool(planningTools, "get_execution_tool_schema")
+                    ? SerializeToolIndex(executionTools)
+                    : executionTools.RawJson),
                 (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
+
+        if (HasTool(planningTools, "get_playbook"))
+        {
+            text += "\nBefore applying a matching playbook, call Samwise get_playbook with its exact ID and follow the returned full guidance.\n";
+        }
+
+        if (HasTool(planningTools, "get_execution_tool_schema"))
+        {
+            text += "\nBefore proposing a tool call, call Samwise get_execution_tool_schema for its exact qualified ID. Use the returned schema to construct arguments_json.\n";
+        }
 
         text = AppendSourceReferences(text, workItem);
 
@@ -236,6 +250,33 @@ internal sealed class AgentPromptBuilder(
                 description = playbook.Description
             }),
             JsonOptions);
+
+    private static string SerializePlaybookIndex(IReadOnlyList<Playbook> playbooks) =>
+        JsonSerializer.Serialize(
+            playbooks.Select(playbook => new
+            {
+                id = playbook.Id,
+                name = playbook.Name,
+                summary = Truncate(playbook.Description, 240)
+            }),
+            JsonOptions);
+
+    private static string SerializeToolIndex(ToolCatalogSnapshot catalog) =>
+        JsonSerializer.Serialize(new
+        {
+            catalog_version = catalog.CatalogVersion,
+            tools = catalog.Tools.Where(tool => tool.CanInvoke).Select(tool => new
+            {
+                id = tool.Id,
+                name = tool.Name,
+                summary = Truncate(tool.Description ?? string.Empty, 180)
+            })
+        }, JsonOptions);
+
+    private static bool HasTool(ToolCatalogSnapshot catalog, string name) =>
+        catalog.Tools.Any(tool => tool.CanInvoke &&
+            (string.Equals(tool.Name, name, StringComparison.Ordinal) ||
+             tool.Id.EndsWith("/" + name, StringComparison.Ordinal)));
 
     private static string SerializeInputContext(IReadOnlyList<InboundEventContextItem> context) =>
         JsonSerializer.Serialize(

@@ -258,7 +258,10 @@ public partial class TeamsInputs
             var result = await Sender.Send(new ProcessTeamsInputsUsecase());
             pageMessage = $"Teams: {result.Imported} imported, {result.Ignored} ignored, "
                 + $"{result.AlreadyProcessed} already processed."
-                + (result.Errors.Count == 0 ? string.Empty : $" {string.Join(" ", result.Errors)}");
+                + (result.Errors.Count == 0 ? string.Empty : $" {string.Join(" ", result.Errors)}")
+                + (result.SkippedMeetings.Count == 0
+                    ? string.Empty
+                    : $" {string.Join(" ", result.SkippedMeetings)}");
             pageMessageIsSuccess = result.Errors.Count == 0;
             var configuration = await ConfigurationRepository.GetRequiredByIdAsync(
                 TeamsInputConfiguration.DocumentId);

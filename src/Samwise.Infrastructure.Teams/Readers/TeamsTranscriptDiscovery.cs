@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Text.Json;
 using Samwise.Infrastructure.Teams.Graph;
 
@@ -10,7 +11,7 @@ internal static class TeamsTranscriptDiscovery
     private const int CalendarLookbackDays = 7;
     private const int TranscriptReplayDays = 1;
 
-    public static async Task<IReadOnlyList<JsonElement>> ReadOrganizedAsync(
+    public static async Task<TeamsTranscriptDiscoveryResult> ReadOrganizedAsync(
         ITeamsGraphClient client,
         DateTimeOffset since,
         DateTimeOffset until,
@@ -23,23 +24,40 @@ internal static class TeamsTranscriptDiscovery
         var to = Uri.EscapeDataString(until.ToUniversalTime().ToString("O"));
         var escapedUserId = TeamsGraphClient.Id(userId);
 
-        var organizedTask = client.GetApplicationCollectionAsync(
-            $"users/{escapedUserId}/onlineMeetings/getAllTranscripts("
-            + $"meetingOrganizerUserId='{escapedUserId}',startDateTime={from},endDateTime={to})?$top={ResultLimit}",
-            cancellationToken);
-        var adhocTask = client.GetApplicationCollectionAsync(
-            $"users/{escapedUserId}/adhocCalls/getAllTranscripts("
-            + $"userId={escapedUserId},startDateTime={from},endDateTime={to})?$top={ResultLimit}",
-            cancellationToken);
-        await Task.WhenAll(organizedTask, adhocTask);
+        var transcripts = new List<JsonElement>();
+        var errors = new List<string>();
+        try
+        {
+            var organized = await client.GetApplicationCollectionAsync(
+                $"users/{escapedUserId}/onlineMeetings/getAllTranscripts("
+                + $"meetingOrganizerUserId='{escapedUserId}',startDateTime={from},endDateTime={to})?$top={ResultLimit}",
+                cancellationToken);
+            transcripts.AddRange(organized.Select(item =>
+                EnrichTranscript(item, "scheduledMeeting", userId, organizerName)));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errors.Add($"Scheduled meetings: {exception.Message}");
+        }
 
-        return (await organizedTask)
-            .Select(item => EnrichTranscript(item, "scheduledMeeting", userId, organizerName))
-            .Concat((await adhocTask)
-                .Select(item => EnrichTranscript(item, "adhocCall", userId, organizerName)))
+        try
+        {
+            var adhoc = await client.GetApplicationCollectionAsync(
+                $"users/{escapedUserId}/adhocCalls/getAllTranscripts("
+                + $"userId='{escapedUserId}',startDateTime={from},endDateTime={to})?$top={ResultLimit}",
+                cancellationToken);
+            transcripts.AddRange(adhoc.Select(item =>
+                EnrichTranscript(item, "adhocCall", userId, organizerName)));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errors.Add($"Ad-hoc calls: {exception.Message}");
+        }
+
+        return new TeamsTranscriptDiscoveryResult(transcripts
             .Where(item => IsInWindow(item, since, until))
             .Take(ResultLimit)
-            .ToList();
+            .ToList(), errors, []);
     }
 
     public static async Task<TeamsTranscriptDiscoveryResult> ReadInvitedAsync(
@@ -59,6 +77,7 @@ internal static class TeamsTranscriptDiscovery
             .ToList();
         var transcripts = new ConcurrentBag<JsonElement>();
         var errors = new ConcurrentBag<string>();
+        var skippedMeetings = new ConcurrentBag<string>();
         await Parallel.ForEachAsync(candidates, new ParallelOptions
         {
             MaxDegreeOfParallelism = 4,
@@ -100,6 +119,10 @@ internal static class TeamsTranscriptDiscovery
                     }
                 }
             }
+            catch (TeamsGraphRequestException exception) when (IsInaccessibleMeeting(exception))
+            {
+                skippedMeetings.Add(exception.Message);
+            }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 errors.Add(exception.Message);
@@ -116,8 +139,18 @@ internal static class TeamsTranscriptDiscovery
                 .GroupBy(error => error, StringComparer.Ordinal)
                 .Select(group => $"{group.Count()} meeting(s): {group.Key}")
                 .Order(StringComparer.Ordinal)
+                .ToList(), skippedMeetings
+                .GroupBy(error => error, StringComparer.Ordinal)
+                .Select(group => $"{group.Count()} meeting(s): {group.Key}")
+                .Order(StringComparer.Ordinal)
                 .ToList());
     }
+
+    private static bool IsInaccessibleMeeting(TeamsGraphRequestException exception) =>
+        (exception.StatusCode == HttpStatusCode.Forbidden
+         && exception.GraphMessage.StartsWith("3003:", StringComparison.Ordinal))
+        || (exception.StatusCode == HttpStatusCode.NotFound
+            && exception.GraphMessage.StartsWith("3004:", StringComparison.Ordinal));
 
     internal static string CalendarViewPath(DateTimeOffset start, DateTimeOffset end) =>
         "me/calendarView?startDateTime=" + Uri.EscapeDataString(start.ToUniversalTime().ToString("O"))

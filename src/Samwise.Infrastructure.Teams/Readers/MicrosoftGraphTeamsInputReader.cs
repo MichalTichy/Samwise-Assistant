@@ -94,6 +94,7 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
     {
         var activities = new List<TeamsActivitySnapshot>();
         var errors = new List<string>();
+        var skippedMeetings = new List<string>();
 
         if (includeChatMessages)
         {
@@ -123,9 +124,11 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
         {
             try
             {
-                AddTranscriptSnapshots(
-                    await TeamsTranscriptDiscovery.ReadOrganizedAsync(graph, since, until, cancellationToken),
-                    activities);
+                var organized = await TeamsTranscriptDiscovery.ReadOrganizedAsync(
+                    graph, since, until, cancellationToken);
+                AddTranscriptSnapshots(organized.Transcripts, activities);
+                errors.AddRange(organized.Errors.Select(
+                    error => $"Teams organized transcript intake failed: {error}"));
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -137,6 +140,8 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
                 var invited = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, since, until, cancellationToken);
                 AddTranscriptSnapshots(invited.Transcripts, activities);
                 errors.AddRange(invited.Errors.Select(error => $"Teams invited transcript intake failed: {error}"));
+                skippedMeetings.AddRange(invited.SkippedMeetings.Select(
+                    error => $"Teams invited meeting skipped: {error}"));
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -149,7 +154,8 @@ internal sealed class MicrosoftGraphTeamsInputReader(TeamsGraphClient graph) : I
                 .GroupBy(activity => activity.ExternalId, StringComparer.Ordinal)
                 .Select(group => group.OrderByDescending(activity => activity.OccurredAt).First())
                 .ToList(),
-            errors);
+            errors,
+            skippedMeetings);
     }
 
     private static async Task ReadChatMessagesAsync(

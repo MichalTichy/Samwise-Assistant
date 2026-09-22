@@ -141,6 +141,45 @@ public sealed class TeamsConversationProcessingTests
     }
 
     [Fact]
+    public async Task SkippedMeetingDoesNotHoldBackTeamsCheckpoint()
+    {
+        var configuration = CreateConfiguration();
+        var capture = new RecordingCaptureService();
+        var handler = CreateHandler(
+            configuration,
+            [],
+            [Message("new", Now.AddMinutes(-3), isNew: true, "Please review this")],
+            capture,
+            skippedMeetings: ["1 meeting(s): 3004: Meeting properties are not found"]);
+
+        var result = await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
+
+        Assert.Equal(1, result.Imported);
+        Assert.Empty(result.Errors);
+        Assert.Single(result.SkippedMeetings);
+        Assert.Equal(Now.AddMinutes(-2), configuration.LastSuccessfulCheckAt);
+        Assert.Null(configuration.LastError);
+    }
+
+    [Fact]
+    public async Task TenantWideFailureKeepsTeamsCheckpointForRetry()
+    {
+        var configuration = CreateConfiguration();
+        var originalCheckpoint = configuration.LastSuccessfulCheckAt;
+        var handler = CreateHandler(
+            configuration,
+            [],
+            [],
+            new RecordingCaptureService(),
+            errors: ["Graph API access to transcripts is disabled for this tenant."]);
+
+        var result = await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
+
+        Assert.Single(result.Errors);
+        Assert.Equal(originalCheckpoint, configuration.LastSuccessfulCheckAt);
+    }
+
+    [Fact]
     public async Task ChannelMessageUsesAChannelThreadSource()
     {
         var configuration = CreateConfiguration();
@@ -224,10 +263,12 @@ public sealed class TeamsConversationProcessingTests
         TeamsInputConfiguration configuration,
         IReadOnlyList<InboundEvent> previousEvents,
         IReadOnlyList<TeamsActivitySnapshot> activities,
-        RecordingCaptureService capture) => new(
+        RecordingCaptureService capture,
+        IReadOnlyList<string>? errors = null,
+        IReadOnlyList<string>? skippedMeetings = null) => new(
             new MemoryRepository<TeamsInputConfiguration>([configuration]),
             new MemoryRepository<InboundEvent>(previousEvents),
-            new StubTeamsReader(activities),
+            new StubTeamsReader(activities, errors ?? [], skippedMeetings ?? []),
             capture,
             new ImmediateLock(),
             new FixedTimeProvider(Now));
@@ -272,7 +313,10 @@ public sealed class TeamsConversationProcessingTests
             IsNew = isNew
         };
 
-    private sealed class StubTeamsReader(IReadOnlyList<TeamsActivitySnapshot> activities) : ITeamsInputReader
+    private sealed class StubTeamsReader(
+        IReadOnlyList<TeamsActivitySnapshot> activities,
+        IReadOnlyList<string> errors,
+        IReadOnlyList<string> skippedMeetings) : ITeamsInputReader
     {
         public Task<TeamsInputCatalog> GetCatalogAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
@@ -284,7 +328,7 @@ public sealed class TeamsConversationProcessingTests
             bool includeChannelMessages,
             bool includeCallTranscripts,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new TeamsInputReadResult(activities, []));
+            Task.FromResult(new TeamsInputReadResult(activities, errors, skippedMeetings));
     }
 
     private sealed class RecordingCaptureService : IInboundEventCaptureService

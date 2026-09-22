@@ -33,7 +33,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             cancellationToken);
         if (!configuration.IsConfigured)
         {
-            return new TeamsProcessingResult(0, 0, 0, []);
+            return new TeamsProcessingResult(0, 0, 0, [], []);
         }
 
         var now = timeProvider.GetUtcNow();
@@ -41,13 +41,13 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         {
             configuration.RecordSuccessfulCheck(now);
             await configurationRepository.UpdateAsync(configuration, cancellationToken);
-            return new TeamsProcessingResult(0, 0, 0, []);
+            return new TeamsProcessingResult(0, 0, 0, [], []);
         }
 
         var checkedThrough = now - TimeSpan.FromMinutes(configuration.DebounceMinutes);
         if (checkedThrough <= configuration.LastSuccessfulCheckAt)
         {
-            return new TeamsProcessingResult(0, 0, 0, []);
+            return new TeamsProcessingResult(0, 0, 0, [], []);
         }
 
         TeamsInputReadResult readResult;
@@ -65,7 +65,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         {
             configuration.RecordFailedCheck(exception.Message);
             await configurationRepository.UpdateAsync(configuration, cancellationToken);
-            return new TeamsProcessingResult(0, 0, 0, [exception.Message]);
+            return new TeamsProcessingResult(0, 0, 0, [exception.Message], []);
         }
 
         var imported = 0;
@@ -116,7 +116,8 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         }
 
         await configurationRepository.UpdateAsync(configuration, cancellationToken);
-        return new TeamsProcessingResult(imported, ignored, alreadyProcessed, readResult.Errors);
+        return new TeamsProcessingResult(
+            imported, ignored, alreadyProcessed, readResult.Errors, readResult.SkippedMeetings);
     }
 
     private async Task<(bool AlreadyExisted, bool Ignored, bool Captured, bool Deferred)> CaptureConversationAsync(

@@ -40,8 +40,9 @@ internal sealed class TeamsGraphClient(
         var text = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException(
-                $"Microsoft Graph returned {(int)response.StatusCode}: {ReadError(text) ?? response.ReasonPhrase}");
+            throw new TeamsGraphRequestException(
+                response.StatusCode,
+                ReadError(text) ?? response.ReasonPhrase ?? "Unknown error");
         }
 
         using var document = JsonDocument.Parse(text);

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Net;
 using Samwise.Infrastructure.Teams.Graph;
 using Samwise.Infrastructure.Teams.Readers;
 
@@ -34,7 +35,24 @@ public sealed class TeamsTranscriptDiscoveryTests
 
         var result = await TeamsTranscriptDiscovery.ReadOrganizedAsync(graph, Since, Until, CancellationToken.None);
 
-        Assert.Equal("meeting-1", Assert.Single(result).GetProperty("meetingId").GetString());
+        Assert.Equal("meeting-1", Assert.Single(result.Transcripts).GetProperty("meetingId").GetString());
+        Assert.Empty(result.Errors);
+        Assert.Contains(graph.ApplicationPaths, path =>
+            path.Contains("userId='connected-1'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AdhocFailureDoesNotHideScheduledMeetingTranscript()
+    {
+        var graph = new RecordingGraphClient(
+            includeOrganizedTranscript: true,
+            failAdhocCalls: true);
+
+        var result = await TeamsTranscriptDiscovery.ReadOrganizedAsync(
+            graph, Since, Until, CancellationToken.None);
+
+        Assert.Single(result.Transcripts);
+        Assert.Contains("Ad-hoc calls", Assert.Single(result.Errors));
     }
 
     [Fact]
@@ -57,15 +75,34 @@ public sealed class TeamsTranscriptDiscoveryTests
         Assert.Empty(result.Transcripts);
     }
 
-    [Fact]
-    public async Task InaccessibleMeetingDoesNotHideAnotherMeetingsTranscript()
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden, "3003: User does not have access to lookup meeting")]
+    [InlineData(HttpStatusCode.NotFound, "3004: Meeting properties are not found")]
+    public async Task InaccessibleMeetingIsSkippedWithoutBlockingAnotherTranscript(
+        HttpStatusCode statusCode,
+        string message)
     {
-        var graph = new RecordingGraphClient(includeInaccessibleMeeting: true);
+        var graph = new RecordingGraphClient(
+            includeInaccessibleMeeting: true,
+            inaccessibleStatusCode: statusCode);
 
         var result = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, Since, Until, CancellationToken.None);
 
         Assert.Single(result.Transcripts);
-        Assert.Contains("403", Assert.Single(result.Errors));
+        Assert.Empty(result.Errors);
+        Assert.Contains(message, Assert.Single(result.SkippedMeetings));
+    }
+
+    [Fact]
+    public async Task TenantWideTranscriptFailureRemainsRetryable()
+    {
+        var graph = new RecordingGraphClient(includeInaccessibleMeeting: true, tenantAccessDisabled: true);
+
+        var result = await TeamsTranscriptDiscovery.ReadInvitedAsync(graph, Since, Until, CancellationToken.None);
+
+        Assert.Single(result.Transcripts);
+        Assert.Contains("disabled for this tenant", Assert.Single(result.Errors));
+        Assert.Empty(result.SkippedMeetings);
     }
 
     [Fact]
@@ -81,9 +118,13 @@ public sealed class TeamsTranscriptDiscoveryTests
     private sealed class RecordingGraphClient(
         DateTimeOffset? createdAt = null,
         bool includeOrganizedTranscript = false,
-        bool includeInaccessibleMeeting = false) : ITeamsGraphClient
+        bool includeInaccessibleMeeting = false,
+        bool tenantAccessDisabled = false,
+        HttpStatusCode inaccessibleStatusCode = HttpStatusCode.Forbidden,
+        bool failAdhocCalls = false) : ITeamsGraphClient
     {
         public List<string> DelegatedPaths { get; } = [];
+        public List<string> ApplicationPaths { get; } = [];
 
         public Task<JsonElement> GetDelegatedAsync(string path, CancellationToken cancellationToken)
         {
@@ -98,7 +139,14 @@ public sealed class TeamsTranscriptDiscoveryTests
             DelegatedPaths.Add(path);
             if (path.Contains("inaccessible", StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("Microsoft Graph returned 403");
+                throw tenantAccessDisabled
+                    ? new TeamsGraphRequestException(
+                        HttpStatusCode.Forbidden, "Graph API access to transcripts is disabled for this tenant.")
+                    : new TeamsGraphRequestException(
+                        inaccessibleStatusCode,
+                        inaccessibleStatusCode == HttpStatusCode.NotFound
+                            ? "3004: Meeting properties are not found"
+                            : "3003: User does not have access to lookup meeting");
             }
 
             var items = path switch
@@ -120,6 +168,13 @@ public sealed class TeamsTranscriptDiscoveryTests
             string path,
             CancellationToken cancellationToken)
         {
+            ApplicationPaths.Add(path);
+            if (failAdhocCalls && path.Contains("adhocCalls", StringComparison.Ordinal))
+            {
+                throw new TeamsGraphRequestException(HttpStatusCode.BadRequest,
+                    "Expression of type 'Edm.Guid' cannot be converted to type 'Edm.String'.");
+            }
+
             var items = includeOrganizedTranscript && path.Contains("onlineMeetings", StringComparison.Ordinal)
                 ? $"[{{\"id\":\"transcript-1\",\"meetingId\":\"meeting-1\",\"createdDateTime\":\"{(createdAt ?? Since.AddMinutes(30)):O}\"}}]"
                 : "[]";

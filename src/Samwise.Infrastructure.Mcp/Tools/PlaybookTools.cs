@@ -28,6 +28,21 @@ public sealed class PlaybookTools(
         });
     }
 
+    [McpServerTool(Name = "get_playbook")]
+    [Description("Retrieves the complete guidance for one enabled Samwise Playbook by its exact ID.")]
+    public async Task<string> GetPlaybookAsync(
+        [Description("Exact Playbook ID from the planning prompt catalogue.")] string playbookId,
+        CancellationToken cancellationToken = default)
+    {
+        var playbook = await repository.GetByIdAsync(playbookId, cancellationToken);
+        if (playbook is not { IsEnabled: true })
+        {
+            return SamwiseMcpJson.Serialize(new { found = false });
+        }
+
+        return SamwiseMcpJson.Serialize(new { found = true, playbook });
+    }
+
     [McpServerTool(Name = "save_playbook")]
     [Description("Creates or updates a Samwise Playbook. Supply an existing playbook_id to update it; omit the ID to create one.")]
     public async Task<string> SavePlaybookAsync(

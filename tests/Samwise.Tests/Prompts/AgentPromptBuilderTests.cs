@@ -64,8 +64,10 @@ public sealed class AgentPromptBuilderTests
         Assert.Contains(workItem.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Description, result.Text, StringComparison.Ordinal);
-        Assert.Contains(catalogs[AgentStage.Planning].RawJson, result.Text, StringComparison.Ordinal);
-        Assert.Contains(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.Contains("Planning-version", result.Text, StringComparison.Ordinal);
+        Assert.Contains("Execution-version", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(catalogs[AgentStage.Planning].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
         Assert.Equal("intake-model", result.Configuration.Model);
         Assert.Equal("high", result.Configuration.ReasoningEffort);
         Assert.Equal(catalogs[AgentStage.Intake], result.IntakeTools);
@@ -142,6 +144,38 @@ public sealed class AgentPromptBuilderTests
     }
 
     [Fact]
+    public async Task PlanningUsesProgressiveLookupsWhenSamwiseToolsAreAvailable()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Prepare an invoice.", "Invoice", Now);
+        var playbook = new Playbook
+        {
+            Id = "invoice-processing",
+            Name = "Invoice processing",
+            Description = new string('x', 500) + "END-OF-GUIDANCE",
+            IsEnabled = true
+        };
+        var catalogs = new RecordingToolCatalog();
+        catalogs.Set(AgentStage.Planning, new ToolCatalogSnapshot("planning-v2", "PLANNING-RAW", [
+            new ToolServerCapability("samwise", "Samwise", "1", false, null, null, null, [
+                new ToolCapability("samwise/get_playbook", "get_playbook", null, "{}", true),
+                new ToolCapability("samwise/get_execution_tool_schema", "get_execution_tool_schema", null, "{}", true)])]));
+        catalogs.Set(AgentStage.Execution, new ToolCatalogSnapshot("execution-v2", "EXECUTION-RAW", [
+            new ToolServerCapability("todoist", "Todoist", "1", false, null, null, null, [
+                new ToolCapability("todoist/create-task", "create-task", "Creates a task", "SCHEMA-SECRET", true)])]));
+        var builder = CreateBuilder(DefaultAgentConfiguration.Create(Now), catalogs, [], [workItem], [playbook]);
+
+        var result = await builder.BuildPlanningAsync(workItem.Id, CancellationToken.None);
+
+        Assert.Contains("get_playbook", result.Text, StringComparison.Ordinal);
+        Assert.Contains("get_execution_tool_schema", result.Text, StringComparison.Ordinal);
+        Assert.Contains(playbook.Id, result.Text, StringComparison.Ordinal);
+        Assert.Contains("todoist/create-task", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("END-OF-GUIDANCE", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("EXECUTION-RAW", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("SCHEMA-SECRET", result.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ExecutionPromptRetrievesTheExactApprovedPlanAndCurrentTools()
     {
         var source = new WorkItemSourceReference
@@ -208,7 +242,7 @@ public sealed class AgentPromptBuilderTests
 
     private sealed class RecordingToolCatalog : IAgentToolCatalog
     {
-        private readonly IReadOnlyDictionary<AgentStage, ToolCatalogSnapshot> catalogs =
+        private readonly Dictionary<AgentStage, ToolCatalogSnapshot> catalogs =
             Enum.GetValues<AgentStage>().ToDictionary(
                 stage => stage,
                 stage => new ToolCatalogSnapshot(
@@ -219,6 +253,8 @@ public sealed class AgentPromptBuilderTests
         public List<AgentStage> RequestedStages { get; } = [];
 
         public ToolCatalogSnapshot this[AgentStage stage] => catalogs[stage];
+
+        public void Set(AgentStage stage, ToolCatalogSnapshot snapshot) => catalogs[stage] = snapshot;
 
         public Task<ToolCatalogSnapshot> GetToolsAsync(
             AgentStage stage,

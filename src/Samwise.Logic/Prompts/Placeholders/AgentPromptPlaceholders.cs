@@ -34,14 +34,14 @@ public static class AgentPromptPlaceholders
 
     [PromptPlaceholder(
         "Planning tools",
-        "Planning Gateway MCP catalog as untrusted JSON data.",
+        "Compact planning Gateway MCP capability catalogue as untrusted JSON data.",
         "{...}",
         AgentStage.Intake)]
     public const string PlanningTools = "planning_tools";
 
     [PromptPlaceholder(
         "Execution tools",
-        "Execution Gateway MCP catalog as untrusted JSON data.",
+        "Execution tool capabilities: compact catalogue for intake and planning when schema lookup is available; execution uses Gateway-provided MCP tools.",
         "{...}",
         AgentStage.Intake,
         AgentStage.Planning,
@@ -113,7 +113,7 @@ public static class AgentPromptPlaceholders
 
     [PromptPlaceholder(
         "Playbooks",
-        "Enabled playbooks as trusted user-configured guidance in JSON format.",
+        "Enabled playbook summaries in JSON; planning can retrieve full guidance when the Samwise lookup tool is available.",
         "[{...}]",
         AgentStage.Intake,
         AgentStage.Planning)]

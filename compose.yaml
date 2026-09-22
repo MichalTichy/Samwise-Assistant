@@ -96,6 +96,7 @@ services:
       AdminUi__Password: "${CODEX_GATEWAY_ADMIN_PASSWORD:?Set CODEX_GATEWAY_ADMIN_PASSWORD in an ignored .env file}"
       ConnectionStrings__Gateway: "${CODEX_GATEWAY_CONNECTION_STRING:?Set CODEX_GATEWAY_CONNECTION_STRING in an ignored .env file}"
       SAMWISE_MCP_API_KEY: "${SAMWISE_MCP_API_KEY:?Set SAMWISE_MCP_API_KEY in an ignored .env file}"
+      WALLET_MCP_AUTHORIZATION: "Bearer ${WALLET_MCP_ACCESS_TOKEN:?Set WALLET_MCP_ACCESS_TOKEN in the Portainer stack environment}"
       Codex__Container__EngineExecutablePath: docker
       Codex__Container__Image: "${CODEX_GATEWAY_RUNNER_IMAGE:-registry.tichymichal.net/codex-gateway-runner:latest}"
       Codex__Container__WorkspaceVolume: "${CODEX_GATEWAY_DATA_VOLUME:-codex-gateway-data}"

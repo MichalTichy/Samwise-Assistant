@@ -6,7 +6,7 @@
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, Mail/Calendar/Contacts MCP admin token, and `TODOIST_API_KEY`. To ingest Exchange Online mail, also configure the Microsoft 365 public-client application described below. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, Mail/Calendar/Contacts MCP admin token, `TODOIST_API_KEY`, and `WALLET_MCP_ACCESS_TOKEN`. To ingest Exchange Online mail, also configure the Microsoft 365 public-client application described below. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -94,6 +94,23 @@ Register the server in Gateway admin UI:
 Do not configure an HTTP environment header for this server.
 
 Test discovery and enable the needed tools. Grant read tools to planning if it needs live Riganti context. Grant write tools only to execution, behind Samwise Work Item approval. In particular, `riganti_is_create_wage_bonus_request` and `riganti_is_create_invoice` create real records; invoice creation should follow the preview tool and explicit plan approval. The MCP server does not send invoices.
+
+## Wallet by BudgetBakers MCP
+
+Wallet already operates its own Streamable HTTP MCP server, so this stack does not build or run another Wallet container. Generate an **MCP access token** in Wallet **Settings → MCP** and set `WALLET_MCP_ACCESS_TOKEN` in the Portainer stack environment. Compose passes `Bearer <token>` to Gateway as `WALLET_MCP_AUTHORIZATION`; Samwise and runner containers do not receive the token. This is the Wallet MCP token, not the Wallet REST API token.
+
+Register the HTTP MCP server in Gateway admin UI:
+
+| Field | Value |
+| --- | --- |
+| Name | `Wallet by BudgetBakers` |
+| URL | `https://mcp.wallet.budgetbakers.com` |
+| Execution mode | `Gateway` |
+| Environment headers | `Authorization=WALLET_MCP_AUTHORIZATION` |
+
+Test discovery, then enable and grant only the tools each Samwise project needs. Start with the nine read tools for planning and execution. Grant mutation tools to execution only when the matching permission is also enabled in Wallet's MCP settings; keep deletion disabled unless explicitly needed. Wallet permissions and Gateway project/API-key grants are separate checks. Writes return per-item results and may partially succeed, so review each result before retrying a batch.
+
+The official Wallet MCP exposes 20 tools. Compared with the current 22-operation Wallet REST OpenAPI, it covers 21 operations: `get_entity` groups the four reads for goals, standing orders, standing-order items, and record rules, while the only missing direct equivalent is `GET /v1/api/api-usage/stats`. MCP responses instead expose remaining rate-limit information in `_meta.rateLimit`. `get_records_aggregation` is an additional MCP capability absent from REST. Keep this coverage note in mind if full REST parity becomes necessary later. The personal notes under `D:\AI\Wallet` are not an MCP implementation and are not included in the stack.
 
 ## iPhone notifications
 

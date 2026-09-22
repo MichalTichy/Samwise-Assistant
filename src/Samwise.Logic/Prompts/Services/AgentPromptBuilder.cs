@@ -168,8 +168,9 @@ internal sealed class AgentPromptBuilder(
                 (AgentPromptPlaceholders.WorkItemDescription, workItem.Description),
                 (AgentPromptPlaceholders.WorkItemRevision, workItem.Revision.ToString()),
                 (AgentPromptPlaceholders.WorkItemComments, FormatComments(workItem.Comments)),
-                (AgentPromptPlaceholders.ApprovedPlan, JsonSerializer.Serialize(plan, JsonOptions)),
-                (AgentPromptPlaceholders.ExecutionTools, executionTools.RawJson),
+                (AgentPromptPlaceholders.ApprovedPlan, ExecutionPlanPromptProjection.Serialize(plan)),
+                (AgentPromptPlaceholders.ExecutionTools,
+                    "Use the execution MCP tools exposed by Gateway. Tool definitions are not repeated in this prompt."),
                 (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
 
         text = AppendSourceReferences(text, workItem);

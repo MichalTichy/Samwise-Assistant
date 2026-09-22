@@ -121,7 +121,7 @@ public static class AgentPromptPlaceholders
 
     [PromptPlaceholder(
         "Approved plan",
-        "Exact approved plan JSON.",
+        "Execution projection of the exact approved plan, excluding stored tool catalog snapshots and audit metadata.",
         "{...}",
         AgentStage.Execution)]
     public const string ApprovedPlan = "approved_plan";

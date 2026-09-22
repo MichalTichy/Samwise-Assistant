@@ -159,6 +159,8 @@ public sealed class AgentPromptBuilderTests
             WorkItemRevision = workItem.Revision,
             PlanNumber = 1,
             Summary = "Send the approved invoice.",
+            PlanningTools = new PlanToolCatalogSnapshot { RawJson = "PLANNING-CATALOG-PAYLOAD" + new string('x', 100_000) },
+            ExecutionTools = new PlanToolCatalogSnapshot { RawJson = "EXECUTION-CATALOG-PAYLOAD" + new string('x', 100_000) },
             CreatedAt = Now
         };
         workItem.ApplyPlan(plan, Now);
@@ -176,7 +178,10 @@ public sealed class AgentPromptBuilderTests
         Assert.Contains(workItem.Title, result.Text, StringComparison.Ordinal);
         Assert.Contains(plan.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(plan.Summary, result.Text, StringComparison.Ordinal);
-        Assert.Contains(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("PLANNING-CATALOG-PAYLOAD", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("EXECUTION-CATALOG-PAYLOAD", result.Text, StringComparison.Ordinal);
+        Assert.True(result.Text.Length < 10_000);
         Assert.Contains(source.InboundEventId, result.Text, StringComparison.Ordinal);
         Assert.Contains(source.ExternalId, result.Text, StringComparison.Ordinal);
         Assert.Equal(catalogs[AgentStage.Execution], result.ExecutionTools);

@@ -1,7 +1,7 @@
 namespace Samwise.Logic.Agents;
 
 public sealed record ExecutionResult(
-    bool Succeeded,
+    ExecutionDisposition Disposition,
     string Summary,
     IReadOnlyList<string> Outputs,
     AgentReceipt Receipt);

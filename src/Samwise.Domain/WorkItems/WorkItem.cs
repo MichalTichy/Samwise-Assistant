@@ -401,9 +401,9 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         Record(new ExecutionRetryRequested(Id, Title, now));
     }
 
-    public void MarkApprovedExecutionFailed(DateTimeOffset now, string? reason = null)
+    public void MarkExecutionFailed(DateTimeOffset now, string? reason = null)
     {
-        if (Status == WorkItemStatus.Approved)
+        if (Status is WorkItemStatus.Approved or WorkItemStatus.Executing)
         {
             Status = WorkItemStatus.NeedsAttention;
             UpdatedAt = now;

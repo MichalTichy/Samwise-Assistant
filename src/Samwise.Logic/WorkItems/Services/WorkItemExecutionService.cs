@@ -75,20 +75,32 @@ internal sealed class WorkItemExecutionService(
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
-            if (result.Succeeded)
+            switch (result.Disposition)
             {
-                currentWorkItem.CompleteExecution(
-                    result.Summary,
-                    result.Outputs,
-                    invocation.Id,
-                    timeProvider.GetUtcNow());
-            }
-            else
-            {
-                currentWorkItem.MarkExecutionUncertain(timeProvider.GetUtcNow());
-                currentWorkItem.AddExecutionUpdate(
-                    AgentWorkflowSupport.FormatExecutionResult(result),
-                    timeProvider.GetUtcNow());
+                case ExecutionDisposition.Succeeded:
+                    currentWorkItem.CompleteExecution(
+                        result.Summary,
+                        result.Outputs,
+                        invocation.Id,
+                        timeProvider.GetUtcNow());
+                    break;
+                case ExecutionDisposition.Failed:
+                    currentWorkItem.MarkExecutionFailed(timeProvider.GetUtcNow(), result.Summary);
+                    currentWorkItem.AddExecutionUpdate(
+                        AgentWorkflowSupport.FormatExecutionResult(result),
+                        timeProvider.GetUtcNow());
+                    break;
+                case ExecutionDisposition.OutcomeUnknown:
+                    currentWorkItem.MarkExecutionUncertain(timeProvider.GetUtcNow(), result.Summary);
+                    currentWorkItem.AddExecutionUpdate(
+                        AgentWorkflowSupport.FormatExecutionResult(result),
+                        timeProvider.GetUtcNow());
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(result.Disposition),
+                        result.Disposition,
+                        "Unknown execution disposition.");
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
@@ -128,7 +140,7 @@ internal sealed class WorkItemExecutionService(
             }
             else
             {
-                currentWorkItem.MarkApprovedExecutionFailed(timeProvider.GetUtcNow(), exception.Message);
+                currentWorkItem.MarkExecutionFailed(timeProvider.GetUtcNow(), exception.Message);
             }
 
             await workItemRepository.UpdateAsync(currentWorkItem, CancellationToken.None);

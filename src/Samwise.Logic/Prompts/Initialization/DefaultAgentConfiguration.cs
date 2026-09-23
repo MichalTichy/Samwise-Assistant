@@ -117,6 +117,8 @@ internal static class DefaultAgentConfiguration
                      {{execution_tools}}
 
                      Current UTC time: {{current_time}}
+
+                     Return disposition succeeded only when every required side effect is confirmed. Return failed when the objective was not completed and you can establish that no unconfirmed external change may have occurred. Return outcome_unknown only when an attempted external change may have happened but its result cannot be verified. Explain the evidence in summary and list concrete tool results in outputs.
                      """
         }
     };

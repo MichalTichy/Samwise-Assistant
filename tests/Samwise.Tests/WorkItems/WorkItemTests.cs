@@ -130,6 +130,22 @@ public sealed class WorkItemTests
     }
 
     [Fact]
+    public void ConfirmedExecutionFailureNeedsAttentionInsteadOfReportingUnknownOutcome()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Send the revised offer.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
+        workItem.Approve(plan.Id, workItem.Revision, InitialTime.AddMinutes(4));
+        workItem.StartExecution(plan.Id, workItem.Revision, InitialTime.AddMinutes(5));
+
+        workItem.MarkExecutionFailed(InitialTime.AddMinutes(6), "The tool rejected the request before writing.");
+
+        Assert.Equal(WorkItemStatus.NeedsAttention, workItem.Status);
+        Assert.Equal(plan.Id, workItem.CurrentPlanId);
+        Assert.Equal(InitialTime.AddMinutes(6), workItem.UpdatedAt);
+    }
+
+    [Fact]
     public void PlanningQuestionAnswerBecomesStructuredContextForANewRevision()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Schedule the proposed meeting.", null, InitialTime);

@@ -122,7 +122,7 @@ public sealed class AgentWorkflowSupportTests
     public void ExecutionCommentIncludesEveryOutputWithoutFlatteningLines()
     {
         var result = new ExecutionResult(
-            true,
+            ExecutionDisposition.Succeeded,
             "Execution completed.",
             [
                 "Created offer.pdf\nSaved to the customer folder.",

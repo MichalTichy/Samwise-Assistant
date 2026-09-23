@@ -106,7 +106,16 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         var result = response.Result;
 
         return new ExecutionResult(
-            result.Succeeded,
+            result.Disposition switch
+            {
+                ExecutionWireDisposition.Succeeded => ExecutionDisposition.Succeeded,
+                ExecutionWireDisposition.Failed => ExecutionDisposition.Failed,
+                ExecutionWireDisposition.OutcomeUnknown => ExecutionDisposition.OutcomeUnknown,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(result.Disposition),
+                    result.Disposition,
+                    "Unknown execution disposition.")
+            },
             result.Summary,
             result.Outputs,
             CreateReceipt(response));
@@ -337,9 +346,22 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
 
     private sealed class ExecutionWireResult
     {
-        public required bool Succeeded { get; init; }
+        public required ExecutionWireDisposition Disposition { get; init; }
         public required string Summary { get; init; }
         public required List<string> Outputs { get; init; }
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter<ExecutionWireDisposition>))]
+    private enum ExecutionWireDisposition
+    {
+        [JsonStringEnumMemberName("succeeded")]
+        Succeeded,
+
+        [JsonStringEnumMemberName("failed")]
+        Failed,
+
+        [JsonStringEnumMemberName("outcome_unknown")]
+        OutcomeUnknown
     }
 
     private sealed record StructuredResponse<T>(

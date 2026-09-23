@@ -38,7 +38,7 @@ The fixed Intake, Planning, and Execution settings form one `AgentConfiguration`
 1. Context addition, planning-question answer, plan rejection, and planning retry are external use cases. Each changes the aggregate and calls `WorkItemPlanningService` directly because replanning is an integral part of the requested operation. A question answer is retained as structured context and the resulting plan snapshots the decisions it used.
 2. `ApproveWorkItemPlanUsecase` performs revision-bound approval and calls `WorkItemExecutionService` directly.
 3. Execution reloads the execution tool catalog and fails closed if it differs from the approved snapshot.
-4. A confirmed successful response stores its summary, outputs, invocation ID, and completion time as a nested Work Item completion. A reported or interrupted uncertain execution becomes `OutcomeUnknown` and is not automatically repeated.
+4. Execution returns an explicit `Succeeded`, `Failed`, or `OutcomeUnknown` disposition. A confirmed success stores its summary, outputs, invocation ID, and completion time as a nested Work Item completion. A confirmed failure with no possible unverified write becomes `NeedsAttention`; only a write that may have happened but cannot be verified becomes `OutcomeUnknown` and is not automatically repeated.
 5. `RetryWorkItemExecutionUsecase` is the explicit user action that reruns the same approved plan from `OutcomeUnknown`; the previous uncertain invocation remains in the activity history.
 6. `RestoreWorkItemUsecase` is the explicit user or MCP action that moves only a discarded Work Item into a new planning revision and calls `WorkItemPlanningService`; previous plans and discard metadata remain available.
 

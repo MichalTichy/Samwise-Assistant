@@ -179,6 +179,38 @@ public sealed class AgentPromptBuilderTests
     }
 
     [Fact]
+    public async Task StageWithEmailAttachmentToolReceivesBoundedAttachmentGuidance()
+    {
+        var inboundEvent = new ManualInboundEvent
+        {
+            Id = "inbound-attachment",
+            ManualInputId = "manual:attachment",
+            Input = "Please review the attached invoice."
+        };
+        var catalogs = new RecordingToolCatalog();
+        catalogs.Set(AgentStage.Intake, new ToolCatalogSnapshot("intake-v2", "INTAKE-RAW", [
+            new ToolServerCapability("mail", "Mail", "1", false, null, null, null, [
+                new ToolCapability(
+                    "mail/get_email_attachment",
+                    "get_email_attachment",
+                    "Fetch an attachment",
+                    "{}",
+                    true)])]));
+        var builder = CreateBuilder(
+            DefaultAgentConfiguration.Create(Now),
+            catalogs,
+            [inboundEvent],
+            [],
+            []);
+
+        var result = await builder.BuildIntakeAsync(inboundEvent.Id, CancellationToken.None);
+
+        Assert.Contains("mode=\"agent_file\"", result.Text, StringComparison.Ordinal);
+        Assert.Contains("Load only relevant attachments", result.Text, StringComparison.Ordinal);
+        Assert.Contains("never execute them", result.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ReplanningPromptOmitsSavedToolCatalogsAndFullPlaybookGuidance()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Prepare the result.", "Prepare result", Now);

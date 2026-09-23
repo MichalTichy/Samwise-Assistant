@@ -36,14 +36,17 @@ public abstract class InboundEvent : IItemWithId
 
     public void PrepareForRetry()
     {
-        if (Status != InboundEventStatus.NeedsReview)
+        var isIgnored = Status == InboundEventStatus.Processed && Outcomes.Count == 0;
+        if (Status != InboundEventStatus.NeedsReview && !isIgnored)
         {
-            throw new InvalidOperationException("Only an inbound event needing review can be retried.");
+            throw new InvalidOperationException("Only an inbound event needing review or an ignored event can be reprocessed.");
         }
 
         Status = InboundEventStatus.Pending;
         HandledAt = null;
         Outcomes = [];
-        Explanation = "Retry requested; waiting for intake classification.";
+        Explanation = isIgnored
+            ? "Reprocessing requested; waiting for intake classification."
+            : "Retry requested; waiting for intake classification.";
     }
 }

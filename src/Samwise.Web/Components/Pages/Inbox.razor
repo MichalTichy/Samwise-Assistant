@@ -73,14 +73,17 @@
                             }
                         </ol>
                     }
-                    @if (item.Status == InboundEventStatus.NeedsReview)
+                    @if (item.Status == InboundEventStatus.NeedsReview ||
+                         item is { Status: InboundEventStatus.Processed, Outcomes.Count: 0 })
                     {
                         <LumexButton Size="@Size.Small"
                                      Variant="@Variant.Flat"
                                      Color="@ThemeColor.Default"
                                      Disabled="@(retryingEventId is not null)"
                                      OnClick="() => RetryAsync(item.Id)">
-                            @(retryingEventId == item.Id ? "Retrying…" : "Retry")
+                            @(retryingEventId == item.Id
+                                ? "Processing…"
+                                : item.Status == InboundEventStatus.NeedsReview ? "Retry" : "Reprocess")
                         </LumexButton>
                     }
                 </div>

@@ -34,6 +34,7 @@ public sealed class McpToolContractTests
                 "list_work_items",
                 "reopen_completed_work_item",
                 "replan_work_item",
+                "reprocess_ignored_input_event",
                 "restore_work_item",
                 "save_agent_prompt",
                 "save_playbook"

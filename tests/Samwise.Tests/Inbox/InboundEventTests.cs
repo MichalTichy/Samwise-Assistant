@@ -52,11 +52,33 @@ public sealed class InboundEventTests
     [Fact]
     public void PrepareForRetryRejectsHandledEvent()
     {
-        var inboundEvent = new ManualInboundEvent { Status = InboundEventStatus.Processed };
+        var inboundEvent = new ManualInboundEvent
+        {
+            Status = InboundEventStatus.Processed,
+            Outcomes = [new InboundEventOutcome { WorkItemId = "work-item-1" }]
+        };
 
         var exception = Assert.Throws<InvalidOperationException>(inboundEvent.PrepareForRetry);
 
-        Assert.Equal("Only an inbound event needing review can be retried.", exception.Message);
+        Assert.Equal("Only an inbound event needing review or an ignored event can be reprocessed.", exception.Message);
+    }
+
+    [Fact]
+    public void PrepareForRetryReturnsIgnoredEventToPending()
+    {
+        var inboundEvent = new ManualInboundEvent
+        {
+            Status = InboundEventStatus.Processed,
+            HandledAt = DateTimeOffset.UtcNow,
+            Explanation = "No action remains."
+        };
+
+        inboundEvent.PrepareForRetry();
+
+        Assert.Equal(InboundEventStatus.Pending, inboundEvent.Status);
+        Assert.Null(inboundEvent.HandledAt);
+        Assert.Empty(inboundEvent.Outcomes);
+        Assert.Equal("Reprocessing requested; waiting for intake classification.", inboundEvent.Explanation);
     }
 
 }

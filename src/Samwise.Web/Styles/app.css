@@ -277,6 +277,24 @@
     .board-tab.is-active { border-color: #d9b98a; color: #533b23; background: #f4e3c5; }
     .board-tab.is-active .column-count { color: #7c491f; background: #fdf0d0; }
 
+    /* Discarded Work Items */
+    .discarded-page { max-width: 980px; margin: 0 auto; }
+    .discarded-work-items { display: grid; gap: 1rem; }
+    .discarded-work-item { border: 1px solid rgb(104 67 41 / .09); background: #fffcf5; }
+    .discarded-work-item-body { padding: 1.25rem !important; }
+    .discarded-work-item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem; }
+    .discarded-work-item-heading h2 { margin: .7rem 0 0; font-size: 1.05rem; line-height: 1.4; }
+    .discarded-work-item-heading h2 a { color: #3d342d; text-decoration: none; }
+    .discarded-work-item-heading h2 a:hover { color: #a8661f; }
+    .discarded-work-item-heading time { flex: 0 0 auto; color: #9d8f81; font-size: .7rem; }
+    .discarded-work-item-description { margin: .85rem 0; color: #74685d; font-size: .84rem; line-height: 1.6; white-space: pre-wrap; }
+    .discarded-reason { margin: 1rem 0; padding: .85rem 1rem; border-left: 3px solid #b6a99b; border-radius: 0 .7rem .7rem 0; background: #f3eee7; }
+    .discarded-reason strong { color: #62574d; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; }
+    .discarded-reason p { margin: .35rem 0 0; color: #74685d; font-size: .8rem; line-height: 1.55; white-space: pre-wrap; }
+    .discarded-work-item footer { padding-top: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid #efe6d9; }
+    .discarded-work-item footer > span { color: #9d8f81; font-size: .7rem; }
+    .discarded-work-item-actions { display: flex; align-items: center; gap: .65rem; }
+
     /* Status chips */
     .status-chip { font-size: .64rem !important; font-weight: 760 !important; letter-spacing: .015em; }
     .status-awaitingapproval, .handling-needsreview { color: #86580f !important; background: #f8e8b9 !important; }
@@ -879,6 +897,12 @@
     .work-item-card-body { padding: 1rem !important; }
     .work-item-card h3 { font-size: 1rem; }
     .work-item-card p { font-size: .84rem; }
+
+    /* Discarded Work Items */
+    .discarded-work-item-heading, .discarded-work-item footer { align-items: stretch; flex-direction: column; }
+    .discarded-work-item-heading time { order: -1; }
+    .discarded-work-item-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .discarded-work-item-actions > * { width: 100%; min-height: 44px; }
 
     /* Work item detail */
     .work-item-detail-nav { margin-bottom: .9rem; }

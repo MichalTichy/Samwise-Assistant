@@ -54,7 +54,7 @@ The Web-hosted `InboundEventProcessingBackgroundService` handles the shared queu
 
 ## Work-item flow
 
-1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards, including a separate Needs your input column for planning questions.
+1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards, including a separate Needs your input column for planning questions. `DiscardedWorkItems` uses its own specification to keep discarded records out of the active Board while making their discard reason, detail, and Restore & replan action discoverable from desktop and mobile navigation.
 2. `WorkItemDetails` loads the aggregate first, then agent invocations through `WorkItemInvocationsSpecification`. While open, it checks for aggregate changes and reloads after background planning or execution changes the status.
 3. Selecting an agent-activity row opens its full invocation record in a Lumex dialog, including the prompt, output, model metadata, error, and available-tool snapshot.
 4. Suggested tool arguments are rendered as labeled nested values, lists, booleans, and readable multiline content rather than requiring the user to decode JSON. Invalid historical argument payloads fall back to escaped plain text.

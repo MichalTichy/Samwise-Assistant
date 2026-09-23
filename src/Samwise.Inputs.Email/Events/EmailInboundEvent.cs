@@ -22,6 +22,7 @@ public sealed class EmailInboundEvent : InboundEvent
     public bool WasAnsweredWhenCaptured { get; set; }
     public string BodyText { get; set; } = string.Empty;
     public IReadOnlyList<EmailAttachmentSummary> Attachments { get; set; } = [];
+    public EmailCalendarInvitation? CalendarInvitation { get; set; }
 
     public override string Source => "Email";
 
@@ -57,6 +58,8 @@ public sealed class EmailInboundEvent : InboundEvent
                     .AppendLine(")");
             }
         }
+
+        EmailCalendarInvitationText.Append(text, CalendarInvitation);
 
         return text.ToString().Trim();
     }

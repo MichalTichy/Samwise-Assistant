@@ -19,6 +19,7 @@ public sealed class SentEmailInboundEvent : InboundEvent
     public DateTimeOffset? SentAt { get; set; }
     public string BodyText { get; set; } = string.Empty;
     public IReadOnlyList<EmailAttachmentSummary> Attachments { get; set; } = [];
+    public EmailCalendarInvitation? CalendarInvitation { get; set; }
 
     public override string Source => "Sent email";
 
@@ -52,6 +53,8 @@ public sealed class SentEmailInboundEvent : InboundEvent
                     .AppendLine(")");
             }
         }
+
+        EmailCalendarInvitationText.Append(text, CalendarInvitation);
 
         return text.ToString().Trim();
     }

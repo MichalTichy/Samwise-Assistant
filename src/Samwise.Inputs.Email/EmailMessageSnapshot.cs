@@ -16,4 +16,5 @@ public sealed record EmailMessageSnapshot(
     bool WasAnswered,
     string BodyText,
     IReadOnlyList<EmailAttachmentSummary> Attachments,
-    IReadOnlyList<EmailReplySnapshot> Replies);
+    IReadOnlyList<EmailReplySnapshot> Replies,
+    EmailCalendarInvitation? CalendarInvitation);

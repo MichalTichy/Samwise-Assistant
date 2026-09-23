@@ -247,6 +247,9 @@ internal sealed partial class MailKitEmailInboxReader(
             var bodyText = isIgnored
                 ? string.Empty
                 : await ReadBodyTextAsync(inbox, summary, MaximumBodyCharacters, cancellationToken);
+            var calendarInvitation = isIgnored
+                ? null
+                : await ReadCalendarInvitationAsync(inbox, summary, cancellationToken);
             var attachments = summary.Attachments
                 .Select(part => new EmailAttachmentSummary(
                     string.IsNullOrWhiteSpace(part.FileName) ? "Unnamed attachment" : part.FileName,
@@ -271,7 +274,8 @@ internal sealed partial class MailKitEmailInboxReader(
                 flags.HasFlag(MessageFlags.Answered),
                 bodyText,
                 attachments,
-                []));
+                [],
+                calendarInvitation));
         }
 
         return await AddSentRepliesAsync(
@@ -304,6 +308,7 @@ internal sealed partial class MailKitEmailInboxReader(
         foreach (var summary in summaries.OrderBy(item => item.UniqueId.Id))
         {
             var from = summary.Envelope?.From.Mailboxes.FirstOrDefault();
+            var calendarInvitation = await ReadCalendarInvitationAsync(sent, summary, cancellationToken);
             messages.Add(new EmailMessageSnapshot(
                 EmailMessageDirection.Sent,
                 sent.FullName,
@@ -323,7 +328,8 @@ internal sealed partial class MailKitEmailInboxReader(
                     string.IsNullOrWhiteSpace(part.FileName) ? "Unnamed attachment" : part.FileName,
                     part.ContentType.MimeType,
                     part.Octets)).ToList(),
-                []));
+                [],
+                calendarInvitation));
         }
 
         return messages;
@@ -550,6 +556,24 @@ internal sealed partial class MailKitEmailInboxReader(
         return text.Length <= maximumCharacters
             ? text
             : $"{text[..maximumCharacters]}\n\n[Email body truncated by Samwise.]";
+    }
+
+    private static async Task<EmailCalendarInvitation?> ReadCalendarInvitationAsync(
+        IMailFolder folder,
+        IMessageSummary summary,
+        CancellationToken cancellationToken)
+    {
+        var calendarPart = summary.BodyParts.FirstOrDefault(part =>
+            string.Equals(part.ContentType.MimeType, "text/calendar", StringComparison.OrdinalIgnoreCase));
+        if (calendarPart is null)
+        {
+            return null;
+        }
+
+        var entity = await folder.GetBodyPartAsync(summary.UniqueId, calendarPart, cancellationToken);
+        return entity is TextPart textPart
+            ? CalendarInvitationParser.Parse(textPart.Text, calendarPart.ContentType.Parameters["method"])
+            : null;
     }
 
     private static string ConvertHtmlToText(string html)

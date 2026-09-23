@@ -211,6 +211,7 @@ internal sealed class ProcessEmailsUsecaseHandler(
             WasAnsweredWhenCaptured = message.WasAnswered,
             BodyText = message.BodyText,
             Attachments = message.Attachments,
+            CalendarInvitation = message.CalendarInvitation,
             SourceGuidance = account.IntakeGuidance,
             Context = message.Replies.Select(CreateReplyContext).ToList(),
             Status = isIgnored ? InboundEventStatus.Processed : InboundEventStatus.Pending,
@@ -238,6 +239,7 @@ internal sealed class ProcessEmailsUsecaseHandler(
             SentAt = message.SentAt,
             BodyText = message.BodyText,
             Attachments = message.Attachments,
+            CalendarInvitation = message.CalendarInvitation,
             SourceGuidance = account.IntakeGuidance,
             Status = InboundEventStatus.Pending,
             Explanation = "Waiting for intake classification."

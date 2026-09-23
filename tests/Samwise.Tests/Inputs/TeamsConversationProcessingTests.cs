@@ -68,6 +68,34 @@ public sealed class TeamsConversationProcessingTests
     }
 
     [Fact]
+    public async Task RepliedToMessageIsKeptWhenConversationContextIsCapped()
+    {
+        var configuration = CreateConfiguration();
+        var capture = new RecordingCaptureService();
+        var olderMessages = Enumerable.Range(1, 40)
+            .Select(index => Message(
+                index == 1 ? "root" : $"context-{index}",
+                Now.AddMinutes(-100 + index),
+                isNew: false,
+                index == 1 ? "Original decision request" : $"Context {index}"))
+            .Cast<TeamsActivitySnapshot>()
+            .ToList();
+        olderMessages.Add(Message(
+            "answer",
+            Now.AddMinutes(-3),
+            isNew: true,
+            "Yes, do it.",
+            replyToMessageId: "root"));
+        var handler = CreateHandler(configuration, [], olderMessages, capture);
+
+        await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
+
+        var inboundEvent = Assert.IsType<TeamsConversationInboundEvent>(Assert.Single(capture.Events));
+        Assert.Contains(inboundEvent.Context, item => item.SourceItemId == "root");
+        Assert.True(inboundEvent.Context.Count <= 30);
+    }
+
+    [Fact]
     public async Task OverlappingPreviouslyProcessedMessageBecomesLinkedContextNotANewTrigger()
     {
         var configuration = CreateConfiguration();
@@ -299,7 +327,8 @@ public sealed class TeamsConversationProcessingTests
         string id,
         DateTimeOffset occurredAt,
         bool isNew,
-        string body) => new TeamsChatMessageSnapshot
+        string body,
+        string? replyToMessageId = null) => new TeamsChatMessageSnapshot
         {
             ExternalId = $"chat:chat-1:{id}:v1",
             OccurredAt = occurredAt,
@@ -309,6 +338,7 @@ public sealed class TeamsConversationProcessingTests
             ChatId = "chat-1",
             ConversationName = "Rosie",
             MessageId = id,
+            ReplyToMessageId = replyToMessageId,
             Version = "v1",
             IsNew = isNew
         };

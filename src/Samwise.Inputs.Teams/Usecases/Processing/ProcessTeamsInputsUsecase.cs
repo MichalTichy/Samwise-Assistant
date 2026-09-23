@@ -21,7 +21,8 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
     TimeProvider timeProvider)
     : IRequestHandler<ProcessTeamsInputsUsecase, TeamsProcessingResult>
 {
-    private const int MaximumContextCharacters = 30_000;
+    private const int MaximumContextCharacters = 12_000;
+    private const int MaximumContextMessages = 30;
 
     public async Task<TeamsProcessingResult> Handle(
         ProcessTeamsInputsUsecase request,
@@ -179,7 +180,12 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             .Where(message => !configuration.IsPersonIgnored(message.SenderId))
             .OrderByDescending(message => message.OccurredAt)
             .ToList();
-        var context = BuildContext(visibleContext, priorMessages);
+        var repliedToMessageIds = triggerMessages
+            .Select(message => message.ReplyToMessageId)
+            .Where(messageId => !string.IsNullOrWhiteSpace(messageId))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        var context = BuildContext(visibleContext, priorMessages, repliedToMessageIds);
         var inboundEvent = CreateConversationEvent(
             messages,
             triggerMessages,
@@ -224,11 +230,17 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
 
     private static List<InboundEventContextItem> BuildContext(
         IReadOnlyList<TeamsMessageSnapshot> messages,
-        IReadOnlyDictionary<string, TeamsConversationInboundEvent> priorMessages)
+        IReadOnlyDictionary<string, TeamsConversationInboundEvent> priorMessages,
+        IReadOnlySet<string> repliedToMessageIds)
     {
         var result = new List<InboundEventContextItem>();
         var remaining = MaximumContextCharacters;
-        foreach (var message in messages)
+        var selectedMessages = messages
+            .Where(message => repliedToMessageIds.Contains(message.MessageId))
+            .Concat(messages.Where(message => !repliedToMessageIds.Contains(message.MessageId)))
+            .DistinctBy(MessageKey)
+            .Take(MaximumContextMessages);
+        foreach (var message in selectedMessages)
         {
             var content = FormatContextMessage(message);
             if (content.Length > remaining)
@@ -263,8 +275,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             }
         }
 
-        result.Reverse();
-        return result;
+        return result.OrderBy(item => item.OccurredAt).ToList();
     }
 
     private static TeamsConversationMessage CreateMessage(TeamsMessageSnapshot activity) => new()

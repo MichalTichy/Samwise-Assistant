@@ -41,7 +41,7 @@
             <div class="prompt-editor-heading">
                 <div>
                     <h2>@(selectedId is null ? "New playbook" : "Edit playbook")</h2>
-                    <p>The description tells intake when the scenario is actionable and tells planning how it should be handled.</p>
+                    <p>Applicability helps intake recognize the scenario. Guidance tells planning how to handle it.</p>
                 </div>
                 <span class="save-state">@saveMessage</span>
             </div>
@@ -56,13 +56,24 @@
                 </label>
 
                 <label>
-                    <span>Description</span>
+                    <span>Applicability</span>
+                    <LumexTextarea Class="prompt-textarea"
+                                   MinRows="4"
+                                   MaxRows="8"
+                                   Behavior="@InputBehavior.OnInput"
+                                   Variant="@InputVariant.Outlined"
+                                   Placeholder="Describe when this playbook applies and what makes the input actionable…"
+                                   @bind-Value="applicability" />
+                </label>
+
+                <label>
+                    <span>Planning guidance</span>
                     <LumexTextarea Class="prompt-textarea"
                                    MinRows="12"
                                    MaxRows="24"
                                    Behavior="@InputBehavior.OnInput"
                                    Variant="@InputVariant.Outlined"
-                                   Placeholder="Describe when this is actionable and how Samwise should plan the work…"
+                                   Placeholder="Describe how Samwise should investigate, plan, and verify the work…"
                                    @bind-Value="description" />
                 </label>
 

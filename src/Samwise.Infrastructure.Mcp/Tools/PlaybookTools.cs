@@ -48,7 +48,9 @@ public sealed class PlaybookTools(
     public async Task<string> SavePlaybookAsync(
         [Description("Short Playbook name, up to 80 characters.")]
         string name,
-        [Description("Complete steering guidance for intake and planning.")]
+        [Description("Concise guidance describing when this Playbook applies, up to 1,000 characters.")]
+        string applicability,
+        [Description("Complete planning guidance for handling the scenario.")]
         string description,
         [Description("Whether this Playbook is supplied to the agents.")]
         bool isEnabled,
@@ -57,7 +59,7 @@ public sealed class PlaybookTools(
         CancellationToken cancellationToken = default)
     {
         var result = await sender.Send(
-            new SavePlaybookUsecase(playbookId, name, description, isEnabled),
+            new SavePlaybookUsecase(playbookId, name, applicability, description, isEnabled),
             cancellationToken);
         return SamwiseMcpJson.Serialize(result);
     }

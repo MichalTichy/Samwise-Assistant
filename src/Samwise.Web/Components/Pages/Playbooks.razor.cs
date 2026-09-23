@@ -12,6 +12,7 @@ public partial class Playbooks
     private IReadOnlyList<Playbook> playbooks = [];
     private string? selectedId;
     private string name = string.Empty;
+    private string applicability = string.Empty;
     private string description = string.Empty;
     private bool isEnabled = true;
     private IReadOnlyList<string> errors = [];
@@ -51,6 +52,7 @@ public partial class Playbooks
     {
         selectedId = null;
         name = string.Empty;
+        applicability = string.Empty;
         description = string.Empty;
         isEnabled = true;
         errors = [];
@@ -61,6 +63,7 @@ public partial class Playbooks
     {
         selectedId = playbook.Id;
         name = playbook.Name;
+        applicability = playbook.Applicability;
         description = playbook.Description;
         isEnabled = playbook.IsEnabled;
         errors = [];
@@ -76,6 +79,7 @@ public partial class Playbooks
             var result = await Sender.Send(new SavePlaybookUsecase(
                 selectedId,
                 name,
+                applicability,
                 description,
                 isEnabled));
             errors = result.Errors;

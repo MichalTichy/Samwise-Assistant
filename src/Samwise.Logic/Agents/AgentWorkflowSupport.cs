@@ -104,6 +104,7 @@ internal static class AgentWorkflowSupport
         {
             Id = playbook.Id,
             Name = playbook.Name,
+            Applicability = playbook.Applicability,
             Description = playbook.Description,
             UpdatedAt = playbook.UpdatedAt
         };

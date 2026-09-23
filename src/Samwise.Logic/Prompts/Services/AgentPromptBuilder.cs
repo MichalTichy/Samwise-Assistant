@@ -61,7 +61,7 @@ internal sealed class AgentPromptBuilder(
             stageConfiguration.Prompt,
             CreateValues(
                 AgentStage.Intake,
-                (AgentPromptPlaceholders.InputText, inboundEvent.GetIntakeText()),
+                (AgentPromptPlaceholders.InputText, PromptTextBudget.Input(inboundEvent.GetIntakeText())),
                 (AgentPromptPlaceholders.InputSourceGuidance, inboundEvent.SourceGuidance),
                 (AgentPromptPlaceholders.InputContext, SerializeInputContext(inboundEvent.Context)),
                 (AgentPromptPlaceholders.ActiveWorkItems, JsonSerializer.Serialize(
@@ -69,7 +69,7 @@ internal sealed class AgentPromptBuilder(
                     {
                         id = workItem.Id,
                         title = workItem.Title,
-                        description = Truncate(workItem.Description, 1_000),
+                        description = Truncate(workItem.Description, 400),
                         status = workItem.Status.ToString(),
                         revision = workItem.Revision,
                         updated_at = workItem.UpdatedAt
@@ -117,11 +117,11 @@ internal sealed class AgentPromptBuilder(
                 AgentStage.Planning,
                 (AgentPromptPlaceholders.WorkItemId, workItem.Id),
                 (AgentPromptPlaceholders.WorkItemTitle, workItem.Title),
-                (AgentPromptPlaceholders.WorkItemDescription, workItem.Description),
+                (AgentPromptPlaceholders.WorkItemDescription, PromptTextBudget.WorkItemDescription(workItem.Description)),
                 (AgentPromptPlaceholders.WorkItemRevision, workItem.Revision.ToString()),
                 (AgentPromptPlaceholders.WorkItemComments, FormatComments(workItem.Comments)),
                 (AgentPromptPlaceholders.PreviousPlan, workItem.FindLatestPlan() is { } previousPlan
-                    ? JsonSerializer.Serialize(previousPlan, JsonOptions)
+                    ? PreviousPlanPromptProjection.Serialize(previousPlan)
                     : string.Empty),
                 (AgentPromptPlaceholders.RejectionFeedback, workItem.LatestPlanningFeedback),
                 (AgentPromptPlaceholders.Playbooks, HasTool(planningTools, "get_playbook")
@@ -179,7 +179,7 @@ internal sealed class AgentPromptBuilder(
                 AgentStage.Execution,
                 (AgentPromptPlaceholders.WorkItemId, workItem.Id),
                 (AgentPromptPlaceholders.WorkItemTitle, workItem.Title),
-                (AgentPromptPlaceholders.WorkItemDescription, workItem.Description),
+                (AgentPromptPlaceholders.WorkItemDescription, PromptTextBudget.WorkItemDescription(workItem.Description)),
                 (AgentPromptPlaceholders.WorkItemRevision, workItem.Revision.ToString()),
                 (AgentPromptPlaceholders.WorkItemComments, FormatComments(workItem.Comments)),
                 (AgentPromptPlaceholders.ApprovedPlan, ExecutionPlanPromptProjection.Serialize(plan)),
@@ -237,9 +237,8 @@ internal sealed class AgentPromptBuilder(
     private static AgentRunConfiguration CreateRunConfiguration(AgentStageConfiguration configuration) =>
         new(configuration.Model, configuration.ReasoningEffort);
 
-    private static string FormatComments(IReadOnlyList<WorkItemComment> comments) => comments.Count == 0
-        ? string.Empty
-        : string.Join(Environment.NewLine, comments.Select(comment => $"- [{comment.AuthorKind}] {comment.Body}"));
+    private static string FormatComments(IReadOnlyList<WorkItemComment> comments) =>
+        PromptTextBudget.Comments(comments);
 
     private static string SerializePlaybooks(IReadOnlyList<Playbook> playbooks) =>
         JsonSerializer.Serialize(
@@ -247,6 +246,7 @@ internal sealed class AgentPromptBuilder(
             {
                 id = playbook.Id,
                 name = playbook.Name,
+                applicability = playbook.Applicability,
                 description = playbook.Description
             }),
             JsonOptions);
@@ -257,7 +257,7 @@ internal sealed class AgentPromptBuilder(
             {
                 id = playbook.Id,
                 name = playbook.Name,
-                summary = Truncate(playbook.Description, 240)
+                applicability = playbook.Applicability
             }),
             JsonOptions);
 
@@ -278,18 +278,35 @@ internal sealed class AgentPromptBuilder(
             (string.Equals(tool.Name, name, StringComparison.Ordinal) ||
              tool.Id.EndsWith("/" + name, StringComparison.Ordinal)));
 
-    private static string SerializeInputContext(IReadOnlyList<InboundEventContextItem> context) =>
-        JsonSerializer.Serialize(
-            context.Select(item => new
+    private static string SerializeInputContext(IReadOnlyList<InboundEventContextItem> context)
+    {
+        const int maximumSerializedCharacters = 12_000;
+        var selected = new List<object>();
+        var usedCharacters = 2;
+        foreach (var item in context.OrderByDescending(item => item.OccurredAt))
+        {
+            var projection = new
             {
                 source_item_id = item.SourceItemId,
-                content = item.Content,
+                content = PromptTextBudget.HeadAndTail(item.Content, 2_000),
                 occurred_at = item.OccurredAt,
                 previously_processed = item.PreviouslyProcessed,
                 inbound_event_id = item.InboundEventId,
                 work_item_ids = item.WorkItemIds
-            }),
-            JsonOptions);
+            };
+            var size = JsonSerializer.Serialize(projection, JsonOptions).Length + 2;
+            if (usedCharacters + size > maximumSerializedCharacters)
+            {
+                continue;
+            }
+
+            selected.Add(projection);
+            usedCharacters += size;
+        }
+
+        selected.Reverse();
+        return JsonSerializer.Serialize(selected, JsonOptions);
+    }
 
     private static string AppendMissingInputContext(
         string template,

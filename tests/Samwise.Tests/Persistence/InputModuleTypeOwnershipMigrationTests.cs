@@ -31,6 +31,7 @@ public sealed class InputModuleTypeOwnershipMigrationTests
 
         Assert.Contains(migrations, migration => migration is MigrateInputModuleTypeOwnership);
         Assert.Contains(migrations, migration => migration is MigrateInboundEventsToMultipleOutcomes);
+        Assert.Contains(migrations, migration => migration is SplitPlaybookApplicability);
         Assert.Contains(services, service => service.ServiceType == typeof(IInitializer)
             && service.ImplementationType == typeof(SamwiseDatabaseMigrationInitializer));
         var databaseInitializer = services.Single(service => service.ImplementationType ==
@@ -39,6 +40,30 @@ public sealed class InputModuleTypeOwnershipMigrationTests
         var databasePriority = new SamwiseDatabaseMigrationInitializer(null!, null!).Priority;
         var emailPriority = new Samwise.Inputs.Email.Initialization.EmailInputConfigurationInitializer(null!).Priority;
         Assert.True(databasePriority > emailPriority);
+    }
+
+    [Fact]
+    public void PlaybookApplicabilityIsExtractedFromTheFirstGuidanceSection()
+    {
+        const string description = """
+            APPLICABILITY
+
+            Use this playbook for recurring marketing messages with a safe unsubscribe method.
+
+            Do not use it for transactional mail.
+
+            REQUIRED INVESTIGATION
+
+            Inspect the full source message.
+            """;
+
+        var applicability = SplitPlaybookApplicability.ExtractApplicability(description);
+        var guidance = SplitPlaybookApplicability.RemoveApplicabilitySection(description);
+
+        Assert.Equal(
+            "Use this playbook for recurring marketing messages with a safe unsubscribe method.\n\nDo not use it for transactional mail.",
+            applicability);
+        Assert.Equal("REQUIRED INVESTIGATION\n\nInspect the full source message.", guidance);
     }
 
     [Theory]

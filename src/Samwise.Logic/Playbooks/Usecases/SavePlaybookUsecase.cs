@@ -7,6 +7,7 @@ namespace Samwise.Logic.Playbooks.Usecases;
 public sealed record SavePlaybookUsecase(
     string? PlaybookId,
     string Name,
+    string Applicability,
     string Description,
     bool IsEnabled) : IRequest<PlaybookSaveResult>;
 
@@ -38,6 +39,7 @@ internal sealed class SavePlaybookUsecaseHandler(
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = request.Name.Trim(),
+                Applicability = request.Applicability.Trim(),
                 Description = request.Description.Trim(),
                 IsEnabled = request.IsEnabled,
                 UpdatedAt = timeProvider.GetUtcNow()
@@ -47,6 +49,7 @@ internal sealed class SavePlaybookUsecaseHandler(
         else
         {
             playbook.Name = request.Name.Trim();
+            playbook.Applicability = request.Applicability.Trim();
             playbook.Description = request.Description.Trim();
             playbook.IsEnabled = request.IsEnabled;
             playbook.UpdatedAt = timeProvider.GetUtcNow();
@@ -66,6 +69,15 @@ internal sealed class SavePlaybookUsecaseHandler(
         else if (request.Name.Trim().Length > 80)
         {
             errors.Add("The playbook name cannot be longer than 80 characters.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Applicability))
+        {
+            errors.Add("The playbook applicability cannot be empty.");
+        }
+        else if (request.Applicability.Trim().Length > 1_000)
+        {
+            errors.Add("The playbook applicability cannot be longer than 1,000 characters.");
         }
 
         if (string.IsNullOrWhiteSpace(request.Description))

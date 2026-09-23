@@ -48,6 +48,7 @@ public sealed class AgentPromptBuilderTests
         {
             Id = "marketing-unsubscribe",
             Name = "Marketing unsubscribe",
+            Applicability = "Recurring marketing with a safe unsubscribe method is actionable.",
             Description = "Marketing messages with a safe unsubscribe method are actionable.",
             IsEnabled = true,
             UpdatedAt = Now
@@ -63,7 +64,7 @@ public sealed class AgentPromptBuilderTests
         Assert.Contains("work-item-0", result.Text, StringComparison.Ordinal);
         Assert.Contains(workItem.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Id, result.Text, StringComparison.Ordinal);
-        Assert.Contains(playbook.Description, result.Text, StringComparison.Ordinal);
+        Assert.Contains(playbook.Applicability, result.Text, StringComparison.Ordinal);
         Assert.Contains("Planning-version", result.Text, StringComparison.Ordinal);
         Assert.Contains("Execution-version", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(catalogs[AgentStage.Planning].RawJson, result.Text, StringComparison.Ordinal);
@@ -123,6 +124,7 @@ public sealed class AgentPromptBuilderTests
         {
             Id = "invoice-processing",
             Name = "Invoice processing",
+            Applicability = "Use when an invoice requires processing.",
             Description = "Check duplicates and create only a draft entry.",
             IsEnabled = true,
             UpdatedAt = Now
@@ -151,6 +153,7 @@ public sealed class AgentPromptBuilderTests
         {
             Id = "invoice-processing",
             Name = "Invoice processing",
+            Applicability = "Use when an invoice requires processing.",
             Description = new string('x', 500) + "END-OF-GUIDANCE",
             IsEnabled = true
         };
@@ -173,6 +176,60 @@ public sealed class AgentPromptBuilderTests
         Assert.DoesNotContain("END-OF-GUIDANCE", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("EXECUTION-RAW", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("SCHEMA-SECRET", result.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReplanningPromptOmitsSavedToolCatalogsAndFullPlaybookGuidance()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Prepare the result.", "Prepare result", Now);
+        var plan = new WorkItemPlan
+        {
+            Id = "plan-1",
+            WorkItemId = workItem.Id,
+            WorkItemRevision = workItem.Revision,
+            PlanNumber = 1,
+            Summary = "Create the approved result.",
+            Playbook = new PlanPlaybookSnapshot
+            {
+                Id = "playbook-1",
+                Name = "Example",
+                Applicability = "APPLICABILITY-SNAPSHOT",
+                Description = "PLAYBOOK-SNAPSHOT" + new string('p', 100_000)
+            },
+            PlanningTools = new PlanToolCatalogSnapshot
+            {
+                RawJson = "PLANNING-CATALOG-SNAPSHOT" + new string('x', 150_000)
+            },
+            ExecutionTools = new PlanToolCatalogSnapshot
+            {
+                RawJson = "EXECUTION-CATALOG-SNAPSHOT" + new string('x', 150_000)
+            },
+            Steps =
+            [
+                new PlanStep
+                {
+                    Order = 1,
+                    Title = "Create it",
+                    TechnicalDescription = "Create the exact approved result.",
+                    ToolCalls = [new PlanToolCall { ToolId = "example/create", ArgumentsJson = "{\"name\":\"Result\"}" }],
+                    HasExternalSideEffects = true,
+                    SuccessCriteria = "The result exists."
+                }
+            ],
+            CreatedAt = Now
+        };
+        workItem.ApplyPlan(plan, Now);
+        var builder = CreateBuilder(DefaultAgentConfiguration.Create(Now), new RecordingToolCatalog(), [], [workItem], []);
+
+        var result = await builder.BuildPlanningAsync(workItem.Id, CancellationToken.None);
+
+        Assert.Contains(plan.Id, result.Text, StringComparison.Ordinal);
+        Assert.Contains(plan.Summary, result.Text, StringComparison.Ordinal);
+        Assert.Contains("example/create", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("PLANNING-CATALOG-SNAPSHOT", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("EXECUTION-CATALOG-SNAPSHOT", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("PLAYBOOK-SNAPSHOT", result.Text, StringComparison.Ordinal);
+        Assert.True(result.Text.Length < 20_000);
     }
 
     [Fact]

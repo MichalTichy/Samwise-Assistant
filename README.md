@@ -111,8 +111,8 @@ to planning so the agent can inspect Work Items, agent invocations, input events
 `save_agent_prompt`, `save_playbook`, and `replan_work_item` only to execution so mutations remain part of an
 approved plan.
 
-The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts)
-and the official [Todoist MCP](https://github.com/Doist/todoist-mcp) server on the private
+The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts),
+[Toggl MCP](https://github.com/MichalTichy/MCP.TogglTrack), and the official [Todoist MCP](https://github.com/Doist/todoist-mcp) server on the private
 `codex-gateway-backend` network. Their tools remain behind the Gateway: only tools explicitly
 enabled on each trusted server and granted to `samwise-execution` can be planned and invoked.
 Version 1 must leave `send_email` and `unsubscribe_from_email` ungranted.
@@ -156,7 +156,7 @@ dotnet test tests/Samwise.Tests/Samwise.Tests.csproj --no-build --no-restore
 
 ## Deploy with Docker Compose
 
-The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, Teams MCP, and Todoist MCP, using an existing PostgreSQL instance. Samwise's Teams intake connects directly to Microsoft Graph and its Todoist intake connects directly to the Todoist API; the separate Teams MCP is only an optional Gateway tool provider for agents. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
+The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, Teams MCP, Todoist MCP, Riganti IS MCP, and Toggl MCP, using an existing PostgreSQL instance. Samwise's Teams intake connects directly to Microsoft Graph and its Todoist intake connects directly to the Todoist API; the separate Teams MCP is only an optional Gateway tool provider for agents. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
 
 Copy `.env.example` to the ignored `.env`, replace every secret placeholder, then run:
 

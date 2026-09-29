@@ -1,6 +1,6 @@
 # Container deployment
 
-`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, Teams MCP, Riganti IS MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL. Samwise itself does not depend on Teams MCP for intake: it connects directly to Microsoft Graph.
+`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, Teams MCP, Riganti IS MCP, Toggl MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL. Samwise itself does not depend on Teams MCP for intake: it connects directly to Microsoft Graph.
 
 ## First deployment
 
@@ -98,6 +98,20 @@ Register the server in Gateway admin UI:
 Do not configure an HTTP environment header for this server.
 
 Test discovery and enable the needed tools. Grant read tools to planning if it needs live Riganti context. Grant write tools only to execution, behind Samwise Work Item approval. In particular, `riganti_is_create_wage_bonus_request` and `riganti_is_create_invoice` create real records; invoice creation should follow the preview tool and explicit plan approval. The MCP server does not send invoices.
+
+## Toggl MCP
+
+The standalone [`MCP.TogglTrack`](https://github.com/MichalTichy/MCP.TogglTrack) image runs only on `gateway-backend`; it has no published host port and no transport-level API key. Set `TOGGL_TRACK_API_KEY` and `TOGGL_TRACK_WORKSPACE_ID` in the Portainer stack environment. Classic Toggl Track profile tokens use API v9. Toggl Focus keys beginning with `toggl_sk_` are selected automatically and additionally require `TOGGL_TRACK_ORGANIZATION_ID`. Leave `TOGGL_TRACK_BASE_URL` empty for the official default, or set it to `https://focus.toggl.com/api` for the existing Focus account.
+
+Register the server in Gateway admin UI:
+
+| Field | Value |
+| --- | --- |
+| Name | `Toggl` |
+| URL | `http://toggl-mcp:8080/mcp` |
+| Execution mode | `Gateway` |
+
+Do not configure an HTTP environment header. Test discovery, then grant project/time-entry reads to planning and execution. Grant time-entry creation and updates only to execution behind Work Item approval. Tag mutation and Focus archive/restore tools are optional; do not grant them unless the corresponding behavior is useful.
 
 ## Wallet by BudgetBakers MCP
 

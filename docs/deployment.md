@@ -6,7 +6,7 @@
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, Mail/Calendar/Contacts MCP admin token, `TODOIST_API_KEY`, and `WALLET_MCP_ACCESS_TOKEN`. To ingest Exchange Online mail, also configure the Microsoft 365 public-client application described below. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, `SAMWISE_MANUAL_INPUT_API_KEY`, Mail/Calendar/Contacts MCP admin token, `TODOIST_API_KEY`, and `WALLET_MCP_ACCESS_TOKEN`. To ingest Exchange Online mail, also configure the Microsoft 365 public-client application described below. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -23,6 +23,10 @@
 Samwise listens on plain HTTP port `8080` inside its container and the Gateway listens on `8080` inside its container. Their default published host ports are `8080` and `5050`. The Compose default `SAMWISE_REQUIRE_HTTPS=false` allows login when Samwise is opened directly over HTTP on a trusted network. For any internet-accessible deployment, terminate HTTPS in the host reverse proxy and set `SAMWISE_REQUIRE_HTTPS=true`; `ASPNETCORE_FORWARDEDHEADERS_ENABLED` lets Samwise honor the proxy's forwarded scheme.
 
 The Gateway control plane and Mail/Calendar/Contacts MCP container intentionally do not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start .NET processes under that option. The MCP containers run as dedicated non-root users and remain isolated on the private backend network, while dynamically created runner containers retain the Gateway's stricter runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
+
+## Manual input API
+
+Set `SAMWISE_MANUAL_INPUT_API_KEY` to a long random value distinct from every Gateway and MCP key. A mobile Shortcut can submit directly to `POST /api/manual-input?type=<optional-hint>` with that value in the `X-Samwise-Input-Key` header. The JSON body requires only `text`; `title`, `url`, and `note` are optional. The endpoint is write-only, returns `202 Accepted`, and queues the event without waiting for intake processing or opening a confirmation page.
 
 ## Microsoft 365 email ingestion
 

@@ -122,7 +122,25 @@ dotnet user-secrets set "AgentEndpoints:Intake:ApiKey" "..." --project src/Samwi
 dotnet user-secrets set "AgentEndpoints:Planning:ApiKey" "..." --project src/Samwise.Web
 dotnet user-secrets set "AgentEndpoints:Execution:ApiKey" "..." --project src/Samwise.Web
 dotnet user-secrets set "SamwiseMcp:ApiKey" "..." --project src/Samwise.Web
+dotnet user-secrets set "ManualInputApi:ApiKey" "..." --project src/Samwise.Web
 ```
+
+Mobile automations can submit directly to the normal intake queue without opening a confirmation page:
+
+```http
+POST /api/manual-input?type=shared-link
+X-Samwise-Input-Key: <manual-input-api-key>
+Content-Type: application/json
+
+{
+  "text": "Required input text",
+  "title": "Optional title",
+  "url": "https://example.com",
+  "note": "Optional additional context"
+}
+```
+
+Only `text` is required. `type`, `title`, `url`, and `note` are optional context for intake classification. A successful request returns `202 Accepted` immediately; processing continues through the same background intake queue as the web form and other inputs. Use the dedicated manual-input key only in the `X-Samwise-Input-Key` header, never in a query string.
 
 Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to help intake recognize actionable scenarios and steer the planning agent.
 

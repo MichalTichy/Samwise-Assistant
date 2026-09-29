@@ -45,7 +45,7 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 
 ## Manual-input flow
 
-1. `Home` validates the user's text and sends `SubmitManualInputUsecase`.
+1. `Home` validates the user's text and sends `SubmitManualInputUsecase`. `POST /api/manual-input` accepts the same input from mobile automation without opening a confirmation screen. It requires its own write-only API key and never exposes that key in the URL.
 2. The use case persists a pending event and queues background processing without waiting for AI.
 3. The page navigates to the inbox audit view immediately. The inbox refreshes while pending events remain.
 4. `Inbox` reads `InboundEvent` documents with `InboxEventsSpecification` and can send a retry command for events needing review.

@@ -4,6 +4,7 @@ using Shared.Infrastructure.IoC;
 using Samwise.Infrastructure.Mcp.Endpoints;
 using Samwise.Web.Components;
 using Samwise.Web.Endpoints;
+using Samwise.Web.Endpoints.ManualInput;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -42,6 +43,7 @@ app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapOwnerAccountEndpoints();
+app.MapManualInputApi();
 app.MapSamwiseMcp();
 
 var initializers = app.Services.GetRequiredService<InitializerManager>();

@@ -81,7 +81,31 @@
     }
     else if (Event is ManualInboundEvent manual)
     {
+        @if (!string.IsNullOrWhiteSpace(manual.Title))
+        {
+            <h3>@manual.Title</h3>
+        }
+        @if (!string.IsNullOrWhiteSpace(manual.InputType) || !string.IsNullOrWhiteSpace(manual.Url))
+        {
+            <dl class="source-event-fields">
+                @if (!string.IsNullOrWhiteSpace(manual.InputType))
+                {
+                    <div><dt>Type</dt><dd>@manual.InputType</dd></div>
+                }
+                @if (!string.IsNullOrWhiteSpace(manual.Url))
+                {
+                    <div><dt>URL</dt><dd>@manual.Url</dd></div>
+                }
+            </dl>
+        }
         <p class="source-event-body">@manual.Input</p>
+        @if (!string.IsNullOrWhiteSpace(manual.Note))
+        {
+            <div class="source-event-message">
+                <div class="source-event-message-heading"><strong>Additional context</strong></div>
+                <p class="source-event-body">@manual.Note</p>
+            </div>
+        }
     }
     else if (Event is TeamsTranscriptInboundEvent transcript)
     {

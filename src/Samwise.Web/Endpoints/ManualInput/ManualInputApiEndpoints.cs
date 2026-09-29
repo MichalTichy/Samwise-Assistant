@@ -38,7 +38,9 @@ public static class ManualInputApiEndpoints
             || headerValues.Count != 1
             || !KeysMatch(expectedApiKey, headerValues[0]))
         {
-            return Results.Unauthorized();
+            return Results.Problem(
+                "The manual input API key is missing or invalid.",
+                statusCode: StatusCodes.Status401Unauthorized);
         }
 
         var errors = Validate(inputType, request);

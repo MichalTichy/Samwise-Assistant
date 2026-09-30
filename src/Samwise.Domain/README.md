@@ -19,7 +19,7 @@ This project contains Samwise's durable business state and transition rules. It 
 1. Intake can create or update multiple Work Items when one input contains independently achievable outcomes. All changes are applied together before each affected Work Item is planned once.
 2. New context increments the revision and invalidates the previous plan.
 3. Planning either attaches a plan for the exact current revision, asks one structured user question, completes an outcome already achieved outside Samwise, or discards work proven no longer relevant. Terminal planning outcomes retain their reason and invocation ID.
-4. A planning question moves the Work Item to `AwaitingUserInput`. Its mutually exclusive choices plus the UI-provided Other answer are stored as a structured decision; answering advances the revision and immediately replans.
+4. A planning question moves the Work Item to `AwaitingUserInput`. Its mutually exclusive choices plus the UI-provided Other answer are stored as a structured decision; answering advances the revision and immediately replans. The user may also request a fresh plan without answering when external state or time may have made the question stale.
 5. Approval succeeds only for the exact plan ID and revision shown to the user.
 6. Execution moves through `Executing` to `Completed`, `NeedsAttention`, or `OutcomeUnknown`.
 7. A potentially interrupted side-effecting execution is never silently retried. The user can explicitly retry the same approved plan after checking the affected systems and accepting the duplicate-action risk.

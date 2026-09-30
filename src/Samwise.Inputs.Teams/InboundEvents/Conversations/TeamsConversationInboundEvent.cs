@@ -1,5 +1,6 @@
 using System.Text;
 using Samwise.Domain.Inbox;
+using Samwise.Inputs.Teams.Configuration;
 
 namespace Samwise.Inputs.Teams.InboundEvents.Conversations;
 
@@ -7,6 +8,7 @@ public sealed class TeamsConversationInboundEvent : InboundEvent
 {
     public string ConversationVersion { get; set; } = string.Empty;
     public required TeamsConversationSource Conversation { get; set; }
+    public TeamsConnectedAccount? ConnectedAccount { get; set; }
     public List<TeamsConversationMessage> Messages { get; set; } = [];
 
     public override string Source => Conversation.EventSource;
@@ -16,6 +18,7 @@ public sealed class TeamsConversationInboundEvent : InboundEvent
     {
         var text = new StringBuilder()
             .AppendLine(Conversation.IntakeHeading)
+            .Append("Connected account (you): ").AppendLine(FormatConnectedAccount())
             .Append("Conversation: ").AppendLine(Conversation.DisplayName)
             .Append("Conversation key: ").AppendLine(Conversation.ConversationKey);
         Conversation.AppendIntakeDetails(text);
@@ -24,11 +27,18 @@ public sealed class TeamsConversationInboundEvent : InboundEvent
         {
             text.AppendLine()
                 .Append('[').Append(message.SentAt.ToString("O")).Append("] ")
-                .Append(message.SenderName)
+                .Append(message.IsFromConnectedAccount ? "You" : message.SenderName)
+                .Append(message.IsFromConnectedAccount ? $" ({message.SenderName})" : string.Empty)
                 .Append(" (message ").Append(message.MessageId).AppendLine(")")
                 .AppendLine(message.BodyText.Trim());
         }
 
         return text.ToString().Trim();
     }
+
+    private string FormatConnectedAccount() => ConnectedAccount is null
+        ? "Unknown"
+        : string.IsNullOrWhiteSpace(ConnectedAccount.Username)
+            ? ConnectedAccount.DisplayName
+            : $"{ConnectedAccount.DisplayName} <{ConnectedAccount.Username}>";
 }

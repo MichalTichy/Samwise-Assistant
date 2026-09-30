@@ -213,7 +213,9 @@ internal sealed class ProcessEmailsUsecaseHandler(
             Attachments = message.Attachments,
             CalendarInvitation = message.CalendarInvitation,
             SourceGuidance = account.IntakeGuidance,
-            Context = message.Replies.Select(CreateReplyContext).ToList(),
+            Context = message.Replies
+                .Select(reply => CreateReplyContext(reply, account.EmailAddress))
+                .ToList(),
             Status = isIgnored ? InboundEventStatus.Processed : InboundEventStatus.Pending,
             HandledAt = isIgnored ? now : null,
             Explanation = isIgnored
@@ -245,13 +247,16 @@ internal sealed class ProcessEmailsUsecaseHandler(
             Explanation = "Waiting for intake classification."
         };
 
-    private static InboundEventContextItem CreateReplyContext(EmailReplySnapshot reply) => new()
+    private static InboundEventContextItem CreateReplyContext(
+        EmailReplySnapshot reply,
+        string connectedMailboxAddress) => new()
     {
         SourceItemId = reply.MessageId
             ?? $"sent:{reply.SentAt?.ToString("O") ?? "unknown"}:{reply.Subject}",
         OccurredAt = reply.SentAt,
         Content = $"""
             Email reply already sent from this account
+            Author: You ({connectedMailboxAddress})
             Sent: {reply.SentAt?.ToString("O") ?? "Unknown"}
             From: {reply.FormatSender()}
             To: {string.Join(", ", reply.ToAddresses)}

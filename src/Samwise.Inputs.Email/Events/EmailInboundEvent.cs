@@ -31,6 +31,8 @@ public sealed class EmailInboundEvent : InboundEvent
     public override string GetIntakeText()
     {
         var text = new StringBuilder()
+            .Append("Connected mailbox (you): ").AppendLine(FormatConnectedMailbox())
+            .AppendLine("Perspective: this email was received by you in the connected mailbox.")
             .Append("Email received from: ")
             .AppendLine(FormatSender())
             .Append("To: ")
@@ -82,4 +84,8 @@ public sealed class EmailInboundEvent : InboundEvent
     private string FormatSender() => string.IsNullOrWhiteSpace(FromDisplayName)
         ? FromAddress
         : $"{FromDisplayName} <{FromAddress}>";
+
+    private string FormatConnectedMailbox() => string.IsNullOrWhiteSpace(AccountName)
+        ? AccountEmailAddress
+        : $"{AccountName} <{AccountEmailAddress}>";
 }

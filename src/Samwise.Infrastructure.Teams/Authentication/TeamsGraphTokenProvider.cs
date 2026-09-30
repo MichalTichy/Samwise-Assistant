@@ -104,6 +104,11 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
         {
             var context = await GetContextAsync(cancellationToken);
             var account = (await context.PublicClient.GetAccountsAsync()).FirstOrDefault();
+            if (account is not null)
+            {
+                await EnsureConnectedAccountRecordedAsync(context.PublicClient, account, cancellationToken);
+            }
+
             lock (stateLock)
             {
                 var attempt = context.AuthorizationAttempt;
@@ -149,6 +154,8 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
                 context.AuthorizationAttempt = null;
             }
         }
+
+        await ClearConnectedAccountAsync(cancellationToken);
     }
 
     private async Task<ClientContext> GetContextAsync(CancellationToken cancellationToken)
@@ -211,7 +218,7 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
     {
         try
         {
-            await publicClient.AcquireTokenWithDeviceCode(DelegatedScopes, result =>
+            var authentication = await publicClient.AcquireTokenWithDeviceCode(DelegatedScopes, result =>
             {
                 var challenge = new TeamsAuthorizationChallenge(
                     result.UserCode,
@@ -221,12 +228,85 @@ internal sealed class TeamsGraphTokenProvider : ITeamsAuthorizationService
                 attempt.PublishChallenge(challenge);
                 return Task.CompletedTask;
             }).ExecuteAsync();
+            await RecordConnectedAccountAsync(authentication, CancellationToken.None);
             attempt.Complete();
         }
         catch (Exception exception)
         {
             attempt.Fail(exception);
         }
+    }
+
+    private async Task EnsureConnectedAccountRecordedAsync(
+        IPublicClientApplication publicClient,
+        IAccount account,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IRepository<TeamsInputConfiguration>>();
+        var configuration = await repository.GetRequiredByIdAsync(
+            TeamsInputConfiguration.DocumentId,
+            cancellationToken);
+        if (configuration.ConnectedAccount is not null)
+        {
+            return;
+        }
+
+        var authentication = await publicClient.AcquireTokenSilent(DelegatedScopes, account)
+            .ExecuteAsync(cancellationToken);
+        await RecordConnectedAccountAsync(authentication, repository, configuration, cancellationToken);
+    }
+
+    private async Task RecordConnectedAccountAsync(
+        AuthenticationResult authentication,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IRepository<TeamsInputConfiguration>>();
+        var configuration = await repository.GetRequiredByIdAsync(
+            TeamsInputConfiguration.DocumentId,
+            cancellationToken);
+        await RecordConnectedAccountAsync(authentication, repository, configuration, cancellationToken);
+    }
+
+    private static async Task RecordConnectedAccountAsync(
+        AuthenticationResult authentication,
+        IRepository<TeamsInputConfiguration> repository,
+        TeamsInputConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        var userId = string.IsNullOrWhiteSpace(authentication.UniqueId)
+            ? authentication.Account.HomeAccountId.ObjectId
+            : authentication.UniqueId;
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new InvalidOperationException(
+                "The connected Microsoft account did not provide a stable user ID.");
+        }
+
+        var username = authentication.ClaimsPrincipal.FindFirst("preferred_username")?.Value
+            ?? authentication.Account.Username;
+        var displayName = authentication.ClaimsPrincipal.FindFirst("name")?.Value
+            ?? username
+            ?? "Connected Microsoft account";
+        configuration.RecordConnectedAccount(userId, displayName, username);
+        await repository.UpdateAsync(configuration, cancellationToken);
+    }
+
+    private async Task ClearConnectedAccountAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IRepository<TeamsInputConfiguration>>();
+        var configuration = await repository.GetRequiredByIdAsync(
+            TeamsInputConfiguration.DocumentId,
+            cancellationToken);
+        if (configuration.ConnectedAccount is null)
+        {
+            return;
+        }
+
+        configuration.ClearConnectedAccount();
+        await repository.UpdateAsync(configuration, cancellationToken);
     }
 
     private static void RegisterPersistentCache(

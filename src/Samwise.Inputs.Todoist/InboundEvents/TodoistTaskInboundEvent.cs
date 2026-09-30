@@ -31,7 +31,7 @@ public sealed class TodoistTaskInboundEvent : InboundEvent
     public override string GetIntakeText()
     {
         var text = new StringBuilder()
-            .AppendLine("A Todoist task is due soon.")
+            .AppendLine("A task from your connected Todoist account is due soon.")
             .Append("Task: ").AppendLine(Content.Trim())
             .Append("Todoist task ID: ").AppendLine(TaskId);
         if (!string.IsNullOrWhiteSpace(Url))

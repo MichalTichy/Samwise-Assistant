@@ -25,6 +25,8 @@ public sealed class EmailInboundEventTests
     {
         var inboundEvent = new EmailInboundEvent
         {
+            AccountName = "Personal",
+            AccountEmailAddress = "sam@example.com",
             FromDisplayName = "Rosie Cotton",
             FromAddress = "rosie@example.com",
             ToAddresses = ["sam@example.com"],
@@ -48,6 +50,8 @@ public sealed class EmailInboundEventTests
         var text = inboundEvent.GetIntakeText();
 
         Assert.Contains("Rosie Cotton <rosie@example.com>", text, StringComparison.Ordinal);
+        Assert.Contains("Connected mailbox (you): Personal <sam@example.com>", text, StringComparison.Ordinal);
+        Assert.Contains("this email was received by you", text, StringComparison.Ordinal);
         Assert.Contains("Subject: The Green Dragon", text, StringComparison.Ordinal);
         Assert.Contains("Meet me there after supper.", text, StringComparison.Ordinal);
         Assert.Contains("map.pdf (application/pdf)", text, StringComparison.Ordinal);
@@ -76,6 +80,8 @@ public sealed class EmailInboundEventTests
         var inboundEvent = new SentEmailInboundEvent
         {
             EmailAccountId = "work",
+            AccountName = "Work",
+            AccountEmailAddress = "sam@example.com",
             Mailbox = "Sent Items",
             UidValidity = 17,
             Uid = 42,
@@ -93,6 +99,8 @@ public sealed class EmailInboundEventTests
         Assert.Equal("Sent email", inboundEvent.Source);
         Assert.Equal("work:Sent Items:17:42", inboundEvent.ExternalId);
         Assert.Contains("Email sent from: Sam Gamgee <sam@example.com>", text, StringComparison.Ordinal);
+        Assert.Contains("Connected mailbox (you): Work <sam@example.com>", text, StringComparison.Ordinal);
+        Assert.Contains("this email was sent by you", text, StringComparison.Ordinal);
         Assert.Contains("To: rosie@example.com", text, StringComparison.Ordinal);
         Assert.Contains("I will be there.", text, StringComparison.Ordinal);
         Assert.Contains("directions.pdf (application/pdf)", text, StringComparison.Ordinal);

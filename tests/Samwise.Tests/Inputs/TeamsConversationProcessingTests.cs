@@ -64,7 +64,54 @@ public sealed class TeamsConversationProcessingTests
         Assert.Equal("old", context.SourceItemId);
         Assert.False(context.PreviouslyProcessed);
         Assert.Equal("Work Teams guidance.", inboundEvent.SourceGuidance);
+        Assert.Equal("Michal Tichy", inboundEvent.ConnectedAccount?.DisplayName);
+        Assert.All(inboundEvent.Messages, message => Assert.False(message.IsFromConnectedAccount));
+        Assert.Contains("Connected account (you): Michal Tichy <michal@example.com>", inboundEvent.GetIntakeText());
         Assert.Equal(Now.AddMinutes(-2), configuration.LastSuccessfulCheckAt);
+    }
+
+    [Fact]
+    public async Task MessagesFromConnectedAccountAreExplicitlyRenderedAsYou()
+    {
+        var configuration = CreateConfiguration();
+        var capture = new RecordingCaptureService();
+        var handler = CreateHandler(
+            configuration,
+            [],
+            [Message(
+                "mine",
+                Now.AddMinutes(-3),
+                isNew: true,
+                "Can you send me the document?",
+                senderId: "connected-user",
+                senderName: "Michal Tichy")],
+            capture);
+
+        await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
+
+        var inboundEvent = Assert.IsType<TeamsConversationInboundEvent>(Assert.Single(capture.Events));
+        Assert.True(Assert.Single(inboundEvent.Messages).IsFromConnectedAccount);
+        Assert.Contains("You (Michal Tichy) (message mine)", inboundEvent.GetIntakeText());
+    }
+
+    [Fact]
+    public async Task ProcessingStopsWhenConnectedAccountIdentityHasNotBeenCaptured()
+    {
+        var configuration = CreateConfiguration();
+        configuration.ClearConnectedAccount();
+        var capture = new RecordingCaptureService();
+        var handler = CreateHandler(
+            configuration,
+            [],
+            [Message("message", Now.AddMinutes(-3), isNew: true, "Do not guess the conversation roles")],
+            capture);
+
+        var result = await handler.Handle(new ProcessTeamsInputsUsecase(), CancellationToken.None);
+
+        Assert.Empty(capture.Events);
+        Assert.Single(result.Errors);
+        Assert.Contains("identity is unavailable", result.Errors[0], StringComparison.Ordinal);
+        Assert.Equal(result.Errors[0], configuration.LastError);
     }
 
     [Fact]
@@ -320,6 +367,10 @@ public sealed class TeamsConversationProcessingTests
             [],
             [],
             []);
+        configuration.RecordConnectedAccount(
+            "connected-user",
+            "Michal Tichy",
+            "michal@example.com");
         return configuration;
     }
 
@@ -328,13 +379,15 @@ public sealed class TeamsConversationProcessingTests
         DateTimeOffset occurredAt,
         bool isNew,
         string body,
-        string? replyToMessageId = null) => new TeamsChatMessageSnapshot
+        string? replyToMessageId = null,
+        string senderId = "person-1",
+        string senderName = "Rosie") => new TeamsChatMessageSnapshot
         {
             ExternalId = $"chat:chat-1:{id}:v1",
             OccurredAt = occurredAt,
             BodyText = body,
-            SenderId = "person-1",
-            SenderName = "Rosie",
+            SenderId = senderId,
+            SenderName = senderName,
             ChatId = "chat-1",
             ConversationName = "Rosie",
             MessageId = id,

@@ -78,6 +78,7 @@ public sealed class TodoistProcessingTests
         Assert.Equal("Todoist guidance.", inboundEvent.SourceGuidance);
         Assert.Equal(new DateTimeOffset(2026, 9, 21, 15, 0, 0, TimeSpan.Zero), inboundEvent.DueAt);
         var text = inboundEvent.GetIntakeText();
+        Assert.Contains("your connected Todoist account", text);
         Assert.Contains("Todoist task ID: task-1", text);
         Assert.Contains("Project: Inbox", text);
         Assert.Contains("Labels: waiting", text);

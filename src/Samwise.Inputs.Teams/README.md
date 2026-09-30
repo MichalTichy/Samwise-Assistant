@@ -4,6 +4,8 @@ This is the complete application module for Microsoft Teams input. It owns Teams
 
 `Samwise.Infrastructure.Teams` is the direct Microsoft Graph adapter and polling host for this module. The UI-managed configuration contains the Entra application registration; the infrastructure adapter protects its optional secret and owns the delegated token cache. The module captures concrete events through the generic `IInboundEventCaptureService`; neither `Samwise.Domain` nor the generic workflow depends on Teams.
 
+The stable Microsoft account identity is captured when the user connects the account and stored with the Teams input configuration. Polling does not fetch the profile repeatedly. Conversation and transcript events snapshot that identity and explicitly mark content authored by the connected account as `You`, so Intake can distinguish the owner's outgoing message from a request addressed to the owner. Changing the tenant or client registration, or disconnecting the account, clears the stored identity.
+
 ## Structure
 
 - `Authentication` contains the account-connection port, device-code state, and credential-protection port.

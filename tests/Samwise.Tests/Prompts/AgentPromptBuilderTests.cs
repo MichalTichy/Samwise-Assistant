@@ -69,6 +69,8 @@ public sealed class AgentPromptBuilderTests
         Assert.Contains("Execution-version", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(catalogs[AgentStage.Planning].RawJson, result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.Contains("labels a participant, mailbox, or message as You", result.Text, StringComparison.Ordinal);
+        Assert.Contains("never swap the conversation sides", result.Text, StringComparison.Ordinal);
         Assert.Equal("intake-model", result.Configuration.Model);
         Assert.Equal("high", result.Configuration.ReasoningEffort);
         Assert.Equal(catalogs[AgentStage.Intake], result.IntakeTools);

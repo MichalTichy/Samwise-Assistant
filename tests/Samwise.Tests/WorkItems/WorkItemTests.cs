@@ -219,6 +219,34 @@ public sealed class WorkItemTests
     }
 
     [Fact]
+    public void PendingPlanningQuestionCanBeReplannedWhenItsCurrentStateMayBeStale()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Arrange a call with Jan.", null, InitialTime);
+        var question = new PlanningQuestion
+        {
+            Id = "question-1",
+            WorkItemRevision = workItem.Revision,
+            PlanningAttemptNumber = workItem.ReservePlanNumber(InitialTime.AddMinutes(1)),
+            Prompt = "Can you talk now?",
+            Options =
+            [
+                new PlanningQuestionOption { Id = "yes", Label = "Yes" },
+                new PlanningQuestionOption { Id = "later", Label = "Later" }
+            ],
+            PlanningInvocationId = "planning-invocation-1",
+            CreatedAt = InitialTime.AddMinutes(2)
+        };
+        workItem.RequestUserInput(question, InitialTime.AddMinutes(2));
+
+        workItem.Replan(InitialTime.AddHours(1));
+
+        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
+        Assert.Null(workItem.PendingPlanningQuestion);
+        Assert.Equal(InitialTime.AddHours(1), workItem.UpdatedAt);
+        Assert.Contains(workItem.DequeueEvents(), domainEvent => domainEvent is ReplanRequested);
+    }
+
+    [Fact]
     public void AwaitingApprovalPlanCanBeReplannedAndRemainsInHistory()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Prepare the revised offer.", null, InitialTime);

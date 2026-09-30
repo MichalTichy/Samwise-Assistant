@@ -308,7 +308,13 @@ else
                                 }
 
                                 <div class="planning-question-actions">
-                                    <span>Your answer becomes context for a fresh plan.</span>
+                                    <span>Answer the question, or recheck the current source state if it may have changed.</span>
+                                    <LumexButton Color="@ThemeColor.Default"
+                                                 Variant="@Variant.Flat"
+                                                 OnClick="ReplanAsync"
+                                                 Disabled="@actionBusy">
+                                        @(actionBusy ? "Rechecking…" : "Recheck & replan")
+                                    </LumexButton>
                                     <LumexButton Color="@ThemeColor.Primary"
                                                  Variant="@Variant.Shadow"
                                                  OnClick="AnswerPlanningQuestionAsync"

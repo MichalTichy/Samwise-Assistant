@@ -19,6 +19,7 @@ public sealed class ManualInputSubmissionTests
         var manualEvent = Assert.IsType<ManualInboundEvent>(capture.Captured);
         Assert.Equal("Please follow up", manualEvent.Input);
         Assert.Equal(InboundEventStatus.Pending, manualEvent.Status);
+        Assert.Contains("submitted by you", manualEvent.GetIntakeText(), StringComparison.Ordinal);
     }
 
     [Fact]

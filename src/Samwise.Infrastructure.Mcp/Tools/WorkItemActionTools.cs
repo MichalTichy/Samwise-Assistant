@@ -10,9 +10,9 @@ namespace Samwise.Infrastructure.Mcp.Tools;
 public sealed class WorkItemActionTools(ISender sender)
 {
     [McpServerTool(Name = "replan_work_item")]
-    [Description("Invalidates the current unexecuted plan and immediately generates a new plan from the Work Item's current data. The previous plan remains in history.")]
+    [Description("Invalidates the current unexecuted plan or pending planning question and immediately generates a new plan from the Work Item's current data. Previous plans and agent activity remain in history.")]
     public async Task<string> ReplanWorkItemAsync(
-        [Description("The Work Item ID returned by list_work_items. It must be awaiting approval or in NeedsAttention.")]
+        [Description("The Work Item ID returned by list_work_items. It must be awaiting user input, awaiting approval, or in NeedsAttention.")]
         string workItemId,
         CancellationToken cancellationToken = default)
     {

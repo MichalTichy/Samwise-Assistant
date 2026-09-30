@@ -37,6 +37,16 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             return new TeamsProcessingResult(0, 0, 0, [], []);
         }
 
+        var connectedAccount = configuration.ConnectedAccount;
+        if (connectedAccount is null)
+        {
+            const string error = "The connected Microsoft Teams account identity is unavailable. "
+                + "Refresh or reconnect the account in Configuration → Inputs → Microsoft Teams.";
+            configuration.RecordFailedCheck(error);
+            await configurationRepository.UpdateAsync(configuration, cancellationToken);
+            return new TeamsProcessingResult(0, 0, 0, [error], []);
+        }
+
         var now = timeProvider.GetUtcNow();
         if (configuration.LastSuccessfulCheckAt is null)
         {
@@ -83,6 +93,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
                 conversation.Key,
                 conversation.ToList(),
                 configuration,
+                connectedAccount,
                 checkedThrough,
                 now,
                 cancellationToken);
@@ -95,7 +106,12 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
                      .OrderBy(activity => activity.OccurredAt))
         {
             var isIgnored = configuration.IsPersonIgnored(transcript.SenderId);
-            var inboundEvent = CreateTranscriptEvent(transcript, configuration.IntakeGuidance, isIgnored, now);
+            var inboundEvent = CreateTranscriptEvent(
+                transcript,
+                connectedAccount,
+                configuration.IntakeGuidance,
+                isIgnored,
+                now);
             var result = await captureService.CaptureAsync(inboundEvent, cancellationToken);
             AddResult((result.AlreadyExisted, isIgnored, true, false), ref imported, ref ignored, ref alreadyProcessed);
         }
@@ -125,6 +141,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         string conversationKey,
         IReadOnlyList<TeamsMessageSnapshot> messages,
         TeamsInputConfiguration configuration,
+        TeamsConnectedAccount connectedAccount,
         DateTimeOffset checkedThrough,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -185,11 +202,16 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             .Where(messageId => !string.IsNullOrWhiteSpace(messageId))
             .Cast<string>()
             .ToHashSet(StringComparer.Ordinal);
-        var context = BuildContext(visibleContext, priorMessages, repliedToMessageIds);
+        var context = BuildContext(
+            visibleContext,
+            priorMessages,
+            repliedToMessageIds,
+            connectedAccount);
         var inboundEvent = CreateConversationEvent(
             messages,
             triggerMessages,
             context,
+            connectedAccount,
             configuration.IntakeGuidance,
             isIgnored,
             now);
@@ -201,6 +223,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         IReadOnlyList<TeamsMessageSnapshot> allMessages,
         IReadOnlyList<TeamsMessageSnapshot> triggerMessages,
         List<InboundEventContextItem> context,
+        TeamsConnectedAccount connectedAccount,
         string sourceGuidance,
         bool isIgnored,
         DateTimeOffset now)
@@ -216,7 +239,11 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             ConversationVersion = conversationVersion,
             ContextKey = conversation.ConversationKey,
             Conversation = conversation,
-            Messages = triggerMessages.OrderBy(message => message.OccurredAt).Select(CreateMessage).ToList(),
+            ConnectedAccount = Copy(connectedAccount),
+            Messages = triggerMessages
+                .OrderBy(message => message.OccurredAt)
+                .Select(message => CreateMessage(message, connectedAccount.UserId))
+                .ToList(),
             Context = context,
             SourceGuidance = sourceGuidance,
             ReceivedAt = now,
@@ -231,7 +258,8 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
     private static List<InboundEventContextItem> BuildContext(
         IReadOnlyList<TeamsMessageSnapshot> messages,
         IReadOnlyDictionary<string, TeamsConversationInboundEvent> priorMessages,
-        IReadOnlySet<string> repliedToMessageIds)
+        IReadOnlySet<string> repliedToMessageIds,
+        TeamsConnectedAccount connectedAccount)
     {
         var result = new List<InboundEventContextItem>();
         var remaining = MaximumContextCharacters;
@@ -242,7 +270,7 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
             .Take(MaximumContextMessages);
         foreach (var message in selectedMessages)
         {
-            var content = FormatContextMessage(message);
+            var content = FormatContextMessage(message, connectedAccount.UserId);
             if (content.Length > remaining)
             {
                 if (result.Count == 0 && remaining > 1)
@@ -278,13 +306,16 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
         return result.OrderBy(item => item.OccurredAt).ToList();
     }
 
-    private static TeamsConversationMessage CreateMessage(TeamsMessageSnapshot activity) => new()
+    private static TeamsConversationMessage CreateMessage(
+        TeamsMessageSnapshot activity,
+        string connectedAccountUserId) => new()
     {
         MessageId = activity.MessageId,
         Version = activity.Version,
         ReplyToMessageId = activity.ReplyToMessageId,
         SenderId = activity.SenderId,
         SenderName = activity.SenderName ?? "Unknown",
+        IsFromConnectedAccount = IsConnectedAccount(activity.SenderId, connectedAccountUserId),
         SentAt = activity.OccurredAt,
         BodyText = activity.BodyText,
         WebUrl = activity.WebUrl
@@ -316,14 +347,19 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
 
     private static TeamsTranscriptInboundEvent CreateTranscriptEvent(
         TeamsTranscriptSnapshot activity,
+        TeamsConnectedAccount connectedAccount,
         string sourceGuidance,
         bool isIgnored,
         DateTimeOffset now) => new()
         {
             TranscriptId = activity.TranscriptId,
             TranscriptSource = CreateTranscriptSource(activity),
+            ConnectedAccount = Copy(connectedAccount),
             OrganizerId = activity.SenderId ?? string.Empty,
             OrganizerName = activity.SenderName ?? "Unknown",
+            IsOrganizedByConnectedAccount = IsConnectedAccount(
+                activity.SenderId,
+                connectedAccount.UserId),
             CreatedAt = activity.OccurredAt,
             EndedAt = activity.EndedAt,
             ContextKey = activity switch
@@ -368,8 +404,26 @@ internal sealed class ProcessTeamsInputsUsecaseHandler(
 
     private static string MessageKey(string messageId, string version) => $"{messageId}:{version}";
 
-    private static string FormatContextMessage(TeamsMessageSnapshot message) =>
-        $"[{message.OccurredAt:O}] {message.SenderName ?? "Unknown"} (message {message.MessageId})\n{message.BodyText.Trim()}";
+    private static string FormatContextMessage(
+        TeamsMessageSnapshot message,
+        string connectedAccountUserId)
+    {
+        var sender = IsConnectedAccount(message.SenderId, connectedAccountUserId)
+            ? $"You ({message.SenderName ?? "connected account"})"
+            : message.SenderName ?? "Unknown";
+        return $"[{message.OccurredAt:O}] {sender} (message {message.MessageId})\n{message.BodyText.Trim()}";
+    }
+
+    private static bool IsConnectedAccount(string? senderId, string connectedAccountUserId) =>
+        !string.IsNullOrWhiteSpace(senderId)
+        && string.Equals(senderId, connectedAccountUserId, StringComparison.OrdinalIgnoreCase);
+
+    private static TeamsConnectedAccount Copy(TeamsConnectedAccount account) => new()
+    {
+        UserId = account.UserId,
+        DisplayName = account.DisplayName,
+        Username = account.Username
+    };
 
     private static void AddResult(
         (bool AlreadyExisted, bool Ignored, bool Captured, bool Deferred) result,

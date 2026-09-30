@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Samwise.Domain.Inbox;
+using Samwise.Inputs.Teams.Configuration;
 using Samwise.Inputs.Teams.InboundEvents.Conversations;
 using Samwise.Inputs.Teams.InboundEvents.Transcripts;
 
@@ -18,6 +19,12 @@ public sealed class TeamsEventSourceSerializationTests
         var inboundEvent = new TeamsConversationInboundEvent
         {
             ConversationVersion = "version-1",
+            ConnectedAccount = new TeamsConnectedAccount
+            {
+                UserId = "connected-user",
+                DisplayName = "Michal Tichy",
+                Username = "michal@example.com"
+            },
             Conversation = new TeamsChannelThreadConversationSource
             {
                 TeamId = "team-1",
@@ -25,7 +32,18 @@ public sealed class TeamsEventSourceSerializationTests
                 ChannelId = "channel-1",
                 ChannelName = "General",
                 ThreadRootMessageId = "root-1"
-            }
+            },
+            Messages =
+            [
+                new TeamsConversationMessage
+                {
+                    MessageId = "message-1",
+                    SenderId = "connected-user",
+                    SenderName = "Michal Tichy",
+                    IsFromConnectedAccount = true,
+                    BodyText = "I sent this message."
+                }
+            ]
         };
 
         var json = JsonConvert.SerializeObject(inboundEvent, Settings);
@@ -34,6 +52,8 @@ public sealed class TeamsEventSourceSerializationTests
         var source = Assert.IsType<TeamsChannelThreadConversationSource>(roundTrip?.Conversation);
         Assert.Equal("team-1", source.TeamId);
         Assert.Equal("root-1", source.ThreadRootMessageId);
+        Assert.Equal("connected-user", roundTrip?.ConnectedAccount?.UserId);
+        Assert.True(Assert.Single(roundTrip!.Messages).IsFromConnectedAccount);
     }
 
     [Fact]

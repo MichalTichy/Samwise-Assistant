@@ -271,9 +271,13 @@ public sealed class WorkItem : IItemWithId, IRevisioned
 
     public void Replan(DateTimeOffset now)
     {
-        if (Status is not (WorkItemStatus.AwaitingApproval or WorkItemStatus.NeedsAttention))
+        if (Status is not (
+            WorkItemStatus.AwaitingUserInput
+            or WorkItemStatus.AwaitingApproval
+            or WorkItemStatus.NeedsAttention))
         {
-            throw new InvalidOperationException("Only a work item awaiting approval or needing attention can be replanned.");
+            throw new InvalidOperationException(
+                "Only a work item awaiting user input, awaiting approval, or needing attention can be replanned.");
         }
 
         CurrentPlanId = null;

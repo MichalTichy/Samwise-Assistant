@@ -10,6 +10,7 @@ public sealed class TeamsInputConfiguration : IItemWithId
 
     public string Id { get; set; } = DocumentId;
     public TeamsGraphApplicationConfiguration MicrosoftGraph { get; set; } = new();
+    public TeamsConnectedAccount? ConnectedAccount { get; set; }
     public int PollingIntervalMinutes { get; set; } = DefaultPollingIntervalMinutes;
     public int DebounceMinutes { get; set; } = DefaultDebounceMinutes;
     public string IntakeGuidance { get; set; } = string.Empty;
@@ -54,10 +55,18 @@ public sealed class TeamsInputConfiguration : IItemWithId
                 "The debounce interval must be between 0 and 60 minutes.");
         }
 
+        var normalizedTenantId = tenantId.Trim();
+        var normalizedClientId = clientId.Trim();
+        if (!string.Equals(MicrosoftGraph.TenantId, normalizedTenantId, StringComparison.Ordinal)
+            || !string.Equals(MicrosoftGraph.ClientId, normalizedClientId, StringComparison.Ordinal))
+        {
+            ConnectedAccount = null;
+        }
+
         MicrosoftGraph = new TeamsGraphApplicationConfiguration
         {
-            TenantId = tenantId.Trim(),
-            ClientId = clientId.Trim(),
+            TenantId = normalizedTenantId,
+            ClientId = normalizedClientId,
             ProtectedClientSecret = protectedClientSecret
         };
         PollingIntervalMinutes = pollingIntervalMinutes;
@@ -99,6 +108,20 @@ public sealed class TeamsInputConfiguration : IItemWithId
     public bool IsChatIgnored(string? id) => Contains(IgnoredChats, id);
 
     public bool IsChannelIgnored(string? id) => Contains(IgnoredChannels, id);
+
+    public void RecordConnectedAccount(string userId, string displayName, string? username)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        ConnectedAccount = new TeamsConnectedAccount
+        {
+            UserId = userId.Trim(),
+            DisplayName = displayName.Trim(),
+            Username = username?.Trim() ?? string.Empty
+        };
+    }
+
+    public void ClearConnectedAccount() => ConnectedAccount = null;
 
     public void RecordSuccessfulCheck(DateTimeOffset checkedAt)
     {

@@ -20,10 +20,10 @@ public sealed class ManualInboundEvent : InboundEvent
             && string.IsNullOrWhiteSpace(Url)
             && string.IsNullOrWhiteSpace(Note))
         {
-            return Input.Trim();
+            return $"Manual input submitted by you:{Environment.NewLine}{Environment.NewLine}{Input.Trim()}";
         }
 
-        var sections = new List<string>();
+        var sections = new List<string> { "Manual input submitted by you." };
         AddField(sections, "Input type", InputType);
         AddField(sections, "Title", Title);
         AddField(sections, "URL", Url);

@@ -24,6 +24,7 @@ internal sealed class AgentPromptBuilder(
     private const string IntakeResponseContract = """
         Mandatory intake response contract:
         - Only the current input may trigger work item changes. Source context is historical evidence for interpreting it; never recreate work solely from context marked previously processed. Prefer append when the new input changes a linked active work item.
+        - When source data explicitly labels a participant, mailbox, or message as You, treat that verified role as authoritative and never swap the conversation sides. A conversation message authored or sent by You is an action already taken; it can establish a commitment or update existing work, but it is not an incoming request from the other participant.
         - Return decision as apply_changes, ignore, or needs_review.
         - Identify every independently achievable outcome in the event; do not stop after the first. For apply_changes, return one or more work_items. Each must use action create or append, include self-contained relevant_text and an explanation, and represent an independently achievable outcome rather than one step of a shared objective.
         - A create item requires proposed_title and null existing_work_item_id.

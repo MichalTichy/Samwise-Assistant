@@ -54,6 +54,46 @@ public sealed class TeamsInputConfigurationTests
         Assert.True(configuration.IsChannelIgnored("channel-1"));
     }
 
+    [Fact]
+    public void UpdatingInputPreferencesPreservesConnectedAccountIdentity()
+    {
+        var configuration = new TeamsInputConfiguration();
+        configuration.Update(
+            "tenant-id", "client-id", null, 5, 2, null,
+            true, true, false, [], [], []);
+        configuration.RecordConnectedAccount(
+            " user-id ",
+            " Michal Tichy ",
+            " michal@example.com ");
+
+        configuration.Update(10, 3, "Guidance", true, false, true, [], [], []);
+
+        var account = Assert.IsType<TeamsConnectedAccount>(configuration.ConnectedAccount);
+        Assert.Equal("user-id", account.UserId);
+        Assert.Equal("Michal Tichy", account.DisplayName);
+        Assert.Equal("michal@example.com", account.Username);
+    }
+
+    [Theory]
+    [InlineData("different-tenant", "client-id")]
+    [InlineData("tenant-id", "different-client")]
+    public void ChangingGraphApplicationClearsConnectedAccountIdentity(
+        string tenantId,
+        string clientId)
+    {
+        var configuration = new TeamsInputConfiguration();
+        configuration.Update(
+            "tenant-id", "client-id", null, 5, 2, null,
+            true, true, false, [], [], []);
+        configuration.RecordConnectedAccount("user-id", "Michal Tichy", "michal@example.com");
+
+        configuration.Update(
+            tenantId, clientId, null, 5, 2, null,
+            true, true, false, [], [], []);
+
+        Assert.Null(configuration.ConnectedAccount);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1441)]

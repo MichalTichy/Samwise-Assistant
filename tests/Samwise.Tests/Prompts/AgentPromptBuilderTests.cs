@@ -148,6 +148,49 @@ public sealed class AgentPromptBuilderTests
     }
 
     [Fact]
+    public async Task AutomaticApprovalPromptUsesTheSelectedPlanAndRestrictedToolCatalog()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Create a reminder.", "Reminder", Now);
+        var plan = new WorkItemPlan
+        {
+            Id = "plan-1",
+            WorkItemId = workItem.Id,
+            WorkItemRevision = workItem.Revision,
+            PlanNumber = workItem.ReservePlanNumber(Now),
+            Summary = "Create a reminder for tomorrow",
+            Playbook = new PlanPlaybookSnapshot
+            {
+                Id = "todo",
+                Name = "Todo creation",
+                Description = "Create a timely task."
+            },
+            Steps = [new PlanStep
+            {
+                Order = 1,
+                Title = "Add reminder",
+                TechnicalDescription = "Create it with a due date.",
+                SuccessCriteria = "The task exists."
+            }]
+        };
+        workItem.ApplyPlan(plan, Now);
+        var configuration = DefaultAgentConfiguration.Create(Now);
+        configuration.AutomaticApproval.Model = "review-model";
+        configuration.AutoApprovedExecution.Model = "restricted-model";
+        var catalogs = new RecordingToolCatalog();
+        var builder = CreateBuilder(configuration, catalogs, [], [workItem], []);
+
+        var prompt = await builder.BuildAutomaticApprovalAsync(
+            workItem.Id, workItem.Revision, plan.Id, CancellationToken.None);
+
+        Assert.Contains(plan.Summary, prompt.Text, StringComparison.Ordinal);
+        Assert.Contains("Create a timely task.", prompt.Text, StringComparison.Ordinal);
+        Assert.Contains(catalogs[AgentStage.AutoApprovedExecution].CatalogVersion, prompt.Text, StringComparison.Ordinal);
+        Assert.Equal("review-model", prompt.Configuration.Model);
+        Assert.Equal("restricted-model", prompt.ExecutionConfiguration.Model);
+        Assert.Contains("cannot edit the plan", prompt.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PlanningUsesProgressiveLookupsWhenSamwiseToolsAreAvailable()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Prepare an invoice.", "Invoice", Now);

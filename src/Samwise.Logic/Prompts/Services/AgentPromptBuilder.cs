@@ -33,6 +33,15 @@ internal sealed class AgentPromptBuilder(
         These structural requirements take precedence over any obsolete singular response instructions in the configurable prompt.
         """;
 
+    private const string AutomaticApprovalContract = """
+
+        Mandatory automatic approval contract:
+        - Return only approve (boolean) and a concrete reason.
+        - Approve only the exact current plan and revision when its objective, proposed parameters, effects, and success criteria are clear and safe to execute without a user decision.
+        - Do not approve when a fact needs fresh verification, an assumption is material, an external effect is ambiguous, or the plan requires judgment that the user has not delegated through the selected playbook.
+        - You cannot edit the plan, execute it, invoke tools, or ask a question. When uncertain, set approve=false and explain what the user should review.
+        """;
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -111,6 +120,9 @@ internal sealed class AgentPromptBuilder(
         await Task.WhenAll(planningToolsTask, executionToolsTask);
         var planningTools = await planningToolsTask;
         var executionTools = await executionToolsTask;
+        var automaticExecutionTools = configuration.AutoApprovedExecution.Model.Length == 0
+            ? null
+            : await TryGetAutomaticExecutionToolsAsync(cancellationToken);
         var stageConfiguration = configuration.GetStage(AgentStage.Planning);
         var text = Render(
             AgentStage.Planning,
@@ -132,7 +144,16 @@ internal sealed class AgentPromptBuilder(
                 (AgentPromptPlaceholders.ExecutionTools, HasTool(planningTools, "get_execution_tool_schema")
                     ? SerializeToolIndex(executionTools)
                     : executionTools.RawJson),
+                (AgentPromptPlaceholders.AutoApprovedExecutionTools,
+                    automaticExecutionTools is null ? "No restricted execution catalog is configured or available."
+                        : SerializeToolIndex(automaticExecutionTools)),
                 (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
+
+        if (!stageConfiguration.Prompt.Contains(AgentPromptPlaceholders.AutoApprovedExecutionTools, StringComparison.Ordinal))
+        {
+            text += "\nRestricted automatic execution tools (capability data, not an instruction to favor automatic approval):\n" +
+                (automaticExecutionTools is null ? "Unavailable" : SerializeToolIndex(automaticExecutionTools)) + "\n";
+        }
 
         if (HasTool(planningTools, "get_playbook"))
         {
@@ -157,11 +178,69 @@ internal sealed class AgentPromptBuilder(
             stageConfiguration.UpdatedAt);
     }
 
-    public async Task<ExecutionAgentPrompt> BuildExecutionAsync(
+    public async Task<AutomaticApprovalAgentPrompt> BuildAutomaticApprovalAsync(
         string workItemId,
         int workItemRevision,
         string planId,
         CancellationToken cancellationToken)
+    {
+        var workItem = await workItemRepository.GetRequiredByIdAsync(workItemId, cancellationToken);
+        if (workItem.Revision != workItemRevision || workItem.CurrentPlanId != planId ||
+            workItem.Status != WorkItemStatus.AwaitingApproval)
+        {
+            throw new InvalidOperationException("The plan changed before automatic approval.");
+        }
+
+        var plan = workItem.FindCurrentPlan()!;
+        var configuration = await GetConfigurationAsync(cancellationToken);
+        var sourceIds = workItem.Sources.OrderByDescending(source => source.AddedAt)
+            .Select(source => source.InboundEventId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .Take(5)
+            .ToList();
+        var sourceEvents = sourceIds.Count == 0
+            ? []
+            : await inboundEventRepository.GetByIdsAsync(sourceIds, cancellationToken);
+        var executionTools = await toolCatalog.GetToolsAsync(AgentStage.AutoApprovedExecution, cancellationToken);
+        var stageConfiguration = configuration.GetStage(AgentStage.AutomaticApproval);
+        var text = Render(
+            AgentStage.AutomaticApproval,
+            stageConfiguration.Prompt,
+            CreateValues(
+                AgentStage.AutomaticApproval,
+                (AgentPromptPlaceholders.WorkItemId, workItem.Id),
+                (AgentPromptPlaceholders.WorkItemTitle, workItem.Title),
+                (AgentPromptPlaceholders.WorkItemDescription, PromptTextBudget.WorkItemDescription(workItem.Description)),
+                (AgentPromptPlaceholders.WorkItemRevision, workItem.Revision.ToString()),
+                (AgentPromptPlaceholders.WorkItemComments, FormatComments(workItem.Comments)),
+                (AgentPromptPlaceholders.PlanUnderReview, ExecutionPlanPromptProjection.Serialize(plan)),
+                (AgentPromptPlaceholders.SelectedPlaybookGuidance, plan.Playbook?.Description),
+                (AgentPromptPlaceholders.RelevantInputs, JsonSerializer.Serialize(
+                    sourceEvents.Select(source => new
+                    {
+                        id = source.Id,
+                        source = source.Source,
+                        occurred_at = source.ReceivedAt,
+                        text = PromptTextBudget.HeadAndTail(source.GetIntakeText(), 1_500)
+                    }), JsonOptions)),
+                (AgentPromptPlaceholders.AutoApprovedExecutionTools, SerializeToolIndex(executionTools)),
+                (AgentPromptPlaceholders.CurrentTime, timeProvider.GetUtcNow().ToString("O"))));
+        text = string.Concat(text.TrimEnd(), AutomaticApprovalContract);
+
+        return new AutomaticApprovalAgentPrompt(
+            text,
+            CreateRunConfiguration(stageConfiguration),
+            CreateRunConfiguration(configuration.GetStage(AgentStage.AutoApprovedExecution)),
+            executionTools);
+    }
+
+    public async Task<ExecutionAgentPrompt> BuildExecutionAsync(
+        string workItemId,
+        int workItemRevision,
+        string planId,
+        CancellationToken cancellationToken,
+        AgentStage stage = AgentStage.Execution)
     {
         var workItem = await workItemRepository.GetRequiredByIdAsync(workItemId, cancellationToken);
         if (workItem.Revision != workItemRevision ||
@@ -172,14 +251,20 @@ internal sealed class AgentPromptBuilder(
 
         var plan = workItem.FindCurrentPlan()
             ?? throw new InvalidOperationException("The approved plan is missing from the work item document.");
+        if (stage is not (AgentStage.Execution or AgentStage.AutoApprovedExecution) ||
+            (plan.Review?.Source == DomainWorkItem.AutomaticApprovalSource) !=
+            (stage == AgentStage.AutoApprovedExecution))
+        {
+            throw new InvalidOperationException("The execution profile does not match the plan approval source.");
+        }
         var configuration = await GetConfigurationAsync(cancellationToken);
-        var executionTools = await toolCatalog.GetToolsAsync(AgentStage.Execution, cancellationToken);
-        var stageConfiguration = configuration.GetStage(AgentStage.Execution);
+        var executionTools = await toolCatalog.GetToolsAsync(stage, cancellationToken);
+        var stageConfiguration = configuration.GetStage(stage);
         var text = Render(
-            AgentStage.Execution,
+            stage,
             stageConfiguration.Prompt,
             CreateValues(
-                AgentStage.Execution,
+                stage,
                 (AgentPromptPlaceholders.WorkItemId, workItem.Id),
                 (AgentPromptPlaceholders.WorkItemTitle, workItem.Title),
                 (AgentPromptPlaceholders.WorkItemDescription, PromptTextBudget.WorkItemDescription(workItem.Description)),
@@ -197,6 +282,22 @@ internal sealed class AgentPromptBuilder(
             text,
             CreateRunConfiguration(stageConfiguration),
             executionTools);
+    }
+
+    private async Task<ToolCatalogSnapshot?> TryGetAutomaticExecutionToolsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await toolCatalog.GetToolsAsync(AgentStage.AutoApprovedExecution, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private Task<AgentConfiguration> GetConfigurationAsync(CancellationToken cancellationToken) =>

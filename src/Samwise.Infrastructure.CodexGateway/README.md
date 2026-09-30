@@ -5,7 +5,7 @@ This project contains only Codex CLI API Gateway extensions that are unavailable
 ## Main components
 
 - `CodexGatewayCatalogClient` implements `IAgentToolCatalog` with the custom versioned `/tools` route and `IAgentModelCatalog` with the Gateway capability extensions on `/models`.
-- `CodexGatewayInstaller` registers the two application ports over one catalog client and creates authenticated named HTTP clients for each stage.
+- `CodexGatewayInstaller` registers the two application ports over one catalog client and creates authenticated named HTTP clients for each of the five stages.
 - The client reuses provider-neutral `AgentEndpointOptions` from the runtime project, so URLs and credentials have one configuration shape.
 
 ## Model-catalog flow
@@ -16,7 +16,7 @@ This project contains only Codex CLI API Gateway extensions that are unavailable
 
 ## Tool-catalog flow
 
-1. The client calls the selected Intake, Planning, or Execution profile's `GET /v1/tools` endpoint with that profile's credential.
+1. The client calls the selected profile's `GET /v1/tools` endpoint with that profile's credential, including the tool-free AutomaticApproval and restricted AutoApprovedExecution profiles when configured.
 2. The Gateway returns only tools enabled for that key/project and a deterministic catalog version.
 3. The transport preserves the raw JSON plus normalized server and tool metadata for the settings UI, prompt context, invocation history, and approval checks.
 

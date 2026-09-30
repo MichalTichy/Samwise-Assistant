@@ -4,8 +4,8 @@ This project implements the application-layer `IAgentRuntime` port through the s
 
 ## Main components
 
-- `OpenAiAgentRuntime` sends structured Intake, Planning, and Execution requests through the official OpenAI client adapted to `IChatClient`, then maps strict wire results back to logic models.
-- `AgentEndpointOptions` contains the provider-neutral Intake, Planning, and Execution base URLs, API keys, and shared request timeout.
+- `OpenAiAgentRuntime` sends structured Intake, Planning, AutomaticApproval, Execution, and AutoApprovedExecution requests through the official OpenAI client adapted to `IChatClient`, then maps strict wire results back to logic models.
+- `AgentEndpointOptions` contains provider-neutral per-stage base URLs, API keys, and shared request timeout. The two automatic profiles are optional until enabled through playbooks.
 - `AgentRuntimesInstaller` binds `AgentEndpoints` and registers the OpenAI runtime in every environment.
 
 ## Runtime flow

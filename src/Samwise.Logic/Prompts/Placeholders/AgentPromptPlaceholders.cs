@@ -54,7 +54,9 @@ public static class AgentPromptPlaceholders
         "2026-08-17T14:30:00Z",
         AgentStage.Intake,
         AgentStage.Planning,
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutomaticApproval,
+        AgentStage.AutoApprovedExecution)]
     public const string CurrentTime = "current_time";
 
     [PromptPlaceholder(
@@ -62,7 +64,9 @@ public static class AgentPromptPlaceholders
         "Stable Samwise work item identifier.",
         "8b07...",
         AgentStage.Planning,
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutomaticApproval,
+        AgentStage.AutoApprovedExecution)]
     public const string WorkItemId = "work_item.id";
 
     [PromptPlaceholder(
@@ -70,7 +74,9 @@ public static class AgentPromptPlaceholders
         "Short work item title.",
         "Prepare revised offer",
         AgentStage.Planning,
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutomaticApproval,
+        AgentStage.AutoApprovedExecution)]
     public const string WorkItemTitle = "work_item.title";
 
     [PromptPlaceholder(
@@ -78,7 +84,9 @@ public static class AgentPromptPlaceholders
         "The complete current work item statement.",
         "Prepare the offer...",
         AgentStage.Planning,
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutomaticApproval,
+        AgentStage.AutoApprovedExecution)]
     public const string WorkItemDescription = "work_item.description";
 
     [PromptPlaceholder(
@@ -86,7 +94,9 @@ public static class AgentPromptPlaceholders
         "Revision the generated or approved plan must match.",
         "2",
         AgentStage.Planning,
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutomaticApproval,
+        AgentStage.AutoApprovedExecution)]
     public const string WorkItemRevision = "work_item.revision";
 
     [PromptPlaceholder(
@@ -94,7 +104,9 @@ public static class AgentPromptPlaceholders
         "User context and planning feedback as Markdown.",
         "- Add delivery dates",
         AgentStage.Planning,
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutomaticApproval,
+        AgentStage.AutoApprovedExecution)]
     public const string WorkItemComments = "work_item.comments";
 
     [PromptPlaceholder(
@@ -123,6 +135,36 @@ public static class AgentPromptPlaceholders
         "Approved plan",
         "Execution projection of the exact approved plan, excluding stored tool catalog snapshots and audit metadata.",
         "{...}",
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutoApprovedExecution)]
     public const string ApprovedPlan = "approved_plan";
+
+    [PromptPlaceholder(
+        "Plan under review",
+        "Exact current plan presented for automatic approval, including proposed tool parameters.",
+        "{...}",
+        AgentStage.AutomaticApproval)]
+    public const string PlanUnderReview = "plan_under_review";
+
+    [PromptPlaceholder(
+        "Selected playbook guidance",
+        "Trusted guidance captured with the selected playbook when the plan was generated.",
+        "Review and prepare a reply...",
+        AgentStage.AutomaticApproval)]
+    public const string SelectedPlaybookGuidance = "selected_playbook_guidance";
+
+    [PromptPlaceholder(
+        "Relevant input excerpts",
+        "Bounded excerpts from the Work Item's linked input events, treated as untrusted source data.",
+        "[{...}]",
+        AgentStage.AutomaticApproval)]
+    public const string RelevantInputs = "relevant_inputs";
+
+    [PromptPlaceholder(
+        "Automatic execution tools",
+        "Compact catalogue of tools granted to the restricted execution profile. Empty when unavailable.",
+        "{...}",
+        AgentStage.Planning,
+        AgentStage.AutomaticApproval)]
+    public const string AutoApprovedExecutionTools = "auto_approved_execution_tools";
 }

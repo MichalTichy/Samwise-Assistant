@@ -106,6 +106,7 @@ internal static class AgentWorkflowSupport
             Name = playbook.Name,
             Applicability = playbook.Applicability,
             Description = playbook.Description,
+            SuitableForAutomaticApproval = playbook.SuitableForAutomaticApproval,
             UpdatedAt = playbook.UpdatedAt
         };
     }

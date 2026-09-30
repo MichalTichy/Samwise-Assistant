@@ -19,4 +19,5 @@ public sealed class WorkItemPlan
     public string PlanningInvocationId { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }
     public PlanReview? Review { get; set; }
+    public AutomaticApprovalAssessment? AutomaticApproval { get; set; }
 }

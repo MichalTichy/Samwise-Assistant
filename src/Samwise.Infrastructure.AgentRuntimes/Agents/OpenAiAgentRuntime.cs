@@ -98,7 +98,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         CancellationToken cancellationToken = default)
     {
         var response = await RunStructuredAsync<ExecutionWireResult>(
-            AgentStage.Execution,
+            request.Stage,
             request.Configuration.Model,
             request.Configuration.ReasoningEffort,
             request.RenderedPrompt,
@@ -121,6 +121,22 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
             CreateReceipt(response));
     }
 
+    public async Task<AutomaticApprovalResult> AssessAutomaticApprovalAsync(
+        AutomaticApprovalRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await RunStructuredAsync<AutomaticApprovalWireResult>(
+            AgentStage.AutomaticApproval,
+            request.Configuration.Model,
+            request.Configuration.ReasoningEffort,
+            request.RenderedPrompt,
+            cancellationToken);
+        return new AutomaticApprovalResult(
+            response.Result.Approve,
+            response.Result.Reason,
+            CreateReceipt(response));
+    }
+
     private async Task<StructuredResponse<TResponse>> RunStructuredAsync<TResponse>(
         AgentStage stage,
         string model,
@@ -133,6 +149,8 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
             AgentStage.Intake => (endpoints.Intake, "SamwiseIntake", 2),
             AgentStage.Planning => (endpoints.Planning, "SamwisePlanner", 2),
             AgentStage.Execution => (endpoints.Execution, "SamwiseExecutor", 0),
+            AgentStage.AutomaticApproval => (endpoints.AutomaticApproval, "SamwiseAutomaticApprover", 0),
+            AgentStage.AutoApprovedExecution => (endpoints.AutoApprovedExecution, "SamwiseAutoApprovedExecutor", 0),
             _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
         };
         if (string.IsNullOrWhiteSpace(model))
@@ -144,6 +162,8 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         {
             throw new InvalidOperationException($"The {stage} agent reasoning effort is not configured.");
         }
+
+        ValidateProfile(profile, stage.ToString());
 
         using var client = CreateChatClient(profile, model.Trim(), endpoints.RequestTimeout, retryCount);
         var agent = new ChatClientAgent(client, name: agentName);
@@ -349,6 +369,12 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         public required ExecutionWireDisposition Disposition { get; init; }
         public required string Summary { get; init; }
         public required List<string> Outputs { get; init; }
+    }
+
+    private sealed class AutomaticApprovalWireResult
+    {
+        public required bool Approve { get; init; }
+        public required string Reason { get; init; }
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter<ExecutionWireDisposition>))]

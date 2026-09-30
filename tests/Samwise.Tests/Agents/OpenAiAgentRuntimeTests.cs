@@ -11,6 +11,32 @@ namespace Samwise.Tests.Agents;
 public sealed class OpenAiAgentRuntimeTests
 {
     [Fact]
+    public async Task AutomaticApprovalUsesItsStructuredDecisionWithoutExecutingTools()
+    {
+        await using var server = new LoopbackServer();
+        var runtime = CreateRuntime(server.BaseAddress, "approval-test-key");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var captured = server.CaptureAndRespondAsync(
+            CreateChatCompletion("approval-model", new
+            {
+                approve = false,
+                reason = "A material decision belongs to the user."
+            }), timeout.Token);
+
+        var result = await runtime.AssessAutomaticApprovalAsync(
+            new AutomaticApprovalRequest(
+                "Assess plan plan-1 without tools.", new AgentRunConfiguration("approval-model", "medium")),
+            timeout.Token);
+        var request = await captured;
+
+        Assert.False(result.Approve);
+        Assert.Equal("A material decision belongs to the user.", result.Reason);
+        Assert.Equal("Bearer approval-test-key", request.Headers["Authorization"]);
+        using var body = JsonDocument.Parse(request.Body);
+        Assert.False(body.RootElement.TryGetProperty("tools", out _));
+    }
+
+    [Fact]
     public async Task ClassifyAsyncUsesStrictJsonSchemaAndParsesStructuredResponse()
     {
         await using var server = new LoopbackServer();
@@ -287,6 +313,8 @@ public sealed class OpenAiAgentRuntimeTests
             Intake = profile,
             Planning = profile,
             Execution = profile,
+            AutomaticApproval = profile,
+            AutoApprovedExecution = profile,
             RequestTimeout = TimeSpan.FromSeconds(10)
         }));
     }

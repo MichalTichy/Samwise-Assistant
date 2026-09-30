@@ -119,6 +119,7 @@ public sealed class WorkItemPlanningServiceTests
             new StubPromptBuilder(),
             invocationService,
             events ?? new RecordingEventPublisher(),
+            new StubAutomaticApprovalService(),
             new FixedTimeProvider(Now.AddMinutes(1)),
             NullLogger<WorkItemPlanningService>.Instance);
 
@@ -143,6 +144,10 @@ public sealed class WorkItemPlanningServiceTests
 
         public Task<ExecutionResult> ExecuteAsync(
             ExecutionRequest request,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<AutomaticApprovalResult> AssessAutomaticApprovalAsync(
+            AutomaticApprovalRequest request,
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
@@ -169,7 +174,20 @@ public sealed class WorkItemPlanningServiceTests
             string workItemId,
             int workItemRevision,
             string planId,
+            CancellationToken cancellationToken,
+            AgentStage stage = AgentStage.Execution) => throw new NotSupportedException();
+
+        public Task<AutomaticApprovalAgentPrompt> BuildAutomaticApprovalAsync(
+            string workItemId,
+            int workItemRevision,
+            string planId,
             CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class StubAutomaticApprovalService : IWorkItemAutomaticApprovalService
+    {
+        public Task AssessAsync(string workItemId, string planId, int workItemRevision,
+            CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class StubInvocationService : IAgentInvocationService

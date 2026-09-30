@@ -6,6 +6,7 @@ namespace Samwise.Domain.WorkItems;
 
 public sealed class WorkItem : IItemWithId, IRevisioned
 {
+    public const string AutomaticApprovalSource = "AutomaticApproval";
     // Facts recorded by transitions since the last dequeue. A private field, so it is never persisted.
     private readonly List<WorkItemEvent> pendingEvents = [];
 
@@ -124,6 +125,35 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         Status = WorkItemStatus.Approved;
         UpdatedAt = now;
         Record(new PlanApproved(Id, Title, now, planId, source));
+    }
+
+    public void RecordAutomaticApprovalAssessment(
+        string planId,
+        int workItemRevision,
+        AutomaticApprovalAssessment assessment)
+    {
+        ArgumentNullException.ThrowIfNull(assessment);
+        if (Status != WorkItemStatus.AwaitingApproval || CurrentPlanId != planId || Revision != workItemRevision)
+        {
+            throw new InvalidOperationException("Only the current unreviewed plan can be assessed for automatic approval.");
+        }
+
+        var plan = FindCurrentPlan()!;
+        if (plan.Review is not null || plan.AutomaticApproval is not null ||
+            string.IsNullOrWhiteSpace(assessment.Reason) ||
+            (assessment.Approved &&
+             (string.IsNullOrWhiteSpace(assessment.ExecutionCatalogVersion) ||
+              string.IsNullOrWhiteSpace(assessment.InvocationId))))
+        {
+            throw new InvalidOperationException("The automatic approval assessment is incomplete or already recorded.");
+        }
+
+        plan.AutomaticApproval = assessment;
+        UpdatedAt = assessment.AssessedAt;
+        if (assessment.Approved)
+        {
+            Approve(planId, workItemRevision, assessment.AssessedAt, AutomaticApprovalSource);
+        }
     }
 
     public void Reject(

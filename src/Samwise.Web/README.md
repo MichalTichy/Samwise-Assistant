@@ -1,6 +1,6 @@
 # Samwise.Web
 
-This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and presents the manual-input, inbox, board, work-item, agent-settings, playbook, email-input, and account experiences. The board shows active and completed Work Items; discarded Work Items stay out of its Done column.
+This is the single deployable Samwise process and the Blazor Interactive Server presentation layer. It composes all installers and initializers, owns authentication-facing endpoints, and presents the manual-input, inbox, board, work-item, agent-settings, playbook, email-input, and account experiences. The board shows active and completed Work Items; discarded Work Items stay out of its Done column. Playbook editing exposes automatic-approval eligibility, Agent settings expose both automatic profiles, and Work Item detail shows each plan's automatic assessment and reason.
 
 ## Structure
 

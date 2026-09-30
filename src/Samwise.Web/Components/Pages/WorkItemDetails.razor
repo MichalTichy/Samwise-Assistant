@@ -129,6 +129,13 @@ else
                                     {
                                         <div class="plan-playbook">Guided by <strong>@playbook.Name</strong></div>
                                     }
+                                    @if (plan.AutomaticApproval is { } assessment)
+                                    {
+                                        <div class="plan-playbook">
+                                            <strong>@(assessment.Approved ? "Automatically approved" : "Your approval required")</strong>
+                                            · @assessment.Reason
+                                        </div>
+                                    }
                                 </div>
                                 <span class="revision-label">Revision @plan.WorkItemRevision</span>
                             </div>

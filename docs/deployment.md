@@ -156,6 +156,19 @@ Gateway's environment-header field expects the environment-variable name, not th
 
 Enable `list_work_items`, `get_work_item`, `get_agent_invocation`, `list_input_events`, `get_input_event`, `list_playbooks`, and `get_agent_settings` for the planning project. Enable `save_agent_prompt`, `save_playbook`, and `replan_work_item` only for the execution project. This lets planning inspect current state and propose changes while keeping every mutation behind Work Item approval.
 
+## Optional automatic approval
+
+Automatic approval is off for every existing and new playbook until **Suitable for automatic approval** is enabled on that playbook. Create two additional Gateway projects/API keys:
+
+| Stage | Environment variables | Gateway grants |
+| --- | --- | --- |
+| Automatic approval | `SAMWISE_AUTO_APPROVAL_BASE_URL`, `SAMWISE_AUTO_APPROVAL_API_KEY` | No MCP tools. Samwise refuses to run approval if this key sees any invocable tool. |
+| Auto-approved execution | `SAMWISE_AUTO_EXECUTION_BASE_URL`, `SAMWISE_AUTO_EXECUTION_API_KEY` | Only the small set of tools permitted without human review. |
+
+The default URLs point to `/p/samwise-auto-approval/v1/` and `/p/samwise-auto-execution/v1/`. Configure models, reasoning effort, and prompts for both new stages under **Agent settings**. Empty API keys and models are valid while automatic approval is unused; an eligible plan then stays available for manual review with a recorded reason.
+
+After planning, Samwise considers only a plan with a selected eligible playbook. It checks that the approval profile has no tools, every proposed tool call exists with the same schema in the restricted execution catalog, and every side-effecting step names a tool call. The approval agent can only return an approval decision and reason. A refusal or unavailable dependency leaves the plan awaiting normal user approval. An approval is bound to the current plan ID and Work Item revision, and execution uses the restricted Gateway profile. Retry of an uncertain automatic execution also uses that restricted profile.
+
 ## Persistent state
 
 The Compose stack creates four named volumes:

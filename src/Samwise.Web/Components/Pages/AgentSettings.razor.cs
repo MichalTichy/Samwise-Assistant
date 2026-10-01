@@ -227,6 +227,8 @@ public partial class AgentSettings
         AgentStage.Intake => "Classify every input",
         AgentStage.Planning => "Create approval plan",
         AgentStage.Execution => "Run approved plan",
+        AgentStage.AutomaticApproval => "Review eligible plans without tools",
+        AgentStage.AutoApprovedExecution => "Run automatically approved plans with restricted tools",
         _ => stage.ToString()
     };
 

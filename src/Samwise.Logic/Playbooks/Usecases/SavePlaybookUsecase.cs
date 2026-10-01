@@ -9,7 +9,8 @@ public sealed record SavePlaybookUsecase(
     string Name,
     string Applicability,
     string Description,
-    bool IsEnabled) : IRequest<PlaybookSaveResult>;
+    bool IsEnabled,
+    bool? SuitableForAutomaticApproval = null) : IRequest<PlaybookSaveResult>;
 
 internal sealed class SavePlaybookUsecaseHandler(
     IRepository<Playbook> repository,
@@ -42,6 +43,7 @@ internal sealed class SavePlaybookUsecaseHandler(
                 Applicability = request.Applicability.Trim(),
                 Description = request.Description.Trim(),
                 IsEnabled = request.IsEnabled,
+                SuitableForAutomaticApproval = request.SuitableForAutomaticApproval ?? false,
                 UpdatedAt = timeProvider.GetUtcNow()
             };
             await repository.AddAsync(playbook, cancellationToken);
@@ -52,6 +54,8 @@ internal sealed class SavePlaybookUsecaseHandler(
             playbook.Applicability = request.Applicability.Trim();
             playbook.Description = request.Description.Trim();
             playbook.IsEnabled = request.IsEnabled;
+            playbook.SuitableForAutomaticApproval = request.SuitableForAutomaticApproval
+                ?? playbook.SuitableForAutomaticApproval;
             playbook.UpdatedAt = timeProvider.GetUtcNow();
             await repository.UpdateAsync(playbook, cancellationToken);
         }

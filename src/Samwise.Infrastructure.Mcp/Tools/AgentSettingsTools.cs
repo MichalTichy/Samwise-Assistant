@@ -16,7 +16,7 @@ public sealed class AgentSettingsTools(
     ISender sender)
 {
     [McpServerTool(Name = "get_agent_settings")]
-    [Description("Gets the current intake, planning, and execution prompts together with their configured models and reasoning efforts. Secrets are not part of agent settings and are never returned.")]
+    [Description("Gets the current prompts for all agent stages together with their configured models and reasoning efforts. Secrets are not returned.")]
     public async Task<string> GetAgentSettingsAsync(CancellationToken cancellationToken = default)
     {
         var configuration = await repository.GetByIdAsync(
@@ -49,7 +49,7 @@ public sealed class AgentSettingsTools(
     [McpServerTool(Name = "save_agent_prompt")]
     [Description("Replaces the complete prompt for one Samwise agent stage while preserving its model and reasoning effort. Read current settings first so intentional guidance and placeholders are not lost.")]
     public async Task<string> SaveAgentPromptAsync(
-        [Description("Agent stage: Intake, Planning, or Execution.")]
+        [Description("Agent stage: Intake, Planning, Execution, AutomaticApproval, or AutoApprovedExecution.")]
         string stage,
         [Description("The complete replacement prompt. Any {{placeholders}} must be valid for the selected stage.")]
         string prompt,
@@ -62,7 +62,7 @@ public sealed class AgentSettingsTools(
                 succeeded = false,
                 errors = new[]
                 {
-                    $"Unknown agent stage '{stage}'. Expected Intake, Planning, or Execution."
+                    $"Unknown agent stage '{stage}'. Expected Intake, Planning, Execution, AutomaticApproval, or AutoApprovedExecution."
                 }
             });
         }

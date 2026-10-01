@@ -34,6 +34,10 @@ public sealed class AgentConfigurationTests
         Assert.Contains("already_resolved", configuration.Planning.Prompt, StringComparison.Ordinal);
         Assert.Contains("no_longer_relevant", configuration.Planning.Prompt, StringComparison.Ordinal);
         Assert.Contains("{{approved_plan}}", configuration.Execution.Prompt);
+        Assert.Contains("{{plan_under_review}}", configuration.AutomaticApproval.Prompt);
+        Assert.Contains("{{approved_plan}}", configuration.AutoApprovedExecution.Prompt);
+        Assert.Empty(configuration.AutomaticApproval.Model);
+        Assert.Empty(configuration.AutoApprovedExecution.Model);
     }
 
     [Fact]

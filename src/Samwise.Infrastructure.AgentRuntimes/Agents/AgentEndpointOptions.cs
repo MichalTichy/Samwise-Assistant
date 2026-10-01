@@ -7,6 +7,8 @@ public sealed class AgentEndpointOptions
     public AgentEndpointProfileOptions Intake { get; set; } = new();
     public AgentEndpointProfileOptions Planning { get; set; } = new();
     public AgentEndpointProfileOptions Execution { get; set; } = new();
+    public AgentEndpointProfileOptions AutomaticApproval { get; set; } = new();
+    public AgentEndpointProfileOptions AutoApprovedExecution { get; set; } = new();
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromMinutes(35);
 }
 

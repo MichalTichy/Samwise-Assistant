@@ -8,5 +8,9 @@ public interface IAgentRuntime
 
     Task<PlannerResult> PlanAsync(PlannerRequest request, CancellationToken cancellationToken = default);
 
+    Task<AutomaticApprovalResult> AssessAutomaticApprovalAsync(
+        AutomaticApprovalRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<ExecutionResult> ExecuteAsync(ExecutionRequest request, CancellationToken cancellationToken = default);
 }

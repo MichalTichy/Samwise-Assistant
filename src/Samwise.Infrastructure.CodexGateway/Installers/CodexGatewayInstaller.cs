@@ -33,5 +33,15 @@ public sealed class CodexGatewayInstaller : IInstaller
             var options = serviceProvider.GetRequiredService<IOptions<AgentEndpointOptions>>().Value;
             CodexGatewayCatalogClient.ConfigureHttpClient(client, options.Execution, options.RequestTimeout);
         });
+        services.AddHttpClient(CodexGatewayCatalogClient.AutomaticApprovalHttpClientName, (serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AgentEndpointOptions>>().Value;
+            CodexGatewayCatalogClient.ConfigureHttpClient(client, options.AutomaticApproval, options.RequestTimeout);
+        });
+        services.AddHttpClient(CodexGatewayCatalogClient.AutoApprovedExecutionHttpClientName, (serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AgentEndpointOptions>>().Value;
+            CodexGatewayCatalogClient.ConfigureHttpClient(client, options.AutoApprovedExecution, options.RequestTimeout);
+        });
     }
 }

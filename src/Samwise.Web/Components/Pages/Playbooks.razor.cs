@@ -15,6 +15,7 @@ public partial class Playbooks
     private string applicability = string.Empty;
     private string description = string.Empty;
     private bool isEnabled = true;
+    private bool suitableForAutomaticApproval;
     private IReadOnlyList<string> errors = [];
     private string? saveMessage;
     private bool saving;
@@ -55,6 +56,7 @@ public partial class Playbooks
         applicability = string.Empty;
         description = string.Empty;
         isEnabled = true;
+        suitableForAutomaticApproval = false;
         errors = [];
         saveMessage = null;
     }
@@ -66,6 +68,7 @@ public partial class Playbooks
         applicability = playbook.Applicability;
         description = playbook.Description;
         isEnabled = playbook.IsEnabled;
+        suitableForAutomaticApproval = playbook.SuitableForAutomaticApproval;
         errors = [];
         saveMessage = null;
     }
@@ -81,7 +84,8 @@ public partial class Playbooks
                 name,
                 applicability,
                 description,
-                isEnabled));
+                isEnabled,
+                suitableForAutomaticApproval));
             errors = result.Errors;
             if (!result.Succeeded)
             {

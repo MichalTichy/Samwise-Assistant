@@ -12,6 +12,8 @@ internal sealed class CodexGatewayCatalogClient : IAgentToolCatalog, IAgentModel
     internal const string IntakeHttpClientName = "Samwise.CodexGatewayCatalog.Intake";
     internal const string PlanningHttpClientName = "Samwise.CodexGatewayCatalog.Planning";
     internal const string ExecutionHttpClientName = "Samwise.CodexGatewayCatalog.Execution";
+    internal const string AutomaticApprovalHttpClientName = "Samwise.CodexGatewayCatalog.AutomaticApproval";
+    internal const string AutoApprovedExecutionHttpClientName = "Samwise.CodexGatewayCatalog.AutoApprovedExecution";
 
     private readonly AgentEndpointOptions endpoints;
     private readonly IHttpClientFactory httpClientFactory;
@@ -107,6 +109,8 @@ internal sealed class CodexGatewayCatalogClient : IAgentToolCatalog, IAgentModel
         AgentStage.Intake => IntakeHttpClientName,
         AgentStage.Planning => PlanningHttpClientName,
         AgentStage.Execution => ExecutionHttpClientName,
+        AgentStage.AutomaticApproval => AutomaticApprovalHttpClientName,
+        AgentStage.AutoApprovedExecution => AutoApprovedExecutionHttpClientName,
         _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
     };
 

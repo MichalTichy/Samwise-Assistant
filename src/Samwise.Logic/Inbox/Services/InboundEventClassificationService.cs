@@ -40,7 +40,7 @@ internal sealed class InboundEventClassificationService(
 
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
-                    "Intake",
+                    AgentStage.Intake,
                     prompt.Text,
                     inboundEvent.Id,
                     null,

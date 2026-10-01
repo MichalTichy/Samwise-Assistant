@@ -9,5 +9,6 @@ public sealed class Playbook : IItemWithId
     public string Applicability { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsEnabled { get; set; }
+    public bool SuitableForAutomaticApproval { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

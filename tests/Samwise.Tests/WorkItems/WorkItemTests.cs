@@ -263,6 +263,51 @@ public sealed class WorkItemTests
     }
 
     [Fact]
+    public void AutomaticApprovalIsBoundToTheCurrentPlanAndRevision()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Create a follow-up task.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
+        var assessment = new AutomaticApprovalAssessment
+        {
+            Approved = true,
+            Reason = "The plan only creates the requested task.",
+            InvocationId = "approval-invocation",
+            ExecutionCatalogVersion = "restricted-v1",
+            AssessedAt = InitialTime.AddMinutes(4)
+        };
+
+        Assert.Throws<InvalidOperationException>(() =>
+            workItem.RecordAutomaticApprovalAssessment(plan.Id, workItem.Revision + 1, assessment));
+        workItem.RecordAutomaticApprovalAssessment(plan.Id, workItem.Revision, assessment);
+
+        Assert.Equal(WorkItemStatus.Approved, workItem.Status);
+        Assert.Equal(DomainWorkItem.AutomaticApprovalSource, plan.Review?.Source);
+        Assert.Same(assessment, plan.AutomaticApproval);
+        Assert.Throws<InvalidOperationException>(() =>
+            workItem.RecordAutomaticApprovalAssessment(plan.Id, workItem.Revision, assessment));
+    }
+
+    [Fact]
+    public void AutomaticApprovalDeclineKeepsThePlanAvailableForHumanReview()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Reply to a customer.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
+        workItem.RecordAutomaticApprovalAssessment(plan.Id, workItem.Revision, new AutomaticApprovalAssessment
+        {
+            Reason = "The reply needs the user's judgment.",
+            AssessedAt = InitialTime.AddMinutes(4)
+        });
+
+        Assert.Equal(WorkItemStatus.AwaitingApproval, workItem.Status);
+        Assert.Null(plan.Review);
+        Assert.False(plan.AutomaticApproval?.Approved);
+        workItem.Approve(plan.Id, workItem.Revision, InitialTime.AddMinutes(5));
+        Assert.Equal("Web", plan.Review?.Source);
+    }
+
+    [Fact]
     public void DiscardAndCompletionMetadataAreRecordedInsideTheWorkItemDocument()
     {
         var discarded = DomainWorkItem.CreateFromInbound("Prepare the revised offer.", null, InitialTime);

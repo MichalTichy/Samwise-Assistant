@@ -16,6 +16,7 @@ internal sealed class WorkItemPlanningService(
     IAgentPromptBuilder promptBuilder,
     IAgentInvocationService invocationService,
     IWorkItemEventPublisher eventPublisher,
+    IWorkItemAutomaticApprovalService automaticApprovalService,
     TimeProvider timeProvider,
     ILogger<WorkItemPlanningService> logger) : IWorkItemPlanningService
 {
@@ -38,7 +39,7 @@ internal sealed class WorkItemPlanningService(
 
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
-                    "Planning",
+                    AgentStage.Planning,
                     prompt.Text,
                     null,
                     workItem.Id,
@@ -199,6 +200,8 @@ internal sealed class WorkItemPlanningService(
             currentWorkItem.ApplyPlan(plan, timeProvider.GetUtcNow());
             await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
             await eventPublisher.PublishAsync(currentWorkItem);
+            await automaticApprovalService.AssessAsync(
+                currentWorkItem.Id, plan.Id, currentWorkItem.Revision, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

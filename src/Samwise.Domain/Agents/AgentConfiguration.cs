@@ -6,7 +6,9 @@ public enum AgentStage
 {
     Intake,
     Planning,
-    Execution
+    Execution,
+    AutomaticApproval,
+    AutoApprovedExecution
 }
 
 public sealed class AgentConfiguration : IItemWithId
@@ -17,12 +19,16 @@ public sealed class AgentConfiguration : IItemWithId
     public AgentStageConfiguration Intake { get; set; } = new();
     public AgentStageConfiguration Planning { get; set; } = new();
     public AgentStageConfiguration Execution { get; set; } = new();
+    public AgentStageConfiguration AutomaticApproval { get; set; } = new();
+    public AgentStageConfiguration AutoApprovedExecution { get; set; } = new();
 
     public AgentStageConfiguration GetStage(AgentStage stage) => stage switch
     {
         AgentStage.Intake => Intake,
         AgentStage.Planning => Planning,
         AgentStage.Execution => Execution,
+        AgentStage.AutomaticApproval => AutomaticApproval,
+        AgentStage.AutoApprovedExecution => AutoApprovedExecution,
         _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unsupported agent stage.")
     };
 

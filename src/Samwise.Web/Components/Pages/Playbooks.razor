@@ -31,7 +31,7 @@
                          Class="@($"prompt-tab {(playbook.Id == selectedId ? "active" : null)}")"
                          OnClick="() => Select(playbook)">
                 <strong>@playbook.Name</strong>
-                <span>@(playbook.IsEnabled ? "Available to intake and planning" : "Disabled")</span>
+                <span>@(playbook.IsEnabled ? "Available to intake and planning" : "Disabled")@(playbook.SuitableForAutomaticApproval ? " · Auto-approval eligible" : "")</span>
             </LumexButton>
         }
     </aside>
@@ -82,6 +82,14 @@
                     <span>
                         <strong>Enabled</strong>
                         <small>Include this playbook in future intake and planning prompts.</small>
+                    </span>
+                </label>
+
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="suitableForAutomaticApproval" />
+                    <span>
+                        <strong>Suitable for automatic approval</strong>
+                        <small>New plans using this playbook may be reviewed by the automatic approval agent and run with its restricted execution tools.</small>
                     </span>
                 </label>
             </div>

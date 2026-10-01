@@ -15,7 +15,7 @@ Read tools use `IReadOnlyRepository<T>` and public specifications:
 Mutation tools send externally triggered application use cases through MediatR:
 
 - `save_agent_prompt` replaces one complete stage prompt while preserving its model and reasoning effort.
-- `save_playbook` creates or updates a Playbook, including its enabled state.
+- `save_playbook` creates or updates a Playbook, including its enabled state. Automatic-approval eligibility can only be changed in the authenticated web UI; MCP updates preserve it, and new MCP-created Playbooks are ineligible.
 - `replan_work_item` invalidates an unexecuted current plan or pending planning question and immediately generates its replacement while retaining plan and agent-activity history.
 - `restore_work_item` restores a discarded Work Item into a new planning revision while retaining its prior plans and discard metadata.
 

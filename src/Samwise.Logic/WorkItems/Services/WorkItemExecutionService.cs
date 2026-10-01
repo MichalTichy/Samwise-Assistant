@@ -34,13 +34,22 @@ internal sealed class WorkItemExecutionService(
         {
             var plan = workItem.FindCurrentPlan()
                 ?? throw new InvalidOperationException("The approved plan is missing from the work item document.");
+            var stage = plan.Review?.Source == DomainWorkItem.AutomaticApprovalSource
+                ? AgentStage.AutoApprovedExecution
+                : AgentStage.Execution;
+            var approvedCatalogVersion = stage == AgentStage.AutoApprovedExecution
+                ? plan.AutomaticApproval is { Approved: true } assessment
+                    ? assessment.ExecutionCatalogVersion
+                    : throw new InvalidOperationException("The automatic approval assessment is missing.")
+                : plan.ExecutionTools.CatalogVersion;
             var prompt = await promptBuilder.BuildExecutionAsync(
                 workItem.Id,
                 request.WorkItemRevision,
                 plan.Id,
-                cancellationToken);
+                cancellationToken,
+                stage);
             if (!string.Equals(
-                    plan.ExecutionTools.CatalogVersion,
+                    approvedCatalogVersion,
                     prompt.ExecutionTools.CatalogVersion,
                     StringComparison.Ordinal))
             {
@@ -50,7 +59,7 @@ internal sealed class WorkItemExecutionService(
 
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
-                    "Execution",
+                    stage,
                     prompt.Text,
                     null,
                     workItem.Id,
@@ -70,7 +79,8 @@ internal sealed class WorkItemExecutionService(
                     plan.Id,
                     prompt.Text,
                     prompt.ExecutionTools,
-                    prompt.Configuration),
+                    prompt.Configuration,
+                    stage),
                 cancellationToken);
             await invocationService.CompleteAsync(invocation.Id, result.Receipt, cancellationToken);
 

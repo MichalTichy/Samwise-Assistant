@@ -170,6 +170,14 @@
                         <code>{{planning_tools}}</code> and <code>{{execution_tools}}</code> prompt data.
                     </p>
                 }
+                else if (selected.Stage == AgentStage.AutomaticApproval)
+                {
+                    <p class="stage-tool-note">This profile must have no MCP tool grants. Samwise checks its catalogue before asking the agent to approve a plan.</p>
+                }
+                else if (selected.Stage == AgentStage.AutoApprovedExecution)
+                {
+                    <p class="stage-tool-note">Only tools granted here can be used after automatic approval. Planned tool calls must also exist in this catalogue.</p>
+                }
             </section>
 
             <div class="configuration-field-heading">

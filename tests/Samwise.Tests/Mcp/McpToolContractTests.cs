@@ -1,11 +1,23 @@
 using System.Reflection;
 using ModelContextProtocol.Server;
 using Samwise.Infrastructure.Mcp.Installers;
+using Samwise.Infrastructure.Mcp.Tools;
 
 namespace Samwise.Tests.Mcp;
 
 public sealed class McpToolContractTests
 {
+    [Fact]
+    public void SavePlaybookDoesNotExposeAutomaticApprovalEligibility()
+    {
+        var savePlaybook = typeof(PlaybookTools).GetMethod(nameof(PlaybookTools.SavePlaybookAsync));
+
+        Assert.NotNull(savePlaybook);
+        Assert.DoesNotContain(
+            savePlaybook.GetParameters(),
+            parameter => parameter.Name == "suitableForAutomaticApproval");
+    }
+
     [Fact]
     public void McpAssemblyExposesTheExpectedNarrowToolSurface()
     {

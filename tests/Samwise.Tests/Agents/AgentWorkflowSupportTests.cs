@@ -184,6 +184,7 @@ public sealed class AgentWorkflowSupportTests
             Name = "Invoice processing",
             Description = "Create only a draft entry.",
             IsEnabled = true,
+            SuitableForAutomaticApproval = true,
             UpdatedAt = now
         };
 
@@ -193,6 +194,7 @@ public sealed class AgentWorkflowSupportTests
         Assert.Equal(playbook.Id, snapshot.Id);
         Assert.Equal(playbook.Name, snapshot.Name);
         Assert.Equal(playbook.Description, snapshot.Description);
+        Assert.True(snapshot.SuitableForAutomaticApproval);
         Assert.Equal(playbook.UpdatedAt, snapshot.UpdatedAt);
     }
 

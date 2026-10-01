@@ -10,6 +10,23 @@ public sealed class AgentInvocationServiceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData(AgentStage.Intake, "Intake")]
+    [InlineData(AgentStage.Planning, "Planning")]
+    [InlineData(AgentStage.Execution, "Execution")]
+    [InlineData(AgentStage.AutomaticApproval, "Automatic approval")]
+    [InlineData(AgentStage.AutoApprovedExecution, "Auto-approved execution")]
+    public async Task ServicePersistsReadableProfileForEachStage(AgentStage stage, string expectedProfile)
+    {
+        var service = new AgentInvocationService(new AgentInvocationRepository(), new FixedTimeProvider(Now));
+
+        var invocation = await service.StartAsync(
+            new AgentInvocationStart(stage, "Prompt", null, null, 0, new AgentRunConfiguration("model", "high")),
+            CancellationToken.None);
+
+        Assert.Equal(expectedProfile, invocation.Profile);
+    }
+
     [Fact]
     public async Task ServicePersistsInvocationLifecycle()
     {
@@ -19,7 +36,7 @@ public sealed class AgentInvocationServiceTests
 
         var invocation = await service.StartAsync(
             new AgentInvocationStart(
-                "Planning",
+                AgentStage.Planning,
                 "Rendered prompt",
                 null,
                 "work-item-1",
@@ -83,7 +100,7 @@ public sealed class AgentInvocationServiceTests
         var service = new AgentInvocationService(repository, timeProvider);
         var invocation = await service.StartAsync(
             new AgentInvocationStart(
-                "Execution",
+                AgentStage.Execution,
                 "Rendered prompt",
                 null,
                 "work-item-1",

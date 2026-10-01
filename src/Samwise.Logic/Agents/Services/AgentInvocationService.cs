@@ -4,7 +4,7 @@ using Shared.Infrastructure.Persistence.Repositories;
 namespace Samwise.Logic.Agents.Services;
 
 internal sealed record AgentInvocationStart(
-    string Profile,
+    AgentStage Stage,
     string RenderedPrompt,
     string? InboundEventId,
     string? WorkItemId,
@@ -39,7 +39,7 @@ internal sealed class AgentInvocationService(
             InboundEventId = request.InboundEventId,
             WorkItemId = request.WorkItemId,
             WorkItemRevision = request.WorkItemRevision,
-            Profile = request.Profile,
+            Profile = GetProfileName(request.Stage),
             Provider = "Pending",
             Model = request.Configuration.Model,
             ReasoningEffort = request.Configuration.ReasoningEffort,
@@ -51,6 +51,16 @@ internal sealed class AgentInvocationService(
 
         return repository.AddAsync(invocation, cancellationToken);
     }
+
+    private static string GetProfileName(AgentStage stage) => stage switch
+    {
+        AgentStage.Intake => nameof(AgentStage.Intake),
+        AgentStage.Planning => nameof(AgentStage.Planning),
+        AgentStage.Execution => nameof(AgentStage.Execution),
+        AgentStage.AutomaticApproval => "Automatic approval",
+        AgentStage.AutoApprovedExecution => "Auto-approved execution",
+        _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unsupported agent stage.")
+    };
 
     private static AgentInvocationToolCatalog? CreateToolCatalogSnapshot(ToolCatalogSnapshot? catalog) =>
         catalog is null

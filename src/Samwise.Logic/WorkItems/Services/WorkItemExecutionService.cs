@@ -59,7 +59,7 @@ internal sealed class WorkItemExecutionService(
 
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
-                    stage == AgentStage.AutoApprovedExecution ? "Auto-approved execution" : "Execution",
+                    stage,
                     prompt.Text,
                     null,
                     workItem.Id,

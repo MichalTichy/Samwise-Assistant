@@ -39,7 +39,7 @@ internal sealed class WorkItemPlanningService(
 
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
-                    "Planning",
+                    AgentStage.Planning,
                     prompt.Text,
                     null,
                     workItem.Id,

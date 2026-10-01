@@ -91,7 +91,7 @@ internal sealed class WorkItemAutomaticApprovalService(
 
             invocation = await invocationService.StartAsync(
                 new AgentInvocationStart(
-                    "Automatic approval", prompt.Text, null, workItemId, workItemRevision,
+                    AgentStage.AutomaticApproval, prompt.Text, null, workItemId, workItemRevision,
                     prompt.Configuration, approvalTools),
                 cancellationToken);
             var result = await runtime.AssessAutomaticApprovalAsync(

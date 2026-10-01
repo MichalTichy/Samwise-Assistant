@@ -45,7 +45,8 @@ public static class AgentPromptPlaceholders
         "{...}",
         AgentStage.Intake,
         AgentStage.Planning,
-        AgentStage.Execution)]
+        AgentStage.Execution,
+        AgentStage.AutoApprovedExecution)]
     public const string ExecutionTools = "execution_tools";
 
     [PromptPlaceholder(

@@ -355,6 +355,39 @@ public sealed class AgentPromptBuilderTests
         Assert.Equal(catalogs[AgentStage.Execution], result.ExecutionTools);
     }
 
+    [Fact]
+    public async Task AutoApprovedExecutionPromptAcceptsExecutionToolsPlaceholder()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Unsubscribe from the mailing list.", "Unsubscribe", Now);
+        var plan = new WorkItemPlan
+        {
+            Id = "plan-automatic",
+            WorkItemId = workItem.Id,
+            WorkItemRevision = workItem.Revision,
+            PlanNumber = 1,
+            Summary = "Unsubscribe from the verified mailing list.",
+            CreatedAt = Now
+        };
+        workItem.ApplyPlan(plan, Now);
+        workItem.Approve(plan.Id, workItem.Revision, Now, DomainWorkItem.AutomaticApprovalSource);
+        var configuration = DefaultAgentConfiguration.Create(Now);
+        configuration.AutoApprovedExecution.Prompt =
+            "Approved plan: {{approved_plan}}; available tools: {{execution_tools}}";
+        var catalogs = new RecordingToolCatalog();
+        var builder = CreateBuilder(configuration, catalogs, [], [workItem], []);
+
+        var result = await builder.BuildExecutionAsync(
+            workItem.Id,
+            workItem.Revision,
+            plan.Id,
+            CancellationToken.None,
+            AgentStage.AutoApprovedExecution);
+
+        Assert.Contains(plan.Summary, result.Text, StringComparison.Ordinal);
+        Assert.Contains("Use the execution MCP tools exposed by Gateway", result.Text, StringComparison.Ordinal);
+        Assert.Equal(catalogs[AgentStage.AutoApprovedExecution], result.ExecutionTools);
+    }
+
     private static AgentPromptBuilder CreateBuilder(
         AgentConfiguration configuration,
         IAgentToolCatalog toolCatalog,

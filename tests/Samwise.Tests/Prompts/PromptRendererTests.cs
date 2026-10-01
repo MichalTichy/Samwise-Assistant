@@ -21,7 +21,7 @@ public sealed class PromptRendererTests
 
         Assert.Equal("Execution tools", executionTools.Label);
         Assert.Equal(
-            [AgentStage.Intake, AgentStage.Planning, AgentStage.Execution],
+            [AgentStage.Intake, AgentStage.Planning, AgentStage.Execution, AgentStage.AutoApprovedExecution],
             executionTools.Stages);
         var playbooks = _catalog.GetForStage(AgentStage.Intake)
             .Single(placeholder => placeholder.Key == AgentPromptPlaceholders.Playbooks);

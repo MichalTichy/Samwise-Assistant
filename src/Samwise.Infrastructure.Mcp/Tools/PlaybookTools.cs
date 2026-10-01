@@ -56,13 +56,10 @@ public sealed class PlaybookTools(
         bool isEnabled,
         [Description("Existing Playbook ID to update, or omit to create a new Playbook.")]
         string? playbookId = null,
-        [Description("Whether plans using this Playbook may be considered for automatic approval. Omit to preserve an existing value; new Playbooks default to false.")]
-        bool? suitableForAutomaticApproval = null,
         CancellationToken cancellationToken = default)
     {
         var result = await sender.Send(
-            new SavePlaybookUsecase(playbookId, name, applicability, description, isEnabled,
-                suitableForAutomaticApproval),
+            new SavePlaybookUsecase(playbookId, name, applicability, description, isEnabled),
             cancellationToken);
         return SamwiseMcpJson.Serialize(result);
     }

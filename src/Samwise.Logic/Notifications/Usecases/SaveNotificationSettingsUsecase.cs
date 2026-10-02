@@ -8,7 +8,8 @@ public sealed record SaveNotificationSettingsUsecase(
     bool NotifyPlanAwaitingApproval,
     bool NotifyQuestionAsked,
     bool NotifyNeedsAttention,
-    bool NotifyCompleted) : IRequest;
+    bool NotifyCompleted,
+    bool NotifyDailyAutoExecutionSummary) : IRequest;
 
 internal sealed class SaveNotificationSettingsUsecaseHandler(IRepository<NotificationSettings> repository)
     : IRequestHandler<SaveNotificationSettingsUsecase>
@@ -20,6 +21,7 @@ internal sealed class SaveNotificationSettingsUsecaseHandler(IRepository<Notific
         settings.NotifyQuestionAsked = request.NotifyQuestionAsked;
         settings.NotifyNeedsAttention = request.NotifyNeedsAttention;
         settings.NotifyCompleted = request.NotifyCompleted;
+        settings.NotifyDailyAutoExecutionSummary = request.NotifyDailyAutoExecutionSummary;
         await repository.UpdateAsync(settings, cancellationToken);
     }
 }

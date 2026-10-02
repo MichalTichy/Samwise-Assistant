@@ -45,6 +45,7 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
         options.Schema.For<AgentConfiguration>();
         options.Schema.For<Playbook>().Index(playbook => playbook.IsEnabled);
         options.Schema.For<NotificationSettings>();
+        options.Schema.For<DailyAutoExecutionDigest>();
         options.Schema.For<PushDevice>();
         options.Schema.For<PushApplicationKeys>();
     }

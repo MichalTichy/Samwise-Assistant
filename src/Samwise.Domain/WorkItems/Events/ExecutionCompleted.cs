@@ -4,4 +4,5 @@ public sealed record ExecutionCompleted(
     string WorkItemId,
     string WorkItemTitle,
     DateTimeOffset OccurredAt,
-    string Summary) : WorkItemEvent(WorkItemId, WorkItemTitle, OccurredAt);
+    string Summary,
+    bool AutomaticallyApproved = false) : WorkItemEvent(WorkItemId, WorkItemTitle, OccurredAt);

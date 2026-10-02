@@ -15,6 +15,7 @@
     <div class="heading-actions">
         <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
         <a class="button-link button-link-secondary" href="/work-items/discarded">Discarded</a>
+        <a class="button-link button-link-secondary" href="/work-items/auto-executions">Auto-execution report</a>
         <a class="button-link button-link-primary board-new-input" href="/">New input</a>
     </div>
 </div>
@@ -61,7 +62,13 @@ else
                         <LumexCard Class="work-item-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
                             <LumexCardBody Class="work-item-card-body">
                             <div class="work-item-card-topline">
-                                <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip status-{workItem.Status.ToString().ToLowerInvariant()}")">@FormatStatus(workItem.Status)</LumexChip>
+                                <div class="work-item-card-badges">
+                                    <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip status-{workItem.Status.ToString().ToLowerInvariant()}")">@FormatStatus(workItem.Status)</LumexChip>
+                                    @if (workItem.AutomaticallyExecuted)
+                                    {
+                                        <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Success" Class="auto-execution-chip">Auto-approved</LumexChip>
+                                    }
+                                </div>
                                 <span class="revision-label">r@(workItem.Revision)</span>
                             </div>
                             <h3>@workItem.Title</h3>

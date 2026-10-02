@@ -8,6 +8,8 @@ This project contains Samwise's durable business state and transition rules. It 
 - `WorkItems/WorkItemPlan` is the serializable plan snapshot presented to the user. It includes steps, decisions, an optional selected-playbook snapshot, tool-catalog snapshots, assumptions, risks, the work-item revision, its optional automatic-approval assessment, and its review.
 - `WorkItems/WorkItemComment` stores user, Samwise, and system context inside the aggregate.
 - `WorkItems/PlanReview` records the single approval or rejection outcome owned by its plan.
+- Completed execution can derive whether its current plan was automatically approved; this marks historical automatic completions without duplicating approval state in the document.
+- `Notifications/DailyAutoExecutionDigest` records which local-calendar-day summary has already been sent, so a restart does not resend it.
 - `WorkItems/WorkItemStatus` defines the draft, approval, execution, completion, attention, uncertainty, and discarded states.
 - `Inbox/InboundEvent` is the source-neutral processing lifecycle shared by every input observed by Samwise. It embeds the zero or more `InboundEventOutcome` records that link the input to every Work Item it created or updated, along with trusted source guidance and structured historical context. The Domain project owns only this base event contract and its common nested state; each input feature owns its concrete event documents and source-specific invariants.
 - `Agents/AgentInvocation` records one intake, planning, or execution call, including its rendered prompt, model settings, exact available-tool snapshot, raw response, timing, and final outcome.

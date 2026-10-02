@@ -22,6 +22,7 @@ public partial class NotificationSettings : IAsyncDisposable
     private bool notifyQuestionAsked = true;
     private bool notifyNeedsAttention = true;
     private bool notifyCompleted;
+    private bool notifyDailyAutoExecutionSummary = true;
     private bool loading = true;
     private bool busy;
     private bool sendingTest;
@@ -121,6 +122,7 @@ public partial class NotificationSettings : IAsyncDisposable
             notifyQuestionAsked = settings.NotifyQuestionAsked;
             notifyNeedsAttention = settings.NotifyNeedsAttention;
             notifyCompleted = settings.NotifyCompleted;
+            notifyDailyAutoExecutionSummary = settings.NotifyDailyAutoExecutionSummary;
             await LoadDevicesAsync();
         }
         catch (Exception exception)
@@ -145,7 +147,8 @@ public partial class NotificationSettings : IAsyncDisposable
                 notifyPlanAwaitingApproval,
                 notifyQuestionAsked,
                 notifyNeedsAttention,
-                notifyCompleted));
+                notifyCompleted,
+                notifyDailyAutoExecutionSummary));
             ShowMessage("Notification settings saved.", true);
         }
         catch (Exception exception)

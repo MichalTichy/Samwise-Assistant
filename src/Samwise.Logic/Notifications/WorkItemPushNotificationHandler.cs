@@ -35,7 +35,9 @@ internal sealed class WorkItemPushNotificationHandler(
         SendAsync(notification, settings => settings.NotifyNeedsAttention, "Execution outcome is unknown", notification.Reason, false, cancellationToken);
 
     public Task Handle(ExecutionCompleted notification, CancellationToken cancellationToken) =>
-        SendAsync(notification, settings => settings.NotifyCompleted, "Work item completed", null, false, cancellationToken);
+        notification.AutomaticallyApproved
+            ? Task.CompletedTask
+            : SendAsync(notification, settings => settings.NotifyCompleted, "Work item completed", null, false, cancellationToken);
 
     private async Task SendAsync(
         WorkItemEvent workItemEvent,

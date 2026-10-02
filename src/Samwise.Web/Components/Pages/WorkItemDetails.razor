@@ -36,6 +36,10 @@ else
         <header class="work-item-detail-header">
             <div>
                 <LumexChip Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip status-{workItem.Status.ToString().ToLowerInvariant()}")">@FormatStatus(workItem.Status)</LumexChip>
+                @if (workItem.WasAutomaticallyExecuted())
+                {
+                    <LumexChip Variant="@ChipVariant.Flat" Color="@ThemeColor.Success" Class="auto-execution-chip">Auto-approved execution</LumexChip>
+                }
                 <h1>@workItem.Title</h1>
             </div>
             @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
@@ -373,6 +377,10 @@ else
                         <div class="detail-card-heading completion-heading">
                             <div>
                                 <span class="page-kicker">@(workItem.Completion?.Kind == WorkItemCompletionKind.PlanningResolution ? "Resolved during planning" : "Completed")</span>
+                                @if (workItem.WasAutomaticallyExecuted())
+                                {
+                                    <span class="completion-mode">Automatically approved and executed</span>
+                                }
                                 <h2>@(completion?.Summary ?? "Work Item completed")</h2>
                             </div>
                             <time>@((completion?.CompletedAt ?? workItem.CompletedAt ?? workItem.UpdatedAt).ToLocalTime().ToString("g"))</time>

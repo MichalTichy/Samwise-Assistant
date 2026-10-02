@@ -357,7 +357,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         };
         CompletedAt = now;
         UpdatedAt = now;
-        Record(new ExecutionCompleted(Id, Title, now, Completion.Summary));
+        Record(new ExecutionCompleted(Id, Title, now, Completion.Summary, WasAutomaticallyExecuted()));
     }
 
     public void MarkExecutionUncertain(DateTimeOffset now, string? reason = null)
@@ -538,6 +538,11 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public WorkItemPlan? FindCurrentPlan() => CurrentPlanId is null
         ? null
         : Plans.SingleOrDefault(plan => plan.Id == CurrentPlanId);
+
+    public bool WasAutomaticallyExecuted() =>
+        Status == WorkItemStatus.Completed &&
+        Completion?.Kind == WorkItemCompletionKind.Execution &&
+        FindCurrentPlan()?.Review?.Source == AutomaticApprovalSource;
 
     public WorkItemPlan? FindLatestPlan() => Plans.Count == 0
         ? null

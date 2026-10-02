@@ -307,6 +307,23 @@ public sealed class WorkItemTests
         Assert.Equal("Web", plan.Review?.Source);
     }
 
+    [Theory]
+    [InlineData("Web", false)]
+    [InlineData(DomainWorkItem.AutomaticApprovalSource, true)]
+    public void CompletedExecutionRetainsItsApprovalMode(string approvalSource, bool automaticallyApproved)
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Complete the action.", null, InitialTime);
+        var plan = CreatePlan(workItem, workItem.ReservePlanNumber(InitialTime.AddMinutes(1)), InitialTime.AddMinutes(2));
+        workItem.ApplyPlan(plan, InitialTime.AddMinutes(3));
+        workItem.Approve(plan.Id, workItem.Revision, InitialTime.AddMinutes(4), approvalSource);
+        workItem.StartExecution(plan.Id, workItem.Revision, InitialTime.AddMinutes(5));
+        workItem.CompleteExecution("Done.", [], "execution-id", InitialTime.AddMinutes(6));
+
+        Assert.Equal(automaticallyApproved, workItem.WasAutomaticallyExecuted());
+        Assert.Equal(automaticallyApproved,
+            Assert.Single(workItem.DequeueEvents().OfType<ExecutionCompleted>()).AutomaticallyApproved);
+    }
+
     [Fact]
     public void DiscardAndCompletionMetadataAreRecordedInsideTheWorkItemDocument()
     {

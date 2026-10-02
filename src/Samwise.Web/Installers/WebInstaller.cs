@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using LumexUI.Extensions;
 using Samwise.Web.Endpoints.ManualInput;
 using Samwise.Web.InboxProcessing;
+using Samwise.Web.Notifications;
 using Shared.Infrastructure.IoC;
 
 namespace Samwise.Web.Installers;
@@ -20,5 +21,6 @@ public sealed class WebInstaller : IInstaller
         services.Configure<ManualInputApiOptions>(
             configuration.GetSection(ManualInputApiOptions.SectionName));
         services.AddHostedService<InboundEventProcessingBackgroundService>();
+        services.AddHostedService<DailyAutoExecutionSummaryBackgroundService>();
     }
 }

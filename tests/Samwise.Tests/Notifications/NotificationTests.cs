@@ -47,6 +47,62 @@ public sealed class NotificationTests
     }
 
     [Fact]
+    public async Task AutomaticallyApprovedCompletionWaitsForTheDailyDigest()
+    {
+        var push = new RecordingPushService();
+        var handler = CreateHandler(new NotificationSettings { NotifyCompleted = true }, push);
+
+        await handler.Handle(new ExecutionCompleted("wi-1", "Title", Now, "Done", AutomaticallyApproved: true), CancellationToken.None);
+
+        Assert.Empty(push.Sent);
+    }
+
+    [Fact]
+    public async Task DailyDigestLinksToItsReportAndIsSentOnlyOnce()
+    {
+        var reportDate = new DateOnly(2026, 9, 20);
+        var workItem = CompletedAutomatically("Unsubscribe from the newsletter", Now.AddDays(-1));
+        var digests = new MemoryRepository<DailyAutoExecutionDigest>([]);
+        var push = new RecordingPushService();
+        var handler = new SendDailyAutoExecutionSummaryUsecaseHandler(
+            new MemoryRepository<NotificationSettings>([new NotificationSettings()]),
+            new MemoryRepository<DomainWorkItem>([workItem]),
+            digests,
+            push,
+            new FixedTimeProvider(Now));
+
+        var first = await handler.Handle(new SendDailyAutoExecutionSummaryUsecase(reportDate), CancellationToken.None);
+        var second = await handler.Handle(new SendDailyAutoExecutionSummaryUsecase(reportDate), CancellationToken.None);
+
+        Assert.Equal(1, first);
+        Assert.Equal(0, second);
+        var notification = Assert.Single(push.Sent);
+        Assert.Equal("1 work item handled automatically", notification.Title);
+        Assert.Contains(workItem.Title, notification.Body, StringComparison.Ordinal);
+        Assert.Equal("/work-items/auto-executions?date=2026-09-20", notification.Url);
+        Assert.Equal(DailyAutoExecutionDigest.IdFor(reportDate), Assert.Single(await digests.ListAsync()).Id);
+    }
+
+    [Fact]
+    public void DailyReportUsesPragueCalendarDaysAcrossDaylightSavingChanges()
+    {
+        var spring = AutoExecutionReportPeriod.ForDay(new DateOnly(2026, 3, 29));
+        var autumn = AutoExecutionReportPeriod.ForDay(new DateOnly(2026, 10, 25));
+
+        Assert.Equal(TimeSpan.FromHours(23), spring.Until - spring.From);
+        Assert.Equal(TimeSpan.FromHours(25), autumn.Until - autumn.From);
+    }
+
+    [Fact]
+    public void DailyDigestBecomesDueAtEightInPrague()
+    {
+        Assert.Null(DailyAutoExecutionSchedule.ReportDateDue(
+            new DateTimeOffset(2026, 9, 21, 5, 59, 0, TimeSpan.Zero)));
+        Assert.Equal(new DateOnly(2026, 9, 20), DailyAutoExecutionSchedule.ReportDateDue(
+            new DateTimeOffset(2026, 9, 21, 6, 0, 0, TimeSpan.Zero)));
+    }
+
+    [Fact]
     public async Task QuestionPromptIsAppendedAndLongBodiesAreShortened()
     {
         var push = new RecordingPushService();
@@ -155,6 +211,24 @@ public sealed class NotificationTests
     };
 
     private static PushNotification Message() => new("Title", "Body", "/board", "tag", Urgent: false);
+
+    private static DomainWorkItem CompletedAutomatically(string title, DateTimeOffset completedAt)
+    {
+        var workItem = DomainWorkItem.CreateFromInbound(title, title, completedAt.AddMinutes(-5));
+        var plan = new Samwise.Domain.WorkItems.WorkItemPlan
+        {
+            Id = Guid.NewGuid().ToString(),
+            WorkItemId = workItem.Id,
+            WorkItemRevision = workItem.Revision,
+            PlanNumber = workItem.ReservePlanNumber(completedAt.AddMinutes(-4)),
+            Summary = title
+        };
+        workItem.ApplyPlan(plan, completedAt.AddMinutes(-3));
+        workItem.Approve(plan.Id, workItem.Revision, completedAt.AddMinutes(-2), DomainWorkItem.AutomaticApprovalSource);
+        workItem.StartExecution(plan.Id, workItem.Revision, completedAt.AddMinutes(-1));
+        workItem.CompleteExecution(title, [], "invocation-1", completedAt);
+        return workItem;
+    }
 
     private sealed class RecordingPushService : IPushNotificationService
     {

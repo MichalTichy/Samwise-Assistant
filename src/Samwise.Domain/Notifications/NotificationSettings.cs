@@ -11,4 +11,5 @@ public sealed class NotificationSettings : IItemWithId
     public bool NotifyQuestionAsked { get; set; } = true;
     public bool NotifyNeedsAttention { get; set; } = true;
     public bool NotifyCompleted { get; set; }
+    public bool NotifyDailyAutoExecutionSummary { get; set; } = true;
 }

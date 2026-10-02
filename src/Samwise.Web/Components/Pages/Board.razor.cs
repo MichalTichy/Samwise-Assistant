@@ -80,7 +80,8 @@ public partial class Board
                     workItem.Revision,
                     workItem.UpdatedAt,
                     plan?.PlanNumber,
-                    workItem.PendingPlanningQuestion?.Prompt);
+                    workItem.PendingPlanningQuestion?.Prompt,
+                    workItem.WasAutomaticallyExecuted());
             }).ToList();
         }
         finally

@@ -48,6 +48,7 @@ The fixed Intake, Planning, Execution, AutomaticApproval, and AutoApprovedExecut
 - `AgentPromptPlaceholders` declares every placeholder key once as a constant with its label, description, example, and applicable stages in `PromptPlaceholderAttribute`. The settings UI, builder, and renderer all consume that catalogue.
 - `AgentPromptBuilder` is the only component that renders runtime prompts. Workflow services pass identifiers rather than placeholder values; the builder retrieves each stage's data, uses catalogue constants for its value maps, and returns the rendered prompt, run configuration, and exact catalogs or playbooks required for validation and snapshots.
 - `PromptRenderer` validates templates against the catalogue and performs the final token replacement. `AgentWorkflowSupport` contains plan validation and snapshot helpers only.
+- `SendDailyAutoExecutionSummaryUsecase` reads completed, automatically approved executions through a date-bounded specification and sends one push recap for a Prague calendar day. A persisted digest marker avoids repeating the notification after restarts. Individual auto-approved completions skip the ordinary completion push.
 
 ## Architectural rules
 

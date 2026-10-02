@@ -115,6 +115,10 @@ else
                     <input type="checkbox" @bind="notifyCompleted" />
                     <span><strong>A work item is completed</strong><small>An approved plan finished successfully.</small></span>
                 </label>
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="notifyDailyAutoExecutionSummary" />
+                    <span><strong>Daily automatic-execution summary</strong><small>One morning recap of work Samwise completed automatically; no separate completion alert for each item.</small></span>
+                </label>
             </div>
             <div class="email-card-actions">
                 <span></span>

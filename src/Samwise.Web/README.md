@@ -52,9 +52,11 @@ Custom pages keep markup in `Page.razor` and behavior in `Page.razor.cs`. UI cod
 
 The Web-hosted `InboundEventProcessingBackgroundService` handles the shared queue for every input source. It runs Intake and Planning one event at a time, then periodically requeues persisted pending events so a restart cannot lose them. Connector checks and manual submission return after capture, not after AI processing.
 
+`DailyAutoExecutionSummaryBackgroundService` checks every 15 minutes and, after 08:00 Europe/Prague, requests the previous day's auto-execution recap through a use case. The authenticated `/work-items/auto-executions` page shows recent completions or a selected day from a push notification.
+
 ## Work-item flow
 
-1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards, including a separate Needs your input column for planning questions. `DiscardedWorkItems` uses its own specification to keep discarded records out of the active Board while making their discard reason, detail, and Restore & replan action discoverable from desktop and mobile navigation.
+1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards, including a separate Needs your input column for planning questions and a badge for automatically executed completions. `DiscardedWorkItems` uses its own specification to keep discarded records out of the active Board. The Board also links to the auto-execution report.
 2. `WorkItemDetails` loads the aggregate first, then agent invocations through `WorkItemInvocationsSpecification`. While open, it checks for aggregate changes and reloads after background planning or execution changes the status.
 3. Selecting an agent-activity row opens its full invocation record in a Lumex dialog, including the prompt, output, model metadata, error, and available-tool snapshot.
 4. Suggested tool arguments are rendered as labeled nested values, lists, booleans, and readable multiline content rather than requiring the user to decode JSON. Invalid historical argument payloads fall back to escaped plain text.

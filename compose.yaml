@@ -44,12 +44,12 @@ services:
       - gateway-backend
 
   riganti-is-mcp:
-    image: ${RIGANTI_IS_MCP_IMAGE:-registry.tichymichal.net/mcp-riganti-is:latest}
+    image: ${RIGANTI_IS_MCP_IMAGE:-registry.tichymichal.net/mcp-riganti-is:259696c}
     restart: unless-stopped
     environment:
       RIGANTI_IS_BEARER_TOKEN: "${RIGANTI_IS_BEARER_TOKEN:?Set RIGANTI_IS_BEARER_TOKEN in the Portainer stack environment}"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "dotnet", "/app/Riganti.IsMcp.Http.dll", "--healthcheck"]
       interval: 10s
       timeout: 5s
       start_period: 15s

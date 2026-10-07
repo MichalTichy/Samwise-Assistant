@@ -239,6 +239,29 @@ public sealed class AgentWorkflowSupportTests
     }
 
     [Fact]
+    public void PlanValidationRejectsExternalActionWithoutTool()
+    {
+        var plan = new PlanDraft(
+            null,
+            "Change the code.",
+            [],
+            [],
+            [new PlanStepDraft(
+                1,
+                "Update connector",
+                "Change the connector code and run its tests.",
+                [],
+                true,
+                "The tests pass.")]);
+        var catalog = new ToolCatalogSnapshot("catalog", "{}", []);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => AgentWorkflowSupport.ValidatePlan(plan, catalog));
+
+        Assert.Contains("no executable tool call", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PlanValidationRejectsInvalidSuggestedParameters()
     {
         var plan = new PlanDraft(

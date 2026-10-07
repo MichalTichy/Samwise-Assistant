@@ -138,6 +138,12 @@ internal static class AgentWorkflowSupport
                     "Every plan step needs a title, technical description, and success criterion.");
             }
 
+            if (step.HasExternalSideEffects && step.ToolCalls.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Plan step {step.Order} claims an external effect but has no executable tool call.");
+            }
+
             foreach (var toolCall in step.ToolCalls)
             {
                 if (string.IsNullOrWhiteSpace(toolCall.ToolId))

@@ -166,11 +166,14 @@
         border: 1px solid transparent;
         border-radius: .8rem;
         font-size: .84rem;
+        font-family: inherit;
         font-weight: 700;
         text-decoration: none;
+        cursor: pointer;
         transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
     }
     .button-link:hover { transform: translateY(-1px); }
+    .button-link:disabled { opacity: .55; cursor: not-allowed; transform: none; }
     .button-link-primary { color: #2f251c; background: #d8952f; box-shadow: 0 7px 18px rgb(170 110 34 / .2); }
     .button-link-secondary { border-color: #ded2c2; color: #594d43; background: rgb(255 252 245 / .8); }
     .empty-state, .not-found-card {
@@ -251,7 +254,8 @@
     /* Board */
     .board-page { width: calc(100% + 6rem); margin-left: -3rem; }
     .work-item-board { width: 100%; min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .85rem; overflow-x: auto; padding: 0 0 1rem; }
-    .board-column { min-width: 0; min-height: 460px; padding: .75rem; border: 1px solid rgb(104 67 41 / .08); border-radius: 1.1rem; background: rgb(226 214 195 / .27); }
+    .board-column { min-width: 0; min-height: 460px; padding: 1rem; border: 1px solid rgb(104 67 41 / .08); border-radius: 1.1rem; background: rgb(226 214 195 / .27); }
+    .board-action { white-space: nowrap; }
     .board-column > header { height: 2.65rem; padding: 0 .2rem .65rem; display: flex; align-items: center; gap: .55rem; }
     .board-column h2 { margin: 0; flex: 1; color: #53483e; font-size: .8rem; font-weight: 780; }
     .column-dot { width: 8px; height: 8px; border-radius: 50%; background: #a99a8b; box-shadow: 0 0 0 4px rgb(169 154 139 / .09); }
@@ -758,7 +762,7 @@
 @layer components {
     /* Phone shell: top bar, bottom tab bar, and the "More" sheet (hidden on wider screens). */
     .mobile-topbar, .mobile-tabbar { display: none; }
-    .mobile-topbar { position: sticky; top: 0; z-index: 40; padding: calc(env(safe-area-inset-top) + .55rem) 1rem .55rem; align-items: center; border-bottom: 1px solid rgb(104 67 41 / .09); background: rgb(247 241 228 / .88); backdrop-filter: blur(18px); }
+    .mobile-topbar { position: sticky; top: 0; z-index: 40; padding: calc(env(safe-area-inset-top) + .75rem) 1.25rem .75rem; align-items: center; border-bottom: 1px solid rgb(104 67 41 / .09); background: rgb(247 241 228 / .88); backdrop-filter: blur(18px); }
     .mobile-brand { display: inline-flex; align-items: center; gap: .6rem; color: #302923; text-decoration: none; }
     .mobile-brand strong { font-size: 1rem; letter-spacing: -.015em; }
     .mobile-brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: linear-gradient(145deg, #e6aa47, #d58b27); box-shadow: 0 6px 16px rgb(170 110 34 / .22); }
@@ -907,13 +911,14 @@
     .capture-footer > * { width: 100%; }
 
     /* Board: one column at a time behind sticky tabs. */
-    .board-page .page-heading-row { flex-direction: row; align-items: flex-end; }
+    .board-page .page-heading-row { align-items: stretch; }
     .board-page .page-heading-row p, .board-new-input { display: none; }
-    .board-page .heading-actions { width: auto; display: flex; }
-    .board-tabs { position: sticky; top: calc(env(safe-area-inset-top) + 3.1rem); z-index: 30; margin: 0 -16px .9rem; padding: .5rem 16px; display: flex; gap: .45rem; overflow-x: auto; background: rgb(247 241 228 / .92); backdrop-filter: blur(14px); scrollbar-width: none; }
+    .board-page .heading-actions { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .board-page .board-action { min-width: 0; padding: 0 .4rem; }
+    .board-tabs { position: sticky; top: calc(env(safe-area-inset-top) + 3.5rem); z-index: 30; margin: 0 -16px .9rem; padding: .5rem 16px; display: flex; gap: .45rem; overflow-x: auto; background: rgb(247 241 228 / .92); backdrop-filter: blur(14px); scrollbar-width: none; }
     .board-tabs::-webkit-scrollbar { display: none; }
     .work-item-board { display: block; overflow: visible; padding: 0; }
-    .board-column { display: none; min-height: 0; padding: 0; border: 0; background: none; }
+    .board-column { display: none; min-height: 0; padding: .25rem; border: 0; background: none; }
     .board-column[data-active="true"] { display: block; }
     .board-column > header { display: none; }
     .work-item-card-body { padding: 1rem !important; }

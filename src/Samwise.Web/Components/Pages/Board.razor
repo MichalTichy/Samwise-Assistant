@@ -13,9 +13,9 @@
         <p>Every card represents an actionable work item and its current approval state.</p>
     </div>
     <div class="heading-actions">
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@loading">Refresh</LumexButton>
-        <a class="button-link button-link-secondary" href="/work-items/discarded">Discarded</a>
-        <a class="button-link button-link-secondary" href="/work-items/auto-executions">Auto-execution report</a>
+        <button type="button" class="button-link button-link-secondary board-action" @onclick="LoadAsync" disabled="@loading" title="The board also refreshes automatically every 10 seconds">Refresh</button>
+        <a class="button-link button-link-secondary board-action" href="/work-items/discarded">Discarded</a>
+        <a class="button-link button-link-secondary board-action" href="/work-items/auto-executions">Auto report</a>
         <a class="button-link button-link-primary board-new-input" href="/">New input</a>
     </div>
 </div>

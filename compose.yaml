@@ -15,6 +15,7 @@ services:
       CALENDAR_MCP_ADMIN_TOKEN: "${MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN:?Set MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN in an ignored .env file}"
       CALENDAR_MCP_CalendarMcp__Mcp__RequireApiKey: "false"
       CALENDAR_MCP_CalendarMcp__ExternalBaseUrl: "${MAIL_CALENDAR_CONTACTS_MCP_EXTERNAL_URL:-http://localhost:5051}"
+      CALENDAR_MCP_CalendarMcp__AgentFileOrigin: http://gateway:8080
     volumes:
       - mail-calendar-contacts-data:/app/data
     networks:

@@ -85,7 +85,7 @@ Samwise's Todoist input connects directly to the Todoist API and does not use th
 
 ## Riganti IS MCP
 
-The standalone [Riganti IS MCP adapter](https://github.com/MichalTichy/MCP.RigantiIS) runs the official Riganti IS MCP tools as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_MCP_IMAGE=registry.tichymichal.net/mcp-riganti-is:259696c` and keep `RIGANTI_IS_BEARER_TOKEN` set to a Riganti IS user token (not a Gateway API key). The bearer token reaches only the MCP container. Its HTTP endpoint has no separate API key; Gateway controls agent access through its own API keys and tool grants. The token is visible to Portainer stack administrators; do not commit it or put it in chat.
+The standalone [Riganti IS MCP adapter](https://github.com/MichalTichy/MCP.RigantiIS) runs the official Riganti IS MCP tools as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_MCP_IMAGE=registry.tichymichal.net/mcp-riganti-is:b782a63` and keep `RIGANTI_IS_BEARER_TOKEN` set to a Riganti IS user token (not a Gateway API key). The bearer token reaches only the MCP container. Its HTTP endpoint has no separate API key; Gateway controls agent access through its own API keys and tool grants. The token is visible to Portainer stack administrators; do not commit it or put it in chat.
 
 Register the server in Gateway admin UI:
 
@@ -97,7 +97,7 @@ Register the server in Gateway admin UI:
 
 Do not configure an HTTP environment header for this server.
 
-After changing the image, rediscover the server in Gateway and review tool grants for each agent API key. The service name, URL, and Gateway server ID can remain unchanged, but most tool names and schemas differ from the former custom server. Grant read tools to planning if it needs live Riganti context. Grant write tools only to execution, behind Samwise Work Item approval. In particular, `riganti_is_create_wage_bonus_request` and `create_invoice` create real records; invoice creation should follow `preview_invoice` and explicit plan approval. The MCP server does not send invoices. Leave `export_update_conference_time_sheets` ungranted: it writes a file inside the MCP container, which the Gateway runner cannot read. Invoice attachments likewise require files in the MCP container, not runner-local paths. Do not automatically retry uncertain invoice creation.
+After changing the image, rediscover the server in Gateway and review tool grants for each agent API key. The service name, URL, and Gateway server ID can remain unchanged. The updated image adds `get_invoices` and `download_invoice_pdf`; newly discovered tools remain ungranted until explicitly enabled. Grant `get_invoices` to planning when it needs live invoice status or details. Grant write tools only to execution, behind Samwise Work Item approval. In particular, `riganti_is_create_wage_bonus_request` and `create_invoice` create real records; invoice creation should follow `preview_invoice` and explicit plan approval. The MCP server does not send invoices. Leave `download_invoice_pdf` and `export_update_conference_time_sheets` ungranted: they write files inside the MCP container, which the Gateway runner cannot read. Invoice attachments likewise require files in the MCP container, not runner-local paths. Do not automatically retry uncertain invoice creation.
 
 | Former tool | New tool |
 | --- | --- |

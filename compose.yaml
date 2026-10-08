@@ -21,13 +21,13 @@ services:
       - gateway-backend
 
   todoist-mcp:
-    image: ${TODOIST_MCP_RUNTIME_IMAGE:-node:24-alpine}
+    image: ${TODOIST_MCP_RUNTIME_IMAGE:-node:latest}
     restart: unless-stopped
     user: node
     command:
       - npx
       - --yes
-      - --package=@doist/todoist-mcp@13.2.4
+      - --package=@doist/todoist-mcp@latest
       - todoist-mcp-http
     environment:
       TODOIST_API_KEY: "${TODOIST_API_KEY:?Set TODOIST_API_KEY in an ignored .env file}"
@@ -44,7 +44,7 @@ services:
       - gateway-backend
 
   riganti-is-mcp:
-    image: ${RIGANTI_IS_MCP_IMAGE:-registry.tichymichal.net/mcp-riganti-is:b782a63}
+    image: ${RIGANTI_IS_MCP_IMAGE:-registry.tichymichal.net/mcp-riganti-is:latest}
     restart: unless-stopped
     environment:
       RIGANTI_IS_BEARER_TOKEN: "${RIGANTI_IS_BEARER_TOKEN:?Set RIGANTI_IS_BEARER_TOKEN in the Portainer stack environment}"

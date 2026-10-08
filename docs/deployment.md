@@ -51,7 +51,7 @@ The [MCP.MailCalendarContacts](https://github.com/MichalTichy/MCP.MailCalendarCo
 
 For Portainer:
 
-1. Deploy or update the single Samwise stack. The checked-in `.env.example` pins the reviewed Gateway, runner, and MCP images; copy its variables into the Portainer stack environment and replace every secret placeholder.
+1. Deploy or update the single Samwise stack. The checked-in `.env.example` uses `latest` image tags; copy its variables into the Portainer stack environment and replace every secret placeholder.
 2. Open the Gateway admin UI and add an HTTP MCP server with these values:
 
    | Field | Value |
@@ -67,7 +67,7 @@ The intake and planning keys do not need permission to invoke these MCP tools. S
 
 ## Todoist MCP
 
-The stack runs the official [`@doist/todoist-mcp`](https://github.com/Doist/todoist-mcp) HTTP server from its pinned npm release. It has no published host port: only Gateway can reach it on the private backend network. `TODOIST_API_KEY` is passed directly to that container and is not copied into Gateway. The container downloads the pinned package on its first start, so it needs outbound access to the npm registry when it is created.
+The stack runs the official [`@doist/todoist-mcp`](https://github.com/Doist/todoist-mcp) HTTP server from its latest npm release. It has no published host port: only Gateway can reach it on the private backend network. `TODOIST_API_KEY` is passed directly to that container and is not copied into Gateway. The container downloads the package when it starts, so it needs outbound access to the npm registry.
 
 Create a Todoist API token in **Todoist → Settings → Integrations → Developer**, put it in the Portainer stack environment as `TODOIST_API_KEY`, and add this HTTP MCP server in the Gateway admin UI:
 
@@ -85,7 +85,7 @@ Samwise's Todoist input connects directly to the Todoist API and does not use th
 
 ## Riganti IS MCP
 
-The standalone [Riganti IS MCP adapter](https://github.com/MichalTichy/MCP.RigantiIS) runs the official Riganti IS MCP tools as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_MCP_IMAGE=registry.tichymichal.net/mcp-riganti-is:b782a63` and keep `RIGANTI_IS_BEARER_TOKEN` set to a Riganti IS user token (not a Gateway API key). The bearer token reaches only the MCP container. Its HTTP endpoint has no separate API key; Gateway controls agent access through its own API keys and tool grants. The token is visible to Portainer stack administrators; do not commit it or put it in chat.
+The standalone [Riganti IS MCP adapter](https://github.com/MichalTichy/MCP.RigantiIS) runs the official Riganti IS MCP tools as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_MCP_IMAGE=registry.tichymichal.net/mcp-riganti-is:latest` and keep `RIGANTI_IS_BEARER_TOKEN` set to a Riganti IS user token (not a Gateway API key). The bearer token reaches only the MCP container. Its HTTP endpoint has no separate API key; Gateway controls agent access through its own API keys and tool grants. The token is visible to Portainer stack administrators; do not commit it or put it in chat.
 
 Register the server in Gateway admin UI:
 
@@ -197,7 +197,7 @@ Back up these volumes and the two PostgreSQL databases. Losing only the data-pro
 
 ## Updating
 
-The Compose defaults use the `latest` Samwise, Gateway, runner, and Mail/Calendar/Contacts MCP images plus the current Node 24 Alpine runtime. The checked-in `.env.example` pins the currently verified Gateway pair (`decfeca`), native-app-host MCP (`0903bf4`), and Node runtime digest. The official Todoist package is pinned directly in `compose.yaml`. Prefer immutable tags and digests in the deployed `.env`, then run:
+The Compose defaults and `.env.example` use `latest` for every image, including the Todoist Node runtime; the Todoist npm package also uses `@latest`. Keep the Portainer stack's image variables on `latest` too, since an explicit variable overrides a Compose default. These mutable tags do not update running containers on their own. To pull and deploy current images, run:
 
 ```bash
 docker compose pull

@@ -44,7 +44,7 @@ services:
       - gateway-backend
 
   riganti-is-mcp:
-    image: ${RIGANTI_IS_MCP_IMAGE:-registry.tichymichal.net/mcp-riganti-is:259696c}
+    image: ${RIGANTI_IS_MCP_IMAGE:-registry.tichymichal.net/mcp-riganti-is:b782a63}
     restart: unless-stopped
     environment:
       RIGANTI_IS_BEARER_TOKEN: "${RIGANTI_IS_BEARER_TOKEN:?Set RIGANTI_IS_BEARER_TOKEN in the Portainer stack environment}"

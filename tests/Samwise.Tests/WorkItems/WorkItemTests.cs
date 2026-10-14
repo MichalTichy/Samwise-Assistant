@@ -364,6 +364,32 @@ public sealed class WorkItemTests
     }
 
     [Fact]
+    public void ManualDiscardReasonIsTrimmedAndRetainedAfterRestore()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Review the message.", null, InitialTime);
+
+        workItem.Discard(InitialTime.AddMinutes(1), reason: "  Not my responsibility.  ");
+
+        Assert.Equal("Not my responsibility.", workItem.DiscardReason);
+        var discarded = Assert.Single(workItem.DequeueEvents().OfType<WorkItemDiscarded>());
+        Assert.Equal("Not my responsibility.", discarded.Reason);
+
+        workItem.Restore(InitialTime.AddMinutes(2));
+
+        Assert.Equal("Not my responsibility.", workItem.DiscardReason);
+    }
+
+    [Fact]
+    public void BlankManualDiscardReasonIsStoredAsNull()
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Review the message.", null, InitialTime);
+
+        workItem.Discard(InitialTime.AddMinutes(1), reason: "  ");
+
+        Assert.Null(workItem.DiscardReason);
+    }
+
+    [Fact]
     public void DiscardedWorkItemCanBeRestoredForANewPlanningRevision()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Add Saturnin to the calendar.", null, InitialTime);

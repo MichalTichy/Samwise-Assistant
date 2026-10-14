@@ -445,7 +445,8 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         }
     }
 
-    public void Discard(DateTimeOffset now, string source = "Web") => Discard(now, source, null, null);
+    public void Discard(DateTimeOffset now, string source = "Web", string? reason = null) =>
+        Discard(now, source, string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(), null);
 
     private void Discard(DateTimeOffset now, string source, string? reason, string? invocationId)
     {

@@ -30,10 +30,12 @@ public partial class WorkItemDetails : IAsyncDisposable
     private bool actionBusy;
     private string contextText = string.Empty;
     private string rejectionFeedback = string.Empty;
+    private string discardReason = string.Empty;
     private string? actionError;
     private AgentInvocation? selectedInvocation;
     private bool activityDetailsOpen;
     private bool decisionSheetOpen;
+    private bool discardDialogOpen;
     private string selectedPlanningAnswer = string.Empty;
     private string otherPlanningAnswer = string.Empty;
     private string? loadedPlanningQuestionId;
@@ -304,7 +306,46 @@ public partial class WorkItemDetails : IAsyncDisposable
         contextText = string.Empty;
     }
 
-    private Task DiscardAsync() => RunActionAsync(() => Sender.Send(new DiscardWorkItemUsecase(WorkItemId)));
+    private void OpenDiscardDialog()
+    {
+        decisionSheetOpen = false;
+        discardReason = string.Empty;
+        actionError = null;
+        discardDialogOpen = true;
+    }
+
+    private void CloseDiscardDialog()
+    {
+        if (actionBusy)
+        {
+            return;
+        }
+
+        discardDialogOpen = false;
+        discardReason = string.Empty;
+        actionError = null;
+    }
+
+    private Task HandleDiscardDialogOpenChangedAsync(bool open)
+    {
+        if (!open)
+        {
+            CloseDiscardDialog();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task DiscardAsync()
+    {
+        var reason = discardReason;
+        await RunActionAsync(() => Sender.Send(new DiscardWorkItemUsecase(WorkItemId, reason)));
+        if (actionError is null)
+        {
+            discardDialogOpen = false;
+            discardReason = string.Empty;
+        }
+    }
 
     private Task ReplanAsync() => RunActionAsync(() => Sender.Send(new ReplanWorkItemUsecase(WorkItemId)));
 

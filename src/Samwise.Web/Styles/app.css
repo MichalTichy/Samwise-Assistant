@@ -700,6 +700,9 @@
     .metadata-card dl > div:last-child { border-bottom: 0; }
     .metadata-card dt { color: #9a8d80; font-weight: 500; }
     .metadata-card dd { margin: 0; color: #554a41; text-align: right; }
+    .metadata-card .metadata-reason { display: block; }
+    .metadata-card .metadata-reason dd { margin-top: .35rem; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+    .discard-dialog-copy { margin: 0 0 1rem; color: #76695d; font-size: .82rem; line-height: 1.55; }
     .activity-card .detail-card-heading { align-items: center; }
     .activity-list-item { width: 100%; padding: .65rem .35rem; display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: .6rem; border-bottom: 1px solid #eee4d7; border-radius: .55rem; text-align: left; background: transparent; transition: background .16s ease, transform .16s ease; }
     .activity-list-item:last-child { border-bottom: 0; }

@@ -44,7 +44,7 @@ else
             </div>
             @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
             {
-                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy" Class="detail-discard-header">Discard work item</LumexButton>
+                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="OpenDiscardDialog" Disabled="@actionBusy" Class="detail-discard-header">Discard work item</LumexButton>
             }
         </header>
 
@@ -482,6 +482,10 @@ else
                         {
                             <div><dt>@(workItem.Status == WorkItemStatus.Discarded ? "Discarded" : "Previously discarded")</dt><dd>@discardedAt.ToLocalTime().ToString("g") · @workItem.DiscardedFrom</dd></div>
                         }
+                        @if (!string.IsNullOrWhiteSpace(workItem.DiscardReason))
+                        {
+                            <div class="metadata-reason"><dt>@(workItem.Status == WorkItemStatus.Discarded ? "Reason" : "Previous discard reason")</dt><dd>@workItem.DiscardReason</dd></div>
+                        }
                     </dl>
                 </section>
 
@@ -555,7 +559,7 @@ else
         @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
         {
             <div class="detail-discard-footer">
-                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy" FullWidth="true">Discard work item</LumexButton>
+                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="OpenDiscardDialog" Disabled="@actionBusy" FullWidth="true">Discard work item</LumexButton>
             </div>
         }
     </div>
@@ -594,7 +598,7 @@ else
                 <div class="mobile-sheet-actions">
                     <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="RejectAsync" Disabled="@actionBusy">Reject with feedback</LumexButton>
                     <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" FullWidth="true" OnClick="ReplanAsync" Disabled="@actionBusy">Replan without feedback</LumexButton>
-                    <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" FullWidth="true" OnClick="DiscardAsync" Disabled="@actionBusy">Discard work item</LumexButton>
+                    <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" FullWidth="true" OnClick="OpenDiscardDialog" Disabled="@actionBusy">Discard work item</LumexButton>
                 </div>
             </div>
         }
@@ -605,6 +609,33 @@ else
             <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
         </div>
     }
+
+    <LumexModal Open="@discardDialogOpen"
+                OpenChanged="HandleDiscardDialogOpenChangedAsync"
+                Size="@ModalSize.Small">
+        <LumexModalContent>
+            <LumexModalHeader>
+                <h2>Discard this Work Item?</h2>
+            </LumexModalHeader>
+            <LumexModalBody>
+                <p class="discard-dialog-copy">You can add a reason to help improve how Samwise handles similar inputs later.</p>
+                @if (!string.IsNullOrWhiteSpace(actionError))
+                {
+                    <div class="inline-alert detail-alert">@actionError</div>
+                }
+                <LumexTextarea MinRows="3"
+                               MaxRows="7"
+                               Behavior="@InputBehavior.OnInput"
+                               Variant="@InputVariant.Outlined"
+                               Placeholder="Reason (optional)…"
+                               @bind-Value="discardReason" />
+            </LumexModalBody>
+            <LumexModalFooter>
+                <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="CloseDiscardDialog" Disabled="@actionBusy">Cancel</LumexButton>
+                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy">@(actionBusy ? "Discarding…" : "Discard Work Item")</LumexButton>
+            </LumexModalFooter>
+        </LumexModalContent>
+    </LumexModal>
 
     <AgentInvocationDetails Invocation="selectedInvocation" @bind-Open="activityDetailsOpen" />
 }

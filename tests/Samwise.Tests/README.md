@@ -4,7 +4,7 @@ This project verifies domain invariants, application workflow boundaries, Gatewa
 
 ## Structure
 
-- `WorkItems/` tests aggregate transitions, revision-bound approval, invalidation, discard restoration, execution outcomes, and terminal planning dispositions.
+- `WorkItems/` tests aggregate transitions, revision-bound approval, invalidation, discard restoration, execution outcomes, and terminal planning dispositions. Execution compatibility tests preserve approvals across unrelated catalog changes and equivalent schema formatting while blocking missing, disabled, ambiguous, or changed planned tools for both human and automatic approval profiles.
 - `Inbox/` tests inbound-event state, computed manual/received-email/sent-email intake text, stable IMAP identity, and the classification-to-planning processing flow.
 - `Inputs/Email/` tests polling configuration, exact ignored-sender normalization, and independent INBOX/Sent checkpoint initialization.
 - `Prompts/` tests the single agent-configuration aggregate, full and prompt-only stage updates, attribute-derived placeholder metadata and stage assignments, template validation, deterministic rendering, and the centralized builder's repository/catalog retrieval for all three stages.

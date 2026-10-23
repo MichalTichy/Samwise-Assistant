@@ -77,14 +77,11 @@ internal sealed class WorkItemAutomaticApprovalService(
                 return;
             }
 
-            var unavailableTool = plan.Steps.SelectMany(step => step.ToolCalls)
-                .Select(call => call.ToolId)
-                .Distinct(StringComparer.Ordinal)
-                .FirstOrDefault(toolId => !ToolMatches(plan, prompt.ExecutionTools, toolId));
+            var unavailableTool = PlanExecutionToolCompatibility.FindIncompatibleTool(plan, prompt.ExecutionTools);
             if (unavailableTool is not null)
             {
                 await RecordAsync(
-                    $"The restricted execution profile cannot invoke planned tool '{unavailableTool}' with the planned schema.",
+                    $"The restricted execution profile cannot invoke planned tool '{unavailableTool}' with its approved definition.",
                     false, null, catalogVersion);
                 return;
             }
@@ -161,12 +158,4 @@ internal sealed class WorkItemAutomaticApprovalService(
         workItem.Revision == revision &&
         workItem.CurrentPlanId == planId &&
         workItem.FindCurrentPlan() is { Review: null, AutomaticApproval: null };
-
-    private static bool ToolMatches(WorkItemPlan plan, ToolCatalogSnapshot restrictedCatalog, string toolId)
-    {
-        var planned = plan.ExecutionTools.Tools.SingleOrDefault(tool => tool.Id == toolId);
-        var restricted = restrictedCatalog.Tools.SingleOrDefault(tool => tool.Id == toolId && tool.CanInvoke);
-        return planned is not null && restricted is not null &&
-            string.Equals(planned.InputSchemaJson, restricted.InputSchemaJson, StringComparison.Ordinal);
-    }
 }

@@ -37,24 +37,21 @@ internal sealed class WorkItemExecutionService(
             var stage = plan.Review?.Source == DomainWorkItem.AutomaticApprovalSource
                 ? AgentStage.AutoApprovedExecution
                 : AgentStage.Execution;
-            var approvedCatalogVersion = stage == AgentStage.AutoApprovedExecution
-                ? plan.AutomaticApproval is { Approved: true } assessment
-                    ? assessment.ExecutionCatalogVersion
-                    : throw new InvalidOperationException("The automatic approval assessment is missing.")
-                : plan.ExecutionTools.CatalogVersion;
+            if (stage == AgentStage.AutoApprovedExecution && plan.AutomaticApproval is not { Approved: true })
+            {
+                throw new InvalidOperationException("The automatic approval assessment is missing.");
+            }
             var prompt = await promptBuilder.BuildExecutionAsync(
                 workItem.Id,
                 request.WorkItemRevision,
                 plan.Id,
                 cancellationToken,
                 stage);
-            if (!string.Equals(
-                    approvedCatalogVersion,
-                    prompt.ExecutionTools.CatalogVersion,
-                    StringComparison.Ordinal))
+            var incompatibleTool = PlanExecutionToolCompatibility.FindIncompatibleTool(plan, prompt.ExecutionTools);
+            if (incompatibleTool is not null)
             {
                 throw new InvalidOperationException(
-                    "The execution tool catalog changed after approval. Replanning is required.");
+                    $"The execution tool '{incompatibleTool}' is unavailable or its approved definition changed. Replanning is required.");
             }
 
             invocation = await invocationService.StartAsync(

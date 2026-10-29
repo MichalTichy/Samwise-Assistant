@@ -1,9 +1,12 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Samwise.Domain.Agents;
 using Samwise.Infrastructure.AgentRuntimes.Agents;
 using Samwise.Infrastructure.CodexGateway.Catalogs;
+using Samwise.Infrastructure.Mcp.Tools;
+using Samwise.Logic.Agents;
 
 namespace Samwise.Tests.Agents;
 
@@ -58,6 +61,51 @@ public sealed class CodexGatewayCatalogTests
         Assert.Equal("search", tool.Name);
         Assert.True(tool.CanInvoke);
         Assert.Equal("/p/samwise-planning/v1/tools", factory.RequestUri?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task NativeShellCapabilityCanBeResolvedAndUsedInAReviewedDocumentPlan()
+    {
+        const string catalog = """
+            {
+              "object": "list",
+              "catalog_version": "sha256:workspace-shell",
+              "data": [{
+                "id": "codex-built-in",
+                "name": "Codex built-in tools",
+                "version": "2",
+                "required": false,
+                "tools": [{
+                  "id": "codex-built-in/shell",
+                  "name": "shell",
+                  "description": "Process local documents using the native shell and openpyxl.",
+                  "input_schema": {
+                    "type": "object",
+                    "properties": { "command": { "type": "string", "minLength": 1 } },
+                    "required": ["command"],
+                    "additionalProperties": false
+                  },
+                  "_meta": { "source": "codex", "execution": "native-shell" }
+                }]
+              }]
+            }
+            """;
+        var (client, _) = CreateClient(catalog);
+        var executionCatalog = await client.GetToolsAsync(AgentStage.Execution);
+        var schemaJson = await new ExecutionToolCatalogTools(client)
+            .GetExecutionToolSchemaAsync("codex-built-in/shell");
+        using var schema = JsonDocument.Parse(schemaJson);
+        Assert.True(schema.RootElement.GetProperty("found").GetBoolean());
+        var tool = schema.RootElement.GetProperty("tool");
+        Assert.Equal("string", tool.GetProperty("input_schema").GetProperty("properties")
+            .GetProperty("command").GetProperty("type").GetString());
+
+        var plan = new PlanDraft(null, "Prepare a workbook for review.", [], [],
+            [new PlanStepDraft(1, "Fill the workbook", "Use openpyxl on the supplied template.",
+                [new PlanToolCallDraft("codex-built-in/shell", """{"command":"python3 ./artifacts/fill_workbook.py"}""")],
+                false, "The completed workbook is available in ./artifacts for the approved handoff.")]);
+
+        AgentWorkflowSupport.ValidatePlan(plan, executionCatalog);
     }
 
     [Theory]

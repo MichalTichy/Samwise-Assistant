@@ -111,6 +111,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
                 ExecutionWireDisposition.Succeeded => ExecutionDisposition.Succeeded,
                 ExecutionWireDisposition.Failed => ExecutionDisposition.Failed,
                 ExecutionWireDisposition.OutcomeUnknown => ExecutionDisposition.OutcomeUnknown,
+                ExecutionWireDisposition.AwaitingExternalEvent => ExecutionDisposition.AwaitingExternalEvent,
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(result.Disposition),
                     result.Disposition,
@@ -279,6 +280,7 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         "userinputrequired" => PlanningDisposition.UserInputRequired,
         "alreadyresolved" => PlanningDisposition.AlreadyResolved,
         "nolongerrelevant" => PlanningDisposition.NoLongerRelevant,
+        "awaitingexternalevent" => PlanningDisposition.AwaitingExternalEvent,
         _ => throw new InvalidOperationException($"Unknown planning disposition '{value}'.")
     };
 
@@ -387,7 +389,10 @@ internal sealed class OpenAiAgentRuntime : IAgentRuntime
         Failed,
 
         [JsonStringEnumMemberName("outcome_unknown")]
-        OutcomeUnknown
+        OutcomeUnknown,
+
+        [JsonStringEnumMemberName("awaiting_external_event")]
+        AwaitingExternalEvent
     }
 
     private sealed record StructuredResponse<T>(

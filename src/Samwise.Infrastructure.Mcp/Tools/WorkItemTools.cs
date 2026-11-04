@@ -14,7 +14,7 @@ public sealed class WorkItemTools(IReadOnlyRepository<DomainWorkItem> repository
     [McpServerTool(Name = "list_work_items")]
     [Description("Lists recent Samwise Work Items, optionally filtered by status. Use get_work_item for the complete item and plan history.")]
     public async Task<string> ListWorkItemsAsync(
-        [Description("Optional status: Planning, AwaitingUserInput, AwaitingApproval, Approved, Executing, NeedsAttention, Completed, Discarded, or OutcomeUnknown.")]
+        [Description("Optional status: Planning, AwaitingUserInput, AwaitingExternalEvent, AwaitingApproval, Approved, Executing, NeedsAttention, Completed, Discarded, or OutcomeUnknown.")]
         string? status = null,
         [Description("Maximum number of Work Items to return, from 1 to 100.")]
         int limit = 25,
@@ -51,6 +51,7 @@ public sealed class WorkItemTools(IReadOnlyRepository<DomainWorkItem> repository
                 descriptionPreview = SamwiseMcpJson.Truncate(workItem.Description, 500),
                 workItem.CurrentPlanId,
                 pendingQuestion = workItem.PendingPlanningQuestion?.Prompt,
+                workItem.WaitingReason,
                 planCount = workItem.Plans.Count,
                 workItem.CreatedAt,
                 workItem.UpdatedAt,

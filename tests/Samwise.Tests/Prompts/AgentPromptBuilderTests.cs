@@ -71,6 +71,7 @@ public sealed class AgentPromptBuilderTests
         Assert.DoesNotContain(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
         Assert.Contains("labels a participant, mailbox, or message as You", result.Text, StringComparison.Ordinal);
         Assert.Contains("never swap the conversation sides", result.Text, StringComparison.Ordinal);
+        Assert.Contains("satisfies an exact active item's prerequisite", result.Text, StringComparison.Ordinal);
         Assert.Equal("intake-model", result.Configuration.Model);
         Assert.Equal("high", result.Configuration.ReasoningEffort);
         Assert.Equal(catalogs[AgentStage.Intake], result.IntakeTools);
@@ -139,6 +140,7 @@ public sealed class AgentPromptBuilderTests
 
         Assert.Contains(workItem.Title, result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Id, result.Text, StringComparison.Ordinal);
+        Assert.Contains("disposition=awaiting_external_event", result.Text, StringComparison.Ordinal);
         Assert.Contains(playbook.Description, result.Text, StringComparison.Ordinal);
         Assert.Contains(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
         Assert.Contains(source.InboundEventId, result.Text, StringComparison.Ordinal);
@@ -347,6 +349,8 @@ public sealed class AgentPromptBuilderTests
         Assert.Contains(plan.Id, result.Text, StringComparison.Ordinal);
         Assert.Contains(plan.Summary, result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(catalogs[AgentStage.Execution].RawJson, result.Text, StringComparison.Ordinal);
+        Assert.Contains("completes the entire Work Item, not just this plan", result.Text, StringComparison.Ordinal);
+        Assert.Contains("disposition=awaiting_external_event", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("PLANNING-CATALOG-PAYLOAD", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("EXECUTION-CATALOG-PAYLOAD", result.Text, StringComparison.Ordinal);
         Assert.True(result.Text.Length < 10_000);

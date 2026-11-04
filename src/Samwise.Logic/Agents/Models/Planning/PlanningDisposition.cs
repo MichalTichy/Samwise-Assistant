@@ -5,5 +5,6 @@ public enum PlanningDisposition
     PlanRequired,
     UserInputRequired,
     AlreadyResolved,
-    NoLongerRelevant
+    NoLongerRelevant,
+    AwaitingExternalEvent
 }

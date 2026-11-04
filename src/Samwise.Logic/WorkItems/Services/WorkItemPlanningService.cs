@@ -116,6 +116,15 @@ internal sealed class WorkItemPlanningService(
                 return;
             }
 
+            if (result.Disposition == PlanningDisposition.AwaitingExternalEvent)
+            {
+                currentWorkItem.AwaitExternalEvent(
+                    result.ResolutionReason!, invocation.Id, timeProvider.GetUtcNow());
+                await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+                await eventPublisher.PublishAsync(currentWorkItem);
+                return;
+            }
+
             if (result.Disposition == PlanningDisposition.NoLongerRelevant)
             {
                 currentWorkItem.DiscardDuringPlanning(

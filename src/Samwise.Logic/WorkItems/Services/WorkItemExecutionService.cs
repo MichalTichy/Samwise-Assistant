@@ -87,6 +87,11 @@ internal sealed class WorkItemExecutionService(
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
             switch (result.Disposition)
             {
+                case ExecutionDisposition.AwaitingExternalEvent:
+                    currentWorkItem.AwaitExternalEvent(result.Summary, invocation.Id, timeProvider.GetUtcNow());
+                    currentWorkItem.AddExecutionUpdate(
+                        AgentWorkflowSupport.FormatExecutionResult(result), timeProvider.GetUtcNow());
+                    break;
                 case ExecutionDisposition.Succeeded:
                     currentWorkItem.CompleteExecution(
                         result.Summary,

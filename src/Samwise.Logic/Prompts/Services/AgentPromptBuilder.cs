@@ -30,7 +30,28 @@ internal sealed class AgentPromptBuilder(
         - A create item requires proposed_title and null existing_work_item_id.
         - An append item requires the exact existing_work_item_id of an active candidate and null proposed_title. Combine all context for the same target into one item.
         - For ignore or needs_review, return an empty work_items array.
+        - An approval or other status notice that satisfies an exact active item's prerequisite is a material update even without an explicit request. Append it to that item, including AwaitingExternalEvent items; do not confuse completing an intermediate stage with fulfilling the whole outcome.
         These structural requirements take precedence over any obsolete singular response instructions in the configurable prompt.
+        """;
+
+    private const string PlanningContinuationContract = """
+
+        Mandatory continuation contract:
+        - When meaningful work remains but only an external approval, response, or owner action can release it, return disposition=awaiting_external_event instead of already_resolved, no_longer_relevant, a fabricated owner question, or a read-only approval plan.
+        - For awaiting_external_event, resolution_reason must identify the exact dependency, known record IDs, remaining outcome, and observable event that can release it. Set question and playbook_id to null and leave summary, assumptions, risks, and steps empty.
+        - Do useful supported work now when possible. A plan may complete an intermediate stage, but its verification must distinguish that stage from the full Work Item completion condition and record any remaining dependency. Approval of that plan does not authorize later external effects.
+        - A future event is not a scheduled retry. Do not promise polling or a timer that has not been configured.
+        These lifecycle requirements take precedence over obsolete disposition instructions in the configurable prompt.
+        """;
+
+    private const string ExecutionContinuationContract = """
+
+        Mandatory execution completion contract:
+        - disposition=succeeded completes the entire Work Item, not just this plan. Return it only when every approved required operation succeeded AND evidence establishes the Work Item's full completion condition.
+        - When all approved operations succeeded but the Work Item still awaits an external approval, response, or owner action, return disposition=awaiting_external_event. In summary identify completed effects, exact IDs, what remains, and the event that can release it. Preserve verification evidence in outputs. Invoice creation does not complete invoice delivery; a saved email draft does not prove sending.
+        - Waiting is not a failed or uncertain execution. A rejected required operation is failed; any unverified attempted external effect is outcome_unknown. Neither may be hidden as waiting. Do not repeat completed effects or execute unapproved continuation steps.
+        - If remaining work can be performed now but is outside the approved plan, return awaiting_external_event and identify the owner review/replan needed. Do not expand approval or invent a scheduled retry.
+        These lifecycle requirements take precedence over obsolete success instructions in the configurable prompt.
         """;
 
     private const string AutomaticApprovalContract = """
@@ -81,6 +102,7 @@ internal sealed class AgentPromptBuilder(
                         title = workItem.Title,
                         description = Truncate(workItem.Description, 400),
                         status = workItem.Status.ToString(),
+                        waiting_reason = workItem.WaitingReason,
                         revision = workItem.Revision,
                         updated_at = workItem.UpdatedAt
                     }),
@@ -167,6 +189,7 @@ internal sealed class AgentPromptBuilder(
 
         text = AppendSourceReferences(text, workItem);
         text = AppendAttachmentGuidance(text, planningTools);
+        text = string.Concat(text.TrimEnd(), PlanningContinuationContract);
 
         return new PlanningAgentPrompt(
             text,
@@ -277,6 +300,7 @@ internal sealed class AgentPromptBuilder(
 
         text = AppendSourceReferences(text, workItem);
         text = AppendAttachmentGuidance(text, executionTools);
+        text = string.Concat(text.TrimEnd(), ExecutionContinuationContract);
 
         return new ExecutionAgentPrompt(
             text,

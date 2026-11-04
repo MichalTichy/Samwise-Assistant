@@ -19,6 +19,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public int NextPlanNumber { get; set; }
     public string? CurrentPlanId { get; set; }
     public string? LatestPlanningFeedback { get; set; }
+    public string? WaitingReason { get; set; }
     public PlanningQuestion? PendingPlanningQuestion { get; set; }
     public List<PlanningDecision> PlanningDecisions { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
@@ -198,6 +199,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         CurrentPlanId = null;
         PendingPlanningQuestion = null;
         LatestPlanningFeedback = normalizedText;
+        WaitingReason = null;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
         Record(new WorkItemContextAdded(Id, Title, now, normalizedText, authorKind));
@@ -303,18 +305,37 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     {
         if (Status is not (
             WorkItemStatus.AwaitingUserInput
+            or WorkItemStatus.AwaitingExternalEvent
             or WorkItemStatus.AwaitingApproval
             or WorkItemStatus.NeedsAttention))
         {
             throw new InvalidOperationException(
-                "Only a work item awaiting user input, awaiting approval, or needing attention can be replanned.");
+                "Only a work item awaiting user input, an external event, approval, or needing attention can be replanned.");
         }
 
         CurrentPlanId = null;
         PendingPlanningQuestion = null;
+        WaitingReason = null;
         Status = WorkItemStatus.Planning;
         UpdatedAt = now;
         Record(new ReplanRequested(Id, Title, now));
+    }
+
+    public void AwaitExternalEvent(string reason, string agentInvocationId, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentInvocationId);
+        if (Status is not (WorkItemStatus.Planning or WorkItemStatus.Executing))
+        {
+            throw new InvalidOperationException("Only planning or executing work can await an external event.");
+        }
+
+        WaitingReason = reason.Trim();
+        PendingPlanningQuestion = null;
+        Status = WorkItemStatus.AwaitingExternalEvent;
+        UpdatedAt = now;
+        AddExecutionUpdate($"Waiting for external event (agent invocation {agentInvocationId}): {WaitingReason}", now);
+        Record(new WorkItemAwaitingExternalEvent(Id, Title, now, WaitingReason, agentInvocationId));
     }
 
     public void StartExecution(string planId, int workItemRevision, DateTimeOffset now)
@@ -483,6 +504,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
         CurrentPlanId = null;
         PendingPlanningQuestion = null;
         LatestPlanningFeedback = null;
+        WaitingReason = null;
         Comments.Add(CreateComment(
             $"Restored from the discarded state through {source}.",
             CommentAuthorKind.System,

@@ -10,5 +10,6 @@ public enum WorkItemStatus
     Completed = 5,
     Discarded = 6,
     OutcomeUnknown = 7,
-    AwaitingUserInput = 8
+    AwaitingUserInput = 8,
+    AwaitingExternalEvent = 9
 }

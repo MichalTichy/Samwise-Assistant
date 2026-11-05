@@ -268,8 +268,10 @@
     .column-cards { min-width: 0; display: grid; align-content: start; gap: .65rem; }
     .work-item-card-link { display: block; min-width: 0; max-width: 100%; color: inherit; text-decoration: none; }
     .work-item-card { width: 100%; min-width: 0; max-width: 100%; border: 1px solid rgb(104 67 41 / .09); background: #fffcf5; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
-    .work-item-card-link:hover .work-item-card { border-color: rgb(216 149 47 / .4); box-shadow: 0 12px 25px rgb(69 46 27 / .1); transform: translateY(-2px); }
+    .work-item-card:has(.work-item-card-link:hover) { border-color: rgb(216 149 47 / .4); box-shadow: 0 12px 25px rgb(69 46 27 / .1); transform: translateY(-2px); }
     .work-item-card-body { padding: .95rem !important; }
+    .work-item-card-actions { display: flex; justify-content: flex-end; margin-top: .5rem; }
+    .work-item-card-actions > button { min-height: 44px; }
     .work-item-card-topline, .work-item-card footer { display: flex; align-items: center; justify-content: space-between; gap: .65rem; }
     .work-item-card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; min-width: 0; }
     .auto-execution-chip { white-space: nowrap; }

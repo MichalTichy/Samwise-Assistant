@@ -1,7 +1,9 @@
+using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.WorkItems;
 using Samwise.Logic.WorkItems.Specifications;
+using Samwise.Logic.WorkItems.Usecases;
 using Shared.Infrastructure.Persistence.Repositories;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
 using Task = System.Threading.Tasks.Task;
@@ -27,10 +29,17 @@ public partial class Board : IAsyncDisposable
 
     private IReadOnlyList<WorkItemCard> workItems = [];
     private bool loading = true;
+    private WorkItemCard? workItemToDiscard;
+    private string discardReason = string.Empty;
+    private string? discardError;
+    private bool discarding;
     private string? defaultMobileColumnKey;
     private readonly SemaphoreSlim loadGate = new(1, 1);
     private CancellationTokenSource? refreshCancellation;
     private Task? refreshTask;
+
+    [Inject]
+    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<DomainWorkItem> WorkItemRepository { get; set; } = default!;
@@ -172,6 +181,68 @@ public partial class Board : IAsyncDisposable
         finally
         {
             loadGate.Release();
+        }
+    }
+
+    private void OpenDiscardDialog(WorkItemCard workItem)
+    {
+        if (discarding)
+        {
+            return;
+        }
+
+        workItemToDiscard = workItem;
+        discardReason = string.Empty;
+        discardError = null;
+    }
+
+    private void CloseDiscardDialog()
+    {
+        if (discarding)
+        {
+            return;
+        }
+
+        workItemToDiscard = null;
+        discardReason = string.Empty;
+        discardError = null;
+    }
+
+    private Task HandleDiscardDialogOpenChangedAsync(bool open)
+    {
+        if (!open)
+        {
+            CloseDiscardDialog();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task DiscardAsync()
+    {
+        if (discarding || workItemToDiscard is not { } workItem)
+        {
+            return;
+        }
+
+        discarding = true;
+        discardError = null;
+        await loadGate.WaitAsync();
+        try
+        {
+            await Sender.Send(new DiscardWorkItemUsecase(workItem.Id, discardReason));
+            workItems = workItems.Where(card => card.Id != workItem.Id).ToList();
+            workItemToDiscard = null;
+            discardReason = string.Empty;
+        }
+        catch (Exception exception)
+        {
+            discardError = exception.Message;
+        }
+        finally
+        {
+            loadGate.Release();
+            discarding = false;
         }
     }
 

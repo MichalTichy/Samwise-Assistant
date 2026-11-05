@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 @using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus
+@using Samwise.Web.Resources
 
 <PageTitle>Board · Samwise</PageTitle>
 
@@ -58,9 +59,9 @@ else
                 <div class="column-cards">
                     @foreach (var workItem in cards)
                     {
-                        <a class="work-item-card-link" href="work-items/@workItem.Id">
                         <LumexCard Class="work-item-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
                             <LumexCardBody Class="work-item-card-body">
+                            <a class="work-item-card-link" href="work-items/@workItem.Id">
                             <div class="work-item-card-topline">
                                 <div class="work-item-card-badges">
                                     <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip status-{workItem.Status.ToString().ToLowerInvariant()}")">@FormatStatus(workItem.Status)</LumexChip>
@@ -81,9 +82,15 @@ else
                                     : workItem.PlanNumber is null ? "Plan pending" : $"Plan {workItem.PlanNumber}")</span>
                                 <time>@workItem.UpdatedAt.ToLocalTime().ToString("d MMM, HH:mm")</time>
                             </footer>
+                            </a>
+                            @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
+                            {
+                                <div class="work-item-card-actions">
+                                    <LumexButton Size="@Size.Small" Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="() => OpenDiscardDialog(workItem)" Disabled="@discarding">@WorkItemResources.Discard</LumexButton>
+                                </div>
+                            }
                             </LumexCardBody>
                         </LumexCard>
-                        </a>
                     }
 
                     @if (cards.Count == 0)
@@ -97,3 +104,32 @@ else
 }
 
 </div>
+
+<LumexModal Open="@(workItemToDiscard is not null)"
+            OpenChanged="HandleDiscardDialogOpenChangedAsync"
+            Size="@ModalSize.Small">
+    <LumexModalContent>
+        <LumexModalHeader>
+            <h2>@WorkItemResources.DiscardConfirmation</h2>
+        </LumexModalHeader>
+        <LumexModalBody>
+            <strong>@workItemToDiscard?.Title</strong>
+            <p class="discard-dialog-copy">@WorkItemResources.DiscardReasonHelp</p>
+            @if (!string.IsNullOrWhiteSpace(discardError))
+            {
+                <div class="inline-alert detail-alert" role="alert">@discardError</div>
+            }
+            <LumexTextarea MinRows="3"
+                           MaxRows="7"
+                           Behavior="@InputBehavior.OnInput"
+                           Variant="@InputVariant.Outlined"
+                           Placeholder="@WorkItemResources.DiscardReasonPlaceholder"
+                           Disabled="@discarding"
+                           @bind-Value="discardReason" />
+        </LumexModalBody>
+        <LumexModalFooter>
+            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="CloseDiscardDialog" Disabled="@discarding">@WorkItemResources.Cancel</LumexButton>
+            <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@discarding">@(discarding ? WorkItemResources.Discarding : WorkItemResources.DiscardWorkItem)</LumexButton>
+        </LumexModalFooter>
+    </LumexModalContent>
+</LumexModal>

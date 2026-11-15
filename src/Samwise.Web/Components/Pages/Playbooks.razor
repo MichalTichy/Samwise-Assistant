@@ -10,7 +10,7 @@
         <h1>Playbooks</h1>
         <p>Give intake and planning reusable guidance for recurring kinds of work.</p>
     </div>
-    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewPlaybook">New playbook</LumexButton>
+    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewPlaybook" Disabled="@saving">New playbook</LumexButton>
 </div>
 
 <div class="prompt-layout">
@@ -28,6 +28,7 @@
             <LumexButton FullWidth="true"
                          Variant="@Variant.Light"
                          Color="@ThemeColor.Primary"
+                         Disabled="@saving"
                          Class="@($"prompt-tab {(playbook.Id == selectedId ? "active" : null)}")"
                          OnClick="() => Select(playbook)">
                 <strong>@playbook.Name</strong>
@@ -106,6 +107,19 @@
 
             <div class="prompt-actions">
                 <span>Existing plans keep their saved playbook snapshot.</span>
+                @if (selectedId is not null)
+                {
+                    @if (confirmingDelete)
+                    {
+                        <span role="alert">Permanently delete this playbook?</span>
+                        <LumexButton Color="@ThemeColor.Danger" OnClick="DeleteAsync" Disabled="@saving">Delete permanently</LumexButton>
+                        <LumexButton OnClick="() => confirmingDelete = false" Disabled="@saving">Cancel</LumexButton>
+                    }
+                    else
+                    {
+                        <LumexButton Color="@ThemeColor.Danger" Variant="@Variant.Light" OnClick="() => confirmingDelete = true" Disabled="@saving">Delete playbook</LumexButton>
+                    }
+                }
                 <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@saving">
                     @(saving ? "Saving…" : "Save playbook")
                 </LumexButton>

@@ -19,6 +19,7 @@ public partial class Playbooks
     private IReadOnlyList<string> errors = [];
     private string? saveMessage;
     private bool saving;
+    private bool confirmingDelete;
     private bool loading = true;
 
     [Inject]
@@ -51,6 +52,7 @@ public partial class Playbooks
 
     private void NewPlaybook()
     {
+        confirmingDelete = false;
         selectedId = null;
         name = string.Empty;
         applicability = string.Empty;
@@ -63,6 +65,7 @@ public partial class Playbooks
 
     private void Select(Playbook playbook)
     {
+        confirmingDelete = false;
         selectedId = playbook.Id;
         name = playbook.Name;
         applicability = playbook.Applicability;
@@ -73,8 +76,30 @@ public partial class Playbooks
         saveMessage = null;
     }
 
+    private async Task DeleteAsync()
+    {
+        if (selectedId is null || saving)
+        {
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            await Sender.Send(new DeletePlaybookUsecase(selectedId));
+            NewPlaybook();
+            await LoadAsync();
+            saveMessage = "Deleted";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
     private async Task SaveAsync()
     {
+        confirmingDelete = false;
         saving = true;
         saveMessage = null;
         try

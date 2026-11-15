@@ -34,6 +34,7 @@ public sealed class McpToolContractTests
 
         Assert.Equal(
             [
+                "delete_playbook",
                 "get_agent_invocation",
                 "get_agent_settings",
                 "get_execution_tool_schema",

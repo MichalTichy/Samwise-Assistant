@@ -15,6 +15,7 @@ Read tools use `IReadOnlyRepository<T>` and public specifications:
 Mutation tools send externally triggered application use cases through MediatR:
 
 - `save_agent_prompt` replaces one complete stage prompt while preserving its model and reasoning effort.
+- `delete_playbook` permanently deletes an exact Playbook while preserving existing plan snapshots; a missing ID returns `deleted=false`.
 - `save_playbook` creates or updates a Playbook, including its enabled state. Automatic-approval eligibility can only be changed in the authenticated web UI; MCP updates preserve it, and new MCP-created Playbooks are ineligible.
 - `replan_work_item` invalidates an unexecuted current plan or pending planning question and immediately generates its replacement while retaining plan and agent-activity history.
 - `restore_work_item` restores a discarded Work Item into a new planning revision while retaining its prior plans and discard metadata.
@@ -32,6 +33,6 @@ The adapter does not expose endpoint credentials, owner identity data, email-acc
 
 ## Security flow
 
-Every MCP request must carry `X-Api-Key` matching `SamwiseMcp:ApiKey`. In Compose, `SAMWISE_MCP_API_KEY` is available to both containers; configure Gateway's environment-header mapping as `X-Api-Key=SAMWISE_MCP_API_KEY`. Gateway reaches the service as `http://web:8080/mcp` on `gateway-backend`; no additional host port is published for MCP. Gateway project grants remain the fine-grained boundary: give planning the read tools and give execution the two write tools only when self-tuning is intended and approved.
+Every MCP request must carry `X-Api-Key` matching `SamwiseMcp:ApiKey`. In Compose, `SAMWISE_MCP_API_KEY` is available to both containers; configure Gateway's environment-header mapping as `X-Api-Key=SAMWISE_MCP_API_KEY`. Gateway reaches the service as `http://web:8080/mcp` on `gateway-backend`; no additional host port is published for MCP. Gateway project grants remain the fine-grained boundary: give planning the read tools and give execution the mutation tools only when self-tuning is intended and approved.
 
 Prompt and Playbook writes use the same validation and persistence flow as the UI. Tool responses contain validation errors instead of bypassing domain/application rules.

@@ -71,7 +71,7 @@ The Web-hosted `InboundEventProcessingBackgroundService` handles the shared queu
 2. It loads the Gateway model and MCP tool catalogs separately for each stage. The selected stage shows its granted MCP servers and grouped tools without exposing the profile credential to the browser.
 3. It presents model and model-specific reasoning-effort dropdowns and selects the Gateway-reported default when the model changes.
 4. Saving sends `SaveAgentStageConfigurationUsecase`, which validates the model/effort pair and prompt before updating the selected nested stage in that document.
-5. `Playbooks` reads playbook documents directly through `PlaybooksSpecification`; save actions send `SavePlaybookUsecase`.
+5. `Playbooks` reads playbook documents directly through `PlaybooksSpecification`; save actions send `SavePlaybookUsecase`, and confirmed deletion sends `DeletePlaybookUsecase`. Existing plans retain their saved snapshots.
 6. Both pages reload the saved documents rather than treating browser state as authoritative.
 
 ## Email-input flow

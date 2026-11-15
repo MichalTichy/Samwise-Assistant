@@ -1,171 +1,150 @@
 # Samwise Assistant
 
-Samwise is a single-user personal assistant that turns incoming information into approved, executable work.
+Samwise is a self-hosted personal assistant that turns messages, promises and requests into work you can review and approve. It follows incoming information, looks up the context, proposes a plan and uses connected tools to carry it out. New evidence can update existing work instead of creating another task.
 
-Version 1 accepts manual text, received and sent email messages, configured Microsoft Teams activity, and Todoist tasks that are due soon in the password-protected Blazor UI. Inputs do **not** create work items directly. They enter the same canonical inbound-event pipeline:
+Built for one owner, with a password-protected web app, a mobile-friendly board and Web Push notifications for proposals, questions and results. You choose the sources, tools and review policy.
+
+[Get started](#get-started) · [Example flows](#example-flows) · [Integrations](#integrations) · [Security](#security-and-data) · [Development](#development)
+
+## How it works
+
+Samwise owns the workflow and its history. [Codex CLI API Gateway](https://github.com/MichalTichy/CodexCLI-API-Gateway) runs the AI agents in isolated containers and controls their access to Model Context Protocol (MCP) tools. Gateway is a separate project that can also be used independently.
 
 ```mermaid
 flowchart LR
-    Capture["Capture inbound event"] --> Intake["AI intake classification"]
-    Intake -->|create_work_item| Create["Create work item"]
-    Intake -->|append_to_work_item| Append["Append context and invalidate plan"]
-    Intake -->|ignore| Ignore["Record ignored"]
-    Intake -->|needs_review| Review["Record needs review"]
-    Create --> Plan["Generate technical plan"]
-    Append --> Plan
-    Plan -->|plan_required| Approval["Wait for user approval"]
-    Plan -->|already_resolved| Done["Complete work item"]
-    Plan -->|no_longer_relevant| Discard["Discard work item"]
-    Approval -->|approve| Execute["Execute with execution Gateway key"]
-    Approval -->|reject + feedback| Replan["Increment revision and replan"]
-    Approval -->|discard| Discard["Discard work item"]
-    Replan --> Plan
-    Execute -->|confirmed success| Done["Complete work item"]
-    Execute -->|interrupted / uncertain| Unknown["Outcome unknown; reconcile manually"]
+    Sources["Mail, Teams, Todoist, manual input"] --> Intake["Understand and classify"]
+    Intake -->|"Action needed"| Plan["Investigate and propose a plan"]
+    Intake -->|"New evidence"| Update["Update existing work"]
+    Update --> Plan
+    Intake -->|"Informational"| Ignore["Record and ignore"]
+    Plan --> Review["Your review"]
+    Review -->|"Approve"| Execute["Execute with granted tools"]
+    Review -->|"Change it"| Plan
+    Execute --> Result["Result or follow-up"]
 ```
 
-The authoritative state lives in PostgreSQL. AI calls are one-shot and stateless; Samwise stores the exact rendered prompt, structured result, selected playbook snapshot, tool-catalog versions, work item revision, and approved plan needed for audit and continuation. An interrupted execution is never retried automatically because its external effects may already have happened.
+A **work item** keeps the objective, evidence, questions, plan, approval and execution history together. **Playbooks** describe recurring situations: what matters, what to ignore, what to investigate and what a useful result looks like. Work can stay open while waiting for a reply or your action; saving a draft does not mean the email was sent.
 
-## Technology
+## Example flows
 
-- .NET 10 and Blazor Interactive Server
-- LumexUI with Tailwind CSS 4 for the web interface
-- ASP.NET Core Identity password hashing and cookie authentication for one owner account
-- PostgreSQL with Marten for Samwise documents
-- MailKit for read-only IMAP ingestion with password or app-password authentication
-- one versioned work item aggregate containing its plans, plan reviews, comments, discard metadata, and exact tool-catalog snapshots
-- PostgreSQL with EF Core migrations for Identity
-- .NET Aspire for local orchestration
-- Microsoft Agent Framework `ChatClientAgent`
-- Official OpenAI .NET connector pointed at Codex CLI API Gateway
-- Official MCP C# SDK for Samwise's authenticated self-inspection and self-tuning endpoint
+Each flow needs the relevant accounts, tools and playbook. These are configurable scenarios, not integrations enabled by default.
 
-## Projects
+- **Keep track of promises.** You write “I'll send the documents by Friday” in a work email. Samwise finds the commitment, checks for an existing task and proposes one in your task manager. A later sent email can provide evidence of fulfilment, allowing it to reassess the work and propose completing the matching task. It can only recognize completion from connected sources.
+- **Prepare replies without sending.** A customer asks a question. Samwise retrieves the thread and shows you a proposed recipient and reply. After approval, it saves a draft in Outlook or another supported mailbox. You edit and send it yourself; sending permission can remain ungranted.
+- **Find a meeting time.** A request arrives by email or Teams. Samwise checks connected calendars and proposes an available slot. After approval of the exact time and participants, it can create the event or a calendar-backed Teams meeting. The plan must make any invitation-sending effect clear.
+- **Turn notices into follow-ups.** A parcel notice becomes a proposed pickup task with the actual deadline. A future check can be recorded in Todoist and return to Samwise when it enters the configured due window. Repeated notices can update existing work; informational messages can be ignored.
 
-- [Samwise.Domain](src/Samwise.Domain/README.md) — work item, plan, playbook, agent-stage configuration, inbound-event, comment, and invocation state
-- [Samwise.Logic](src/Samwise.Logic/README.md) — externally triggered MediatR use cases, reusable workflow services, public read specifications, playbook steering, prompt rendering, and UI-facing models
-- [Samwise.Inputs.Manual](src/Samwise.Inputs.Manual/README.md) — manual-input event and submit use case
-- [Samwise.Inputs.Email](src/Samwise.Inputs.Email/README.md) — email documents, events, ports, processing, configuration, and initialization
-- [Samwise.Inputs.Teams](src/Samwise.Inputs.Teams/README.md) — Teams documents, events, ports, processing, configuration, and initialization
-- [Samwise.Inputs.Todoist](src/Samwise.Inputs.Todoist/README.md) — Todoist task events, due-window processing, configuration, and initialization
-- [Samwise.Infrastructure.Persistence.Marten](src/Samwise.Infrastructure.Persistence.Marten/README.md) — only Marten registration and Samwise document mappings
-- [Samwise.Infrastructure.AgentRuntimes](src/Samwise.Infrastructure.AgentRuntimes/README.md) — provider-neutral endpoint configuration plus the standard OpenAI/Agent Framework implementation of `IAgentRuntime`
-- [Samwise.Infrastructure.CodexGateway](src/Samwise.Infrastructure.CodexGateway/README.md) — only the Gateway-specific model-capability and versioned MCP tool catalogs
-- [Samwise.Infrastructure.Email.Imap](src/Samwise.Infrastructure.Email.Imap/README.md) — provider-neutral read-only MailKit transport, password authentication, credential protection, and polling trigger
-- [Samwise.Infrastructure.Email.Microsoft365](src/Samwise.Infrastructure.Email.Microsoft365/README.md) — Microsoft device-code authorization, protected MSAL sessions, token refresh, and XOAUTH2 authentication
-- [Samwise.Infrastructure.Teams](src/Samwise.Infrastructure.Teams/README.md) — direct Microsoft Graph adapter for Teams sign-in, catalog lookup, message polling, and transcript discovery
-- [Samwise.Infrastructure.Todoist](src/Samwise.Infrastructure.Todoist/README.md) — read-only Todoist API v1 adapter and task polling
-- [Samwise.Infrastructure.WebPush](src/Samwise.Infrastructure.WebPush/README.md) — VAPID keys and Web Push delivery for work-item notifications
-- [Samwise.Infrastructure.Mcp](src/Samwise.Infrastructure.Mcp/README.md) — authenticated first-party MCP read tools plus prompt and Playbook commands
-- [Samwise.Infrastructure.Persistence.Identity](src/Samwise.Infrastructure.Persistence.Identity/README.md) — ASP.NET Core Identity storage, migration, and owner initializer
-- [Samwise.Web](src/Samwise.Web/README.md) — authenticated Blazor composition root and presentation
-- [Samwise.AppHost](src/Samwise.AppHost/README.md) — local PostgreSQL and web orchestration
-- [Samwise.ServiceDefaults](src/Samwise.ServiceDefaults/README.md) — health checks, telemetry, and service discovery defaults
-- [Samwise.Tests](tests/Samwise.Tests/README.md) — domain, prompt, runtime, architecture, Gateway, and persistence tests
-- `SharedInfrastructure/*` — repository-local copies of the installer, initializer, leader-election, specification, unit-of-work, and Marten building blocks used by the solution
+A deadline is different from a timed reminder. Web Push alerts draw attention to work-item events; task reminders need support and configuration in the connected task service. Setup checks how alerts actually reach you rather than treating a saved date as delivery evidence.
 
-Every project directory has its own README describing its internal structure, main components, call flow, and architectural boundary.
+## Get started
 
-See [architecture.md](docs/architecture.md) for the detailed design and [gateway-agent-framework-compatibility.md](docs/gateway-agent-framework-compatibility.md) for the Gateway contract.
+You need Docker Engine with Compose (Docker Desktop on Windows/macOS), persistent storage and an OpenAI account with usable Codex access. Source builds also need Git and Python 3.11+, but no host .NET SDK. Microsoft 365/Teams connections may require an Entra app registration and administrator consent.
 
-## Run locally
+Start on your computer or deploy to a server/NAS. A local installation processes work only while its computer and Docker are running.
 
-Prerequisites: .NET SDK 10.0.301 or compatible, Node.js, and Docker Desktop.
+### Guided setup
 
-The generated stylesheet is committed for ordinary local builds. After changing
-`src/Samwise.Web/Styles/app.css` or component markup, rebuild it with:
+Give an assistant that can read this checkout and run commands on the intended host the [setup guide](docs/ai-setup.md), or use the [samwise-setup skill](skills/samwise-setup/SKILL.md):
 
-```powershell
-cd src/Samwise.Web
-npm ci
-npm run build:css
+> Help me set up Samwise. Read docs/ai-setup.md in this checkout. Start with where my work comes from and what I want help with.
+
+The assistant proposes a small first setup, reuses or deploys Samwise and Gateway, guides your sign-ins and verifies a useful example. You create your own Samwise account in the browser. Passwords do not belong in chat; your owner account, AI account and provider connections have separate sign-ins.
+
+### Build and run a new installation
+
+Source builds avoid dependence on the default private image registry. Clone both repositories as siblings. Until the setup changes are merged into the default branches, use these companion branches:
+
+```bash
+git clone --branch t3/opensource-readiness https://github.com/MichalTichy/Samwise-Assistant.git
+git clone --branch codex/ai-assisted-setup https://github.com/MichalTichy/CodexCLI-API-Gateway.git
+cd Samwise-Assistant
+python scripts/ai_setup.py prepare --local-database --deployment-id samwise --gateway-source ../CodexCLI-API-Gateway
 ```
 
-Release builds regenerate the stylesheet automatically.
+`prepare` generates missing service secrets in ignored `.env`, selects local image tags and configures the optional PostgreSQL service. It preserves existing credentials. Use this path with fresh storage; use the guide to reuse an existing deployment.
 
-Before first launch, set `OwnerAccount:Email` and `OwnerAccount:InitialPassword` in
-`src/Samwise.Web/appsettings.json`. The repository values are local first-run defaults and should
-be changed before exposing the application beyond your machine.
+Create `.data/mcp-files` for shared files, then build and start:
 
-Start the Aspire host:
+```bash
+docker compose -f compose.yaml -f compose.local.yaml -f compose.build.yaml build
+docker compose -f compose.yaml -f compose.local.yaml -f compose.build.yaml up -d
+```
 
-```powershell
+On native Linux, set `DOCKER_GID` to the Docker socket's group before starting. See Gateway's [runner requirements](https://github.com/MichalTichy/CodexCLI-API-Gateway#prerequisites) for Docker compatibility and host-specific AppArmor setup.
+
+The services now run, but account connections and agent settings still need configuration:
+
+1. Run `python scripts/ai_setup.py registration-link`. Open the saved `.data/setup/owner-registration-link.txt` privately, create the owner account and verify sign-in. Clear `SAMWISE_OWNER_REGISTRATION_TOKEN` in `.env`, recreate `web` and remove the link file. Registration already stops working once the owner exists.
+2. Open Gateway at `http://localhost:5050/admin` using the administrator credentials in private `.env`. Complete Codex sign-in, then run `python scripts/ai_setup.py provision` to create separate intake, planning and execution keys. Recreate `web` to load them.
+3. Follow [connect Gateway and Samwise](docs/ai-setup.md#3-connect-gateway-and-samwise) to discover models, save stage settings, connect selected inputs/tools and create the first playbook. The helper does not choose all these settings automatically.
+4. In Samwise at `http://localhost:8080`, review a harmless example, verify its result and clean up the test artifacts. Enable notifications on your intended device and verify receipt. Set an explicit `SAMWISE_WEB_PUSH_SUBJECT` contact if you left the legacy owner-email setting empty.
+5. Follow the guide's closure step: blank both setup API keys, recreate `web` and `gateway`, and verify their setup routes return 404. Keep runtime keys and persistent volumes.
+
+For every recreation, use the same `-f compose.yaml -f compose.local.yaml -f compose.build.yaml` options as startup. For existing PostgreSQL, prebuilt images, HTTPS, backups and updates, see [deployment](docs/deployment.md). Default registry images may require credentials; source builds are the alternative.
+
+## Integrations
+
+**Inputs** bring information into Samwise. **MCP tools** let agents investigate or act. Connecting an input does not automatically grant tools; registering an MCP server does not enable background ingestion.
+
+| Connection | Built-in input | Optional agent tools |
+| --- | --- | --- |
+| Email | New received and sent mail via read-only IMAP; Microsoft 365 OAuth supported | Search threads, inspect attachments, save drafts; send only if granted |
+| Microsoft Teams | Microsoft Graph ingestion for configured activity | Chat/channel context, transcripts, meetings and separately granted message writes |
+| Todoist | Tasks entering a configured due window | Find, create or complete tasks through a separate MCP connection |
+| Calendar and contacts | No automatic input | Availability, event and contact operations through a connected provider |
+| Manual | Web form and dedicated input API, including mobile Shortcuts | The tools granted for the selected work |
+
+Companion projects worth connecting for these flows:
+
+- [MCP.MailCalendarContacts](https://github.com/MichalTichy/MCP.MailCalendarContacts) packages a reviewed Adjutant build for Microsoft 365, Outlook.com, Google and generic IMAP/SMTP mail, plus supported calendar/contact providers. Account permissions and Gateway grants control reads, drafts, sending and other writes separately. Useful for reply drafts, calendar coordination and attachments.
+- [MCP.Teams](https://github.com/MichalTichy/MCP.Teams) provides Teams chat, channel, calendar-backed meeting, call-history and transcript tools. Samwise's built-in Teams intake is independent. Call/transcript features may need additional tenant permissions.
+
+Deploy these separately using their own instructions, register them in Gateway and grant exact tools to the appropriate profiles. Both use trusted private networking for MCP access; keep their endpoints private. Neither starts in Samwise's default Compose stack. Match their backend network configuration to Gateway, especially with a custom deployment ID.
+
+The default stack includes filesystem (read-only shared folder), persistent memory and Playwright browser MCP servers. They still need registration and selected grants. Standard IMAP/SMTP and CalDAV alternatives are in [optional integrations](docs/deployment.md#optional-integrations).
+
+Teams privacy matters: current intake supports exclusions, not an allowlist guaranteeing every new unselected chat remains unread. Lookup tools have their own scope. If this boundary does not meet your needs, leave Teams disconnected and forward selected information manually.
+
+## Security and data
+
+Samwise combines reviewable plans, separate credentials and restricted tool access:
+
+- **Owner access.** ASP.NET Core Identity hashes the password and authenticates the owner with a cookie. A private one-time installation link creates the single owner; registration is unavailable afterward. There is no public signup, password-recovery or 2FA UI.
+- **Separate permissions.** Intake and planning use profiles intended for classification and read-only investigation. Execution has its own key/project and explicit tool grants. Gateway enforces the selected key's tool allowlist; new tools are not implicitly granted. Inspect actual catalogs, including native workspace tools, rather than trusting tool names or annotations.
+- **Review and changing evidence.** Human review is the default. Approval refers to the exact plan and work-item revision; new context can invalidate it. Execution checks its catalog snapshot and requires replanning if it changed. Optional automatic approval requires an explicitly eligible playbook, an assessment and a separate restricted execution profile.
+- **Isolated runs.** Gateway runs each model call in a short-lived Linux container. Its inner sandbox restricts model-generated commands to workspace processing and blocks direct command networking; external MCP actions use granted tools. Gateway itself has Docker socket access, which is host-administrator authority. Keep the control plane private and trust its administrators and MCP servers. This is a personal deployment, not hostile multi-tenant isolation. See the [Gateway security model](https://github.com/MichalTichy/CodexCLI-API-Gateway#runtime-request-flow).
+- **Protected credentials.** Samwise protects provider passwords, tokens and caches with its persisted ASP.NET Core Data Protection key ring. Keep `.env`, provider volumes and backups private; companion services have their own storage protections. Temporary setup keys are separate from runtime keys, never granted to running agents, and removed after setup. Disabled setup routes return 404.
+- **Audit and uncertain effects.** PostgreSQL retains input evidence, rendered prompts, structured responses, playbook snapshots, plans, reviews and execution history. Interrupted or uncertain execution is not blindly retried: reconcile its external result first to avoid duplicate actions.
+
+Self-hosting stores application state on your infrastructure; inference is not offline. Relevant messages, prompts and tool results are sent to the configured AI service through Gateway. Connected providers receive the requests you authorize. Treat incoming messages and tool output as untrusted: review and limited grants reduce prompt-injection risk but do not make model decisions infallible.
+
+For remote use, configure HTTPS and `SAMWISE_REQUIRE_HTTPS=true`, keep Gateway administration and unauthenticated private MCP endpoints off the public internet, and back up both databases and persistent volumes. Losing Data Protection keys makes protected credentials unreadable. [Deployment](docs/deployment.md) covers these settings and device notification requirements.
+
+## Improve it with use
+
+Start with one or two playbooks. After a few days, bring missed promises, unnecessary tasks or stale proposals to [samwise-tune-up](skills/samwise-tune-up/SKILL.md). It reviews evidence and helps adjust rules and connections. Tuning is iterative; configured integrations still need verification against your actual accounts and workflow.
+
+## Development
+
+Samwise uses .NET 10, Blazor Interactive Server, LumexUI/Tailwind CSS 4, PostgreSQL/Marten, ASP.NET Core Identity, Microsoft Agent Framework and the official MCP C# SDK. Every project has a README describing its boundary and components.
+
+For host development, install the SDK selected by [global.json](global.json) and Docker. Set a private `OwnerAccount:RegistrationToken` through user secrets for `src/Samwise.Web`, then run:
+
+```bash
 dotnet run --project src/Samwise.AppHost
 ```
 
-Startup creates the first and only owner with those values. Sign in with the initial password, then
-use **Change password** in the account menu. Later startups never reset an existing password from
-configuration. Samwise has no registration, email confirmation, password recovery, external login,
-2FA, or passkey UI.
+Aspire starts local PostgreSQL and the web app. Gateway is configured separately. Create the owner through `/register?token=<your-private-token>` on the local origin; configure agent endpoints with user secrets or environment variables. Follow the [Gateway contract](docs/gateway-agent-framework-compatibility.md) for the required APIs.
 
-Configure the Gateway's three profiles through user secrets or environment variables before exercising the AI workflow. Intake and planning may share the planning key; execution must use its separate key.
+Generated CSS is committed. After changing styles or component classes, run `npm ci` and `npm run build:css` in `src/Samwise.Web`; release builds regenerate it.
 
-In the Gateway admin UI, create `samwise-planning` and `samwise-execution` projects and grant the
-corresponding keys. The planning project should have no MCP tools, or only read-only tools that are
-safe during planning. The execution project owns the exact approved execution allowlist. Samwise
-retrieves that execution catalog separately and gives its metadata to the planner.
-
-Samwise also serves its own authenticated MCP endpoint at `/mcp`. Configure it in Gateway as
-`http://web:8080/mcp` with the environment-header mapping `X-Api-Key=SAMWISE_MCP_API_KEY`. Grant its read tools
-to planning so the agent can inspect Work Items, agent invocations, input events, Playbooks, and agent settings. Grant
-`save_agent_prompt`, `save_playbook`, and `replan_work_item` only to execution so mutations remain part of an
-approved plan.
-
-The Compose stack also runs [Mail, Calendar & Contacts MCP](https://github.com/MichalTichy/MCP.MailCalendarContacts),
-[Toggl MCP](https://github.com/MichalTichy/MCP.TogglTrack), and the official [Todoist MCP](https://github.com/Doist/todoist-mcp) server on the private
-`codex-gateway-backend` network. Their tools remain behind the Gateway: only tools explicitly
-enabled on each trusted server and granted to `samwise-execution` can be planned and invoked.
-Version 1 must leave `send_email` and `unsubscribe_from_email` ungranted.
-
-```powershell
-dotnet user-secrets set "AgentEndpoints:Intake:ApiKey" "..." --project src/Samwise.Web
-dotnet user-secrets set "AgentEndpoints:Planning:ApiKey" "..." --project src/Samwise.Web
-dotnet user-secrets set "AgentEndpoints:Execution:ApiKey" "..." --project src/Samwise.Web
-dotnet user-secrets set "SamwiseMcp:ApiKey" "..." --project src/Samwise.Web
-dotnet user-secrets set "ManualInputApi:ApiKey" "..." --project src/Samwise.Web
-```
-
-Mobile automations can submit directly to the normal intake queue without opening a confirmation page:
-
-```http
-POST /api/manual-input?type=shared-link
-X-Samwise-Input-Key: <manual-input-api-key>
-Content-Type: application/json
-
-{
-  "text": "Required input text",
-  "title": "Optional title",
-  "url": "https://example.com",
-  "note": "Optional additional context"
-}
-```
-
-Only `text` is required. `type`, `title`, `url`, and `note` are optional context for intake classification. A successful request returns `202 Accepted` immediately; processing continues through the same background intake queue as the web form and other inputs. Use the dedicated manual-input key only in the `X-Samwise-Input-Key` header, never in a query string.
-
-Base addresses have local defaults in `src/Samwise.Web/appsettings.json`; override them when the Gateway is hosted elsewhere. After signing in, configure the model, reasoning effort, and prompt for Intake, Planning, and Execution on **Agent settings**. Add optional enabled Playbooks to help intake recognize actionable scenarios and steer the planning agent.
-
-Configure one or more IMAP accounts under **Configuration → Inputs → Emails**. Generic providers may use a password/app password. Exchange Online requires Microsoft 365 OAuth: configure `SAMWISE_MICROSOFT365_CLIENT_ID` and `SAMWISE_MICROSOFT365_TENANT_ID`, select **Microsoft 365 sign-in**, and complete the displayed device-code login. Account creation records the current INBOX and Sent UIDs as starting checkpoints, so historical mail is not imported automatically. Samwise then polls enabled accounts at the UI-configured interval and captures every new received or sent message without changing message flags. A sent message may update an active Work Item and trigger replanning; planning can then keep work pending, complete an objective proven resolved, or discard one proven irrelevant. The manual action continues to search unread INBOX mail regardless of age. Passwords and Microsoft token caches are encrypted with the persisted Data Protection key ring.
-
-## Verify
-
-```powershell
+```bash
 dotnet restore Samwise.slnx
 dotnet build Samwise.slnx --no-restore
 dotnet test tests/Samwise.Tests/Samwise.Tests.csproj --no-build --no-restore
+python -m unittest discover -s scripts -p test_ai_setup.py
 ```
 
-## Deploy with Docker Compose
+Owner-registration integration tests additionally need `SAMWISE_IDENTITY_TEST_CONNECTION` pointing to a disposable PostgreSQL instance with database-creation permission. They create and remove their own test databases. See [setup validation](docs/setup/validation.md) and [onboarding validation](docs/setup/onboarding-validation.md) for actual checks and the limits of conversation simulations.
 
-The root `Dockerfile` builds the single `Samwise.Web` runtime image. The root `compose.yaml` runs that image together with Codex CLI API Gateway, its isolated runner, Mail, Calendar & Contacts MCP, Teams MCP, Todoist MCP, Riganti IS MCP, and Toggl MCP, using an existing PostgreSQL instance. Samwise's Teams intake connects directly to Microsoft Graph and its Todoist intake connects directly to the Todoist API; the separate Teams MCP is only an optional Gateway tool provider for agents. Persistent volumes retain Gateway state, Codex authentication, MCP configuration, and ASP.NET Core Data Protection keys.
-
-Copy `.env.example` to the ignored `.env`, replace every secret placeholder, then run:
-
-```powershell
-docker compose pull
-docker compose up -d
-```
-
-See [deployment.md](docs/deployment.md) for reverse-proxy, persistence, update, build, and registry details.
-
-No database password or Gateway API key is checked into this repository. The checked-in owner
-password is an intentionally disposable local first-run default.
+[Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Setup API](docs/ai-setup-api.md) · [Domain](src/Samwise.Domain/README.md) · [Workflow](src/Samwise.Logic/README.md) · [Web app](src/Samwise.Web/README.md)

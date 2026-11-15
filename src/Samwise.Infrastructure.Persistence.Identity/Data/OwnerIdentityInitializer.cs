@@ -1,3 +1,4 @@
+using Samwise.Infrastructure.Persistence.Identity.OwnerAccounts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -20,6 +21,8 @@ public sealed class OwnerIdentityInitializer(
     {
         await database.Database.MigrateAsync();
 
+        await using var transaction = await database.Database.BeginTransactionAsync();
+        await database.Database.ExecuteSqlRawAsync(OwnerAccountConcurrency.LockSql);
         var existingUsers = await userManager.Users
             .AsNoTracking()
             .OrderBy(user => user.Id)
@@ -55,13 +58,23 @@ public sealed class OwnerIdentityInitializer(
                 EnsureSucceeded(addPasswordResult, "Could not set the initial Samwise owner password");
             }
 
+            await transaction.CommitAsync();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(ownerOptions.RegistrationToken))
+        {
+            if (ownerOptions.RegistrationToken.Length < 32)
+                throw new InvalidOperationException("Owner registration token must contain at least 32 characters.");
+            // Interactive bootstrap owns account creation; do not seed a configured/default email.
+            await transaction.CommitAsync();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(configuredEmail))
         {
             throw new InvalidOperationException(
-                "No Samwise owner exists. Configure OwnerAccount:Email before the first startup.");
+                "No Samwise owner exists. Configure OwnerAccount:RegistrationToken for web registration, or OwnerAccount:Email and InitialPassword for legacy provisioning.");
         }
 
         EnsureInitialPasswordConfigured(initialPassword);
@@ -75,6 +88,7 @@ public sealed class OwnerIdentityInitializer(
 
         var result = await userManager.CreateAsync(owner, initialPassword!);
         EnsureSucceeded(result, "Could not create the Samwise owner account");
+        await transaction.CommitAsync();
     }
 
     private static void EnsureInitialPasswordConfigured(string? initialPassword)

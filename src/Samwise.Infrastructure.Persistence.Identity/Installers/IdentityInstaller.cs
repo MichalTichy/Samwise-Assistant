@@ -1,3 +1,4 @@
+using Samwise.Infrastructure.Persistence.Identity.OwnerAccounts;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,9 @@ public sealed class IdentityInstaller : IInstaller
             options.SlidingExpiration = true;
         });
 
+        services.AddScoped<OwnerAccountReader>();
+        services.AddScoped<OwnerRegistrationAccess>();
+        services.AddMediatR(options => options.RegisterServicesFromAssembly(typeof(IdentityInstaller).Assembly));
         services.Configure<OwnerAccountOptions>(configuration.GetSection(OwnerAccountOptions.SectionName));
 
         var dataProtectionPath = configuration["DataProtection:KeysPath"]

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
+using Samwise.Infrastructure.Persistence.Identity.OwnerAccounts;
 using Samwise.Infrastructure.Persistence.Identity;
 
 namespace Samwise.Web.Components.Pages;
@@ -12,7 +12,7 @@ public partial class Login
     private SignInManager<ApplicationUser> SignInManager { get; set; } = default!;
 
     [Inject]
-    private IOptions<OwnerAccountOptions> OwnerOptions { get; set; } = default!;
+    private OwnerAccountReader OwnerReader { get; set; } = default!;
 
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
@@ -26,14 +26,18 @@ public partial class Login
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    private string OwnerEmail => OwnerOptions.Value.Email ?? "owner";
+    private string? OwnerEmail { get; set; }
     private string? Error { get; set; }
 
-    protected override void OnInitialized() => Input ??= new LoginInput();
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new LoginInput();
+        OwnerEmail = (await OwnerReader.ReadAsync())?.Email;
+    }
 
     private async Task SignInAsync()
     {
-        var email = OwnerOptions.Value.Email?.Trim();
+        var email = OwnerEmail;
         if (string.IsNullOrWhiteSpace(email))
         {
             Error = "The owner account is not configured.";

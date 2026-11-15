@@ -1,0 +1,27 @@
+# New installations only. Existing deployments can keep their own PostgreSQL.
+services:
+  postgres:
+    image: postgres:18.1-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: samwise
+      POSTGRES_DB: samwise
+      POSTGRES_PASSWORD: "${SAMWISE_DB_PASSWORD:?Run scripts/ai_setup.py prepare --local-database}"
+    volumes:
+      - setup-database:/var/lib/postgresql
+      - ./deploy/init-databases.sql:/docker-entrypoint-initdb.d/01-gateway.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U samwise -d samwise"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  gateway:
+    depends_on:
+      postgres:
+        condition: service_healthy
+  web:
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  setup-database:

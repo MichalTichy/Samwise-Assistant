@@ -1,0 +1,20 @@
+---
+name: samwise-setup
+description: Guide a user from goals to a working Samwise and Codex Gateway installation, including existing deployments, credentials, inputs, MCP grants, playbooks, and end-to-end verification.
+---
+
+Read [the setup guide](../../docs/ai-setup.md) and carry out its workflow. When installed separately, use the user's matching Samwise checkout or [GitHub](https://github.com/MichalTichy/Samwise-Assistant/blob/t3/opensource-readiness/docs/ai-setup.md). The guide owns both the user conversation and the technical procedure.
+
+Start with one short, nontechnical paragraph and ask where work usually arrives and which one or two tasks the owner wants help with first. Do not lead with infrastructure or require the owner to design a test. Propose the necessary incoming sources and lookup/action tools in plain language, tell a complete example from their work, and ask whether the direction fits. Explain the separate AI-account requirement in familiar terms and check any decisive source-scope limitation before deployment. Once accepted, discover/reuse or deploy Samwise and Gateway and configure the selected scope. Before every requested owner sign-in or manual step, explain why it is needed and what it enables. Generate and connect internal keys yourself; account access comes through secure owner interaction.
+
+Use available management tools and the checkout's scripts/API reference. Preserve existing settings and prior authorization. Verify actual saved state and a meaningful example, retain review boundaries, and close temporary setup access. Keep simulations and pending provider access explicit; never call them a working real integration.
+
+For a new deployment, inspect accessible Docker availability and its actual engine target, then offer local Docker execution or a Compose deployment for the chosen server/NAS. Compose also runs locally. Explain Docker briefly at first use to an unfamiliar owner. Help an unsure owner choose; do not assume the assistant's machine or a discovered remote engine is the intended host. After the new web application starts, open its private one-time registration link and ask the owner to create their account there. Do not ask for their email/password in chat or generate their user password. Wait for completion and verify sign-in before connecting accounts. Owner registration is separate from mailbox access; existing installations use sign-in and preserve their owner identity.
+
+Keep replies short with one immediate owner action. Combine related discovery questions, reuse answers, and perform independent authorized work without asking for progress acknowledgements. Give each prepared sign-in directly with its purpose rather than announcing that you will prepare it. Mention tune-up in one practical sentence at handover; expand only if asked. In rehearsals, establish simulation once, label fixture links/results and state the limit at handover without repeating a long disclaimer in every reply.
+
+For reminder requests, distinguish review notifications, task deadlines and timed reminders. Verify how the owner actually gets alerted; a dated task alone does not meet that need. Briefly preview the required account connections before the first sign-in.
+
+Choose routine supported model/effort defaults yourself unless a real owner preference or access/cost decision needs discussion. Propose a bounded test with its cleanup, honor the exact approval, and finish immediate cleanup before the handover and invitation.
+
+After the first result, explain what works and what remains, how occasional [Samwise tune-up](../samwise-tune-up/SKILL.md) reviews real failures/noise and reduces manual correction over time, and ask whether other scenarios come to mind. Link the actual local/installed skill when it is unpublished. Follow an accepted addition through the same propose, agree, configure and verify flow. Close temporary administration access when the owner is done or the session must pause; do not leave it open indefinitely. Do not stop at a generic completion notice or make an addition repeat the whole setup.

@@ -1,12 +1,16 @@
 # Container deployment
 
-`compose.yaml` runs Samwise together with Codex CLI API Gateway, the Gateway's isolated Codex runner image, Mail, Calendar & Contacts MCP, Teams MCP, Riganti IS MCP, Toggl MCP, and the official Todoist MCP server. It connects Samwise and Gateway to an existing PostgreSQL instance; it does not start or manage PostgreSQL. Samwise itself does not depend on Teams MCP for intake: it connects directly to Microsoft Graph.
+`compose.yaml` runs Samwise, Gateway, a runner-image pull helper, and standard filesystem, memory, and Playwright tools. It uses existing PostgreSQL databases. Email and calendar integrations are commented examples enabled separately.
+
+For an assistant-guided installation or configuration of existing deployments, start with
+[AI-assisted setup](ai-setup.md). It includes optional local PostgreSQL and source-build
+Compose overrides, temporary management MCP access, and end-to-end verification.
 
 ## First deployment
 
 1. Copy `.env.example` to `.env` beside `compose.yaml`.
 2. Create separate `samwise` and `codex_gateway` databases on the existing PostgreSQL instance, then configure both connection strings. The applications create their own schemas and tables. When PostgreSQL runs on the Docker host, use `host.docker.internal` rather than `localhost`.
-3. Replace the owner credentials, Gateway admin password, `SAMWISE_MCP_API_KEY`, `SAMWISE_MANUAL_INPUT_API_KEY`, Mail/Calendar/Contacts MCP admin token, `TODOIST_API_KEY`, and `WALLET_MCP_ACCESS_TOKEN`. To ingest Exchange Online mail, also configure the Microsoft 365 public-client application described below. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
+3. Create `.data/mcp-files` beside `compose.yaml` for shared files. Generate a random `SAMWISE_OWNER_REGISTRATION_TOKEN` of at least 32 characters (or use `python scripts/ai_setup.py prepare`), leaving owner email/password blank. Replace the Gateway admin password, `SAMWISE_MCP_API_KEY`, and `SAMWISE_MANUAL_INPUT_API_KEY`. To ingest Exchange Online mail, also configure the Microsoft 365 public-client application described below. Placeholder Samwise project keys are sufficient for the first Gateway startup. Each Gateway API URL must be absolute and end in `/v1/`.
 4. Pull and start the stack:
 
    ```bash
@@ -14,15 +18,14 @@
    docker compose up -d
    ```
 
-5. Open `http://<host>:5051/admin/ui`, sign in with `MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN`, and configure the provider accounts. Replace `MAIL_CALENDAR_CONTACTS_MCP_EXTERNAL_URL` with this reachable URL before using a provider that needs an OAuth callback.
-6. Open `http://<host>:5050/admin` from the local network, sign in to the Gateway, complete Codex device authentication, and create the `samwise-planning` and `samwise-execution` projects and their keys. `CODEX_GATEWAY_BIND_ADDRESS=0.0.0.0` exposes the configured Gateway port on every IPv4 interface; change it to a specific host address if desired.
-7. Put the real intake, planning, and execution keys in `.env`, then recreate Samwise with `docker compose up -d web`.
-8. Open Samwise on its configured host and port, sign in, and change the initial password.
-9. Remove `SAMWISE_OWNER_INITIAL_PASSWORD` from `.env` after the owner has a password. An empty value is valid on subsequent starts.
+5. Open `http://<host>:5050/admin` from the local network, sign in to the Gateway, complete Codex device authentication, and create the `samwise-planning` and `samwise-execution` projects and their keys. `CODEX_GATEWAY_BIND_ADDRESS=0.0.0.0` exposes the configured Gateway port on every IPv4 interface; change it to a specific host address if desired.
+6. Put the real intake, planning, and execution keys in `.env`, then recreate Samwise with `docker compose up -d web`.
+7. Generate the private installation link with `python scripts/ai_setup.py --samwise https://<samwise-host> registration-link`, then open the saved link and create the owner account with an email and a password. Local installs can use `http://localhost:<port>`. The account is independent of connected mailboxes.
+8. Clear `SAMWISE_OWNER_REGISTRATION_TOKEN` in deployed configuration and remove the temporary link file. Registration is already disabled by the presence of the owner in the database; it stays disabled after restarts. Existing deployments keep their owner and sign in as before. Legacy email/initial-password provisioning remains supported when explicitly configured.
 
 Samwise listens on plain HTTP port `8080` inside its container and the Gateway listens on `8080` inside its container. Their default published host ports are `8080` and `5050`. The Compose default `SAMWISE_REQUIRE_HTTPS=false` allows login when Samwise is opened directly over HTTP on a trusted network. For any internet-accessible deployment, terminate HTTPS in the host reverse proxy and set `SAMWISE_REQUIRE_HTTPS=true`; `ASPNETCORE_FORWARDEDHEADERS_ENABLED` lets Samwise honor the proxy's forwarded scheme.
 
-The Gateway control plane and Mail/Calendar/Contacts MCP container intentionally do not use Compose's `no-new-privileges` option. Some Linux hosts refuse to start .NET processes under that option. The MCP containers run as dedicated non-root users and remain isolated on the private backend network, while dynamically created runner containers retain the Gateway's stricter runtime security restrictions. Samwise waits for the Gateway `/health` endpoint before it starts, so a failed Gateway keeps the stack visibly unhealthy instead of surfacing later as a transient catalog error.
+Samwise waits for Gateway's health endpoint before starting. The standard tool servers run independently; register them in Gateway and grant their tools as described below.
 
 ## Manual input API
 
@@ -45,111 +48,62 @@ Samwise reads Teams intake directly from Microsoft Graph; the Teams MCP server i
 
 Transcript discovery is optional. When it is enabled, also grant `CallRecords.Read.All`, `OnlineMeetingTranscript.Read.All`, and `CallTranscripts.Read.All` as application permissions, grant admin consent, create a client secret, and enter that secret in the same Teams configuration page. Samwise protects it with ASP.NET Core Data Protection before persistence and stores the delegated MSAL cache in its existing persisted data-protection volume. The standalone Teams MCP may still be registered with Gateway when planning or execution agents need Teams tools; it is an independent integration with its own connection and credentials.
 
-## Mail, calendar, and contacts MCP
+## Standard tools
 
-The [MCP.MailCalendarContacts](https://github.com/MichalTichy/MCP.MailCalendarContacts) server is included in the Samwise stack. Samwise never connects to it directly. The private-network deployment does not require an MCP transport API key; Gateway enforces the exact tool grant associated with each Samwise API key through its run-scoped relay. The admin UI remains protected by `MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN` and is published on port `5051` for the trusted LAN.
+These services start automatically without external accounts. Create `.data/mcp-files` beside `compose.yaml` and add files you want to share. Register each server in Gateway using execution mode **Gateway**, then discover and grant selected tools:
 
-For Portainer:
+| Service | Gateway URL | Storage |
+| --- | --- | --- |
+| Filesystem | `http://filesystem-mcp:8000/mcp` | `.data/mcp-files`, mounted read-only at `/data` |
+| Memory | `http://memory-mcp:8000/mcp` | `memory-data` volume, at `/data/memory.jsonl` |
+| Playwright | `http://playwright-mcp:8931/mcp` | Isolated browser sessions; logins are discarded on session close |
 
-1. Deploy or update the single Samwise stack. The checked-in `.env.example` uses `latest` image tags; copy its variables into the Portainer stack environment and replace every secret placeholder.
-2. Open the Gateway admin UI and add an HTTP MCP server with these values:
+[Filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) and [memory](https://github.com/modelcontextprotocol/servers/tree/main/src/memory) use [Supergateway](https://github.com/supercorp-ai/supergateway) to bridge stdio to HTTP. Their npm packages download at startup. [Playwright](https://github.com/microsoft/playwright-mcp) runs headless Chromium from its public image.
 
-   | Field | Value |
-   | --- | --- |
-   | Name | `Mail, Calendar & Contacts` |
-   | URL | `http://mail-calendar-contacts-mcp:8080` |
-   | Execution mode | `Gateway` |
+These services publish no host ports. Gateway reaches them on `gateway-backend`. Grant memory mutations and browser actions that change external state only to execution behind plan approval. Filesystem write tools cannot modify the read-only mount. Deliberately remove `:ro` and grant writes if needed. Files in tool containers are not automatically shared with runners.
 
-3. Test the connection and discover the server's tools. Enable only the tools that the Gateway may expose.
-4. Grant the desired subset to the `samwise-execution` project/key. Start with mail, calendar, and contact read tools. Calendar/contact write and mail-management tools can be enabled individually when wanted. Do not grant `send_email` or `unsubscribe_from_email` in version 1.
+## Companion Microsoft and multi-provider MCP servers
 
-The intake and planning keys do not need permission to invoke these MCP tools. Samwise reads the execution key's Gateway tool catalog and supplies that catalog to the planning agent, so plans are constrained to capabilities the execution stage will actually receive.
+For agent lookups and actions, separately deploy [MCP.MailCalendarContacts](https://github.com/MichalTichy/MCP.MailCalendarContacts) (mail, calendar and contacts) or [MCP.Teams](https://github.com/MichalTichy/MCP.Teams) (Teams context, meetings and transcripts). Follow their own authorization and deployment instructions; neither service is bundled here.
 
-## Todoist MCP
+Join Gateway's backend network and register the HTTP MCP endpoints with execution mode **Gateway**. Their default network is `codex-gateway-backend`; setup with `--deployment-id` selects a different name, so match the actual `CODEX_GATEWAY_BACKEND_NETWORK` in both stacks. Keep these trusted-network MCP endpoints private. Grant selected read tools to planning and selected action tools to execution. For draft-only workflows, grant draft creation without send/reply/unsubscribe tools and review the provider account's separate capabilities.
 
-The stack runs the official [`@doist/todoist-mcp`](https://github.com/Doist/todoist-mcp) HTTP server from its latest npm release. It has no published host port: only Gateway can reach it on the private backend network. `TODOIST_API_KEY` is passed directly to that container and is not copied into Gateway. The container downloads the package when it starts, so it needs outbound access to the npm registry.
+These tools do not replace Samwise's built-in read-only inputs. Input authorization, tool authorization and background polling are distinct. Teams exclusions are not an allowlist protecting all new unselected conversations; check incoming and lookup scope before enabling either path.
 
-Create a Todoist API token in **Todoist → Settings → Integrations → Developer**, put it in the Portainer stack environment as `TODOIST_API_KEY`, and add this HTTP MCP server in the Gateway admin UI:
+## Optional integrations
 
-| Field | Value |
-| --- | --- |
-| Name | `Todoist` |
-| URL | `http://todoist-mcp:8080/mcp` |
-| Execution mode | `Gateway` |
+Uncomment a complete service block in `compose.yaml`, its matching Gateway environment mapping, and any volumes named in its comments. Copy the corresponding commented settings from `.env.example` to `.env`, fill them in, and run `docker compose up -d`.
 
-Do not configure an HTTP header for this server. The API token authenticates the MCP server to Todoist; network access and Gateway project grants protect MCP invocation. Test discovery, enable the desired tools, and grant them to `samwise-execution`. Grant only read tools if the agent should inspect Todoist without changing it; task creation, update, completion, and deletion tools are separate execution capabilities. Grant the completion tool if plans should close the Todoist tasks they handle.
+| Integration | Gateway URL | Gateway environment headers |
+| --- | --- | --- |
+| IMAP/SMTP email | `http://email-mcp:8080/mcp` | `Authorization=EMAIL_MCP_AUTHORIZATION` |
+| CalDAV calendar | `http://calendar-mcp:8080/mcp` | `Authorization=CALDAV_MCP_AUTHORIZATION` |
+
+Register enabled servers in Gateway with execution mode **Gateway**. Header mappings use the environment-variable name rather than the token. Discover and grant selected tools; grant writes only to execution. Leave email sending and unsubscribe tools ungranted in version 1. These integrations connect to existing mail/calendar servers; they do not host those services or require a particular commercial provider.
+
+### Email
+
+The example uses open-source [email-mcp](https://github.com/codefuturist/email-mcp). Prepare `config.toml` with its upstream setup wizard and copy it into `.data/email-mcp/` beside `compose.yaml`. Use credentials accessible inside the container rather than host OS keychain references. Ensure the container user can read the configuration. This directory is ignored by Git. Set `EMAIL_MCP_HTTP_TOKEN` and uncomment both email state/cache volumes. Gateway receives only the transport token; mailbox credentials remain in the mounted config.
+
+This tool server is separate from Samwise's read-only email input, configured under **Configuration → Inputs → Emails**, which needs no additional container.
+
+### Calendar
+
+The example uses [caldav-mcp](https://github.com/gelse/caldav-mcp) with an existing CalDAV service such as Nextcloud or Radicale. Set `CALDAV_URL`, `CALDAV_USERNAME`, `CALDAV_PASSWORD`, a separate `CALDAV_MCP_API_KEY`, and `CALDAV_TIMEZONE`. Provider credentials reach only the calendar container; Gateway receives its transport token. This does not create an automatic calendar input source in Samwise.
+
+### Existing deployments
+
+Move formerly bundled integration service definitions, volumes, and environment variables into your own Compose override or separate stack before updating. Preserve existing volume names to retain provider state. Separate services must share a network with Gateway or expose a reachable authenticated endpoint. Update Gateway registrations accordingly and retain existing volumes during migration.
 
 ### Todoist input
 
-Samwise's Todoist input connects directly to the Todoist API and does not use the MCP server. It only reads. Paste a Todoist API token in **Configuration → Inputs → Todoist**. It may be the same token as `TODOIST_API_KEY`. Samwise protects it with the persisted Data Protection key ring before storing it. The page also sets the lead time, the overdue range, intake guidance, and ignored projects and labels.
-
-## Riganti IS MCP
-
-The standalone [Riganti IS MCP adapter](https://github.com/MichalTichy/MCP.RigantiIS) runs the official Riganti IS MCP tools as an HTTP server only on `gateway-backend`; there is no published host port. In the Portainer stack environment, set `RIGANTI_IS_MCP_IMAGE=registry.tichymichal.net/mcp-riganti-is:latest` and keep `RIGANTI_IS_BEARER_TOKEN` set to a Riganti IS user token (not a Gateway API key). The bearer token reaches only the MCP container. Its HTTP endpoint has no separate API key; Gateway controls agent access through its own API keys and tool grants. The token is visible to Portainer stack administrators; do not commit it or put it in chat.
-
-Register the server in Gateway admin UI:
-
-| Field | Value |
-| --- | --- |
-| Name | `Riganti IS` |
-| URL | `http://riganti-is-mcp:8080/mcp` |
-| Execution mode | `Gateway` |
-
-Do not configure an HTTP environment header for this server.
-
-After changing the image, rediscover the server in Gateway and review tool grants for each agent API key. The service name, URL, and Gateway server ID can remain unchanged. The updated image adds `get_invoices` and `download_invoice_pdf`; newly discovered tools remain ungranted until explicitly enabled. Grant `get_invoices` to planning when it needs live invoice status or details. Grant write tools only to execution, behind Samwise Work Item approval. In particular, `riganti_is_create_wage_bonus_request` and `create_invoice` create real records; invoice creation should follow `preview_invoice` and explicit plan approval. The MCP server does not send invoices. Leave `download_invoice_pdf` and `export_update_conference_time_sheets` ungranted: they write files inside the MCP container, which the Gateway runner cannot read. Invoice attachments likewise require files in the MCP container, not runner-local paths. Do not automatically retry uncertain invoice creation.
-
-| Former tool | New tool |
-| --- | --- |
-| `riganti_is_list_employees` | `get_employees` |
-| `riganti_is_list_projects` | `get_projects` |
-| `riganti_is_export_time_entries` | `get_time_sheet_items` |
-| `riganti_is_get_month_stats` | `get_time_sheet_items_month_stats` |
-| `riganti_is_list_wage_months` | `get_wage_months` |
-| `riganti_is_create_wage_bonus_request` | `riganti_is_create_wage_bonus_request` |
-| `riganti_is_get_invoice_context` | `get_invoice_context` |
-| `riganti_is_preview_invoice` | `preview_invoice` |
-| `riganti_is_create_invoice` | `create_invoice` |
-| `riganti_is_get_config` | Removed |
-
-Replan any not-yet-executed Work Item that names a former tool before approving it. The new image depends on the .NET healthcheck in this Compose file; deploy the image and Compose change together.
-
-## Toggl MCP
-
-The standalone [`MCP.TogglTrack`](https://github.com/MichalTichy/MCP.TogglTrack) image runs only on `gateway-backend`; it has no published host port and no transport-level API key. Set `TOGGL_TRACK_API_KEY` and `TOGGL_TRACK_WORKSPACE_ID` in the Portainer stack environment. Classic Toggl Track profile tokens use API v9. Toggl Focus keys beginning with `toggl_sk_` are selected automatically and additionally require `TOGGL_TRACK_ORGANIZATION_ID`. Leave `TOGGL_TRACK_BASE_URL` empty for the official default, or set it to `https://focus.toggl.com/api` for the existing Focus account.
-
-Register the server in Gateway admin UI:
-
-| Field | Value |
-| --- | --- |
-| Name | `Toggl` |
-| URL | `http://toggl-mcp:8080/mcp` |
-| Execution mode | `Gateway` |
-
-Do not configure an HTTP environment header. Test discovery, then grant project/time-entry reads to planning and execution. Grant time-entry creation and updates only to execution behind Work Item approval. Tag mutation and Focus archive/restore tools are optional; do not grant them unless the corresponding behavior is useful.
-
-## Wallet by BudgetBakers MCP
-
-Wallet already operates its own Streamable HTTP MCP server, so this stack does not build or run another Wallet container. Generate an **MCP access token** in Wallet **Settings → MCP** and set `WALLET_MCP_ACCESS_TOKEN` in the Portainer stack environment. Compose passes `Bearer <token>` to Gateway as `WALLET_MCP_AUTHORIZATION`; Samwise and runner containers do not receive the token. This is the Wallet MCP token, not the Wallet REST API token.
-
-Register the HTTP MCP server in Gateway admin UI:
-
-| Field | Value |
-| --- | --- |
-| Name | `Wallet by BudgetBakers` |
-| URL | `https://mcp.wallet.budgetbakers.com` |
-| Execution mode | `Gateway` |
-| Environment headers | `Authorization=WALLET_MCP_AUTHORIZATION` |
-
-Test discovery, then enable and grant only the tools each Samwise project needs. Start with the nine read tools for planning and execution. Grant mutation tools to execution only when the matching permission is also enabled in Wallet's MCP settings; keep deletion disabled unless explicitly needed. Wallet permissions and Gateway project/API-key grants are separate checks. Writes return per-item results and may partially succeed, so review each result before retrying a batch.
-
-The official Wallet MCP exposes 20 tools. Compared with the current 22-operation Wallet REST OpenAPI, it covers 21 operations: `get_entity` groups the four reads for goals, standing orders, standing-order items, and record rules, while the only missing direct equivalent is `GET /v1/api/api-usage/stats`. MCP responses instead expose remaining rate-limit information in `_meta.rateLimit`. `get_records_aggregation` is an additional MCP capability absent from REST. Keep this coverage note in mind if full REST parity becomes necessary later. The personal notes under `D:\AI\Wallet` are not an MCP implementation and are not included in the stack.
+Samwise's optional Todoist input connects directly to its API. Paste its token under **Configuration → Inputs → Todoist**; no MCP service or Compose variable is needed. The persisted Data Protection key ring protects the stored token.
 
 ## iPhone notifications
 
 Samwise sends Web Push notifications. The HTTPS requirement below applies to your iPhone only, because iOS accepts web notifications only from a site opened from the Home Screen over trusted HTTPS. The Samwise container itself needs outbound HTTPS to the push services, such as `*.push.apple.com`.
 
-1. Optionally set `SAMWISE_WEB_PUSH_SUBJECT` to a `mailto:` or `https:` contact. When it is empty, Samwise uses `mailto:` + `SAMWISE_OWNER_EMAIL`. Apple rejects pushes without a valid subject.
+1. Set `SAMWISE_WEB_PUSH_SUBJECT` to a `mailto:` or `https:` contact. This is optional only when `SAMWISE_OWNER_EMAIL` is configured as its fallback. Web registration leaves that legacy variable blank, so set an explicit contact for such installations. Apple rejects pushes without a valid subject.
 2. Open Samwise in Safari on the iPhone, tap **Share → Add to Home Screen**, and open Samwise from the new icon.
 3. Sign in, open **More → Notifications**, tap **Enable notifications**, and allow them.
 4. Tap **Send test notification**.
@@ -173,31 +127,37 @@ Enable `list_work_items`, `get_work_item`, `get_agent_invocation`, `list_input_e
 
 ## Optional automatic approval
 
+Inspect the approval profile's actual `/tools` response when configuring it. Available
+tools, including Gateway's native workspace shell, do not prevent automatic approval.
+Samwise records that catalog in the invocation history; it does not attach tool definitions
+to the approval inference request. The approval prompt asks for a decision and reason only.
+Gateway-side capabilities remain governed by the selected profile.
+
 Automatic approval is off for every existing and new playbook until **Suitable for automatic approval** is enabled on that playbook. Create two additional Gateway projects/API keys:
 
 | Stage | Environment variables | Gateway grants |
 | --- | --- | --- |
-| Automatic approval | `SAMWISE_AUTO_APPROVAL_BASE_URL`, `SAMWISE_AUTO_APPROVAL_API_KEY` | No MCP tools. Samwise refuses to run approval if this key sees any invocable tool. |
+| Automatic approval | `SAMWISE_AUTO_APPROVAL_BASE_URL`, `SAMWISE_AUTO_APPROVAL_API_KEY` | Keep grants limited to the review role. An exposed tool does not itself block assessment. |
 | Auto-approved execution | `SAMWISE_AUTO_EXECUTION_BASE_URL`, `SAMWISE_AUTO_EXECUTION_API_KEY` | Only the small set of tools permitted without human review. |
 
 The default URLs point to `/p/samwise-auto-approval/v1/` and `/p/samwise-auto-execution/v1/`. Configure models, reasoning effort, and prompts for both new stages under **Agent settings**. Empty API keys and models are valid while automatic approval is unused; an eligible plan then stays available for manual review with a recorded reason.
 
-After planning, Samwise considers only a plan with a selected eligible playbook. It checks that the approval profile has no tools, every proposed tool call exists with the same schema in the restricted execution catalog, and every side-effecting step names a tool call. The approval agent can only return an approval decision and reason. A refusal or unavailable dependency leaves the plan awaiting normal user approval. An approval is bound to the current plan ID and Work Item revision, and execution uses the restricted Gateway profile. Retry of an uncertain automatic execution also uses that restricted profile.
+After planning, Samwise considers only a plan with a selected eligible playbook. It checks that every proposed tool call exists with the same schema in the restricted execution catalog and every side-effecting step names a tool call. The approval profile catalog is recorded for audit; the presence of tools does not itself block assessment. The approval request asks for a decision and reason. A refusal or unavailable dependency leaves the plan awaiting normal user approval. An approval is bound to the current plan ID and Work Item revision, and execution uses the restricted Gateway profile. Retry of an uncertain automatic execution also uses that restricted profile.
 
 ## Persistent state
 
 The Compose stack creates four named volumes:
 
 - `data-protection-keys` keeps login cookies valid across container replacement.
-- `mcp-mail-calendar-contacts-data` stores MCP provider configuration, tokens, and local state.
+- `memory-data` stores the MCP knowledge graph.
 - `codex-gateway-data` is the workspace volume mounted into isolated Gateway runner containers.
 - `codex-gateway-auth` stores the Codex authentication used by the Gateway.
 
-Back up these volumes and the two PostgreSQL databases. Losing only the data-protection volume signs the owner out but does not remove work items or credentials.
+Back up these volumes, `.data/mcp-files`, and both PostgreSQL databases. When email is enabled, also back up its configuration and state/cache volumes. Losing the Data Protection key ring invalidates cookies and makes protected credentials unreadable.
 
 ## Updating
 
-The Compose defaults and `.env.example` use `latest` for every image, including the Todoist Node runtime; the Todoist npm package also uses `@latest`. Keep the Portainer stack's image variables on `latest` too, since an explicit variable overrides a Compose default. These mutable tags do not update running containers on their own. To pull and deploy current images, run:
+Core images use `latest`; standard tools use Node 24 and the latest npm/Playwright releases. Optional integrations use mutable image tags too. Pin versions or digests for reproducibility. Explicit image variables override defaults. To pull and deploy updated images:
 
 ```bash
 docker compose pull

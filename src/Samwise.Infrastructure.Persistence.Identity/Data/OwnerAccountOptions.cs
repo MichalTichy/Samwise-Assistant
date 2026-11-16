@@ -4,6 +4,8 @@ public sealed class OwnerAccountOptions
 {
     public const string SectionName = "OwnerAccount";
 
+    public string? RegistrationToken { get; init; }
+
     public string? Email { get; init; }
     public string? InitialPassword { get; init; }
 }

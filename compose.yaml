@@ -6,91 +6,92 @@ services:
     entrypoint: ["/bin/true"]
     restart: "no"
 
-  mail-calendar-contacts-mcp:
-    image: ${MAIL_CALENDAR_CONTACTS_IMAGE:-registry.tichymichal.net/mcp-mail-calendar-contacts:latest}
+  # Read files from ./.data/mcp-files (create the directory and add files first).
+  # Gateway URL: http://filesystem-mcp:8000/mcp
+  filesystem-mcp:
+    image: node:24-bookworm-slim
     restart: unless-stopped
-    ports:
-      - "${MAIL_CALENDAR_CONTACTS_BIND_ADDRESS:-0.0.0.0}:${MAIL_CALENDAR_CONTACTS_PORT:-5051}:8080"
-    environment:
-      CALENDAR_MCP_ADMIN_TOKEN: "${MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN:?Set MAIL_CALENDAR_CONTACTS_MCP_ADMIN_TOKEN in an ignored .env file}"
-      CALENDAR_MCP_CalendarMcp__Mcp__RequireApiKey: "false"
-      CALENDAR_MCP_CalendarMcp__ExternalBaseUrl: "${MAIL_CALENDAR_CONTACTS_MCP_EXTERNAL_URL:-http://localhost:5051}"
-      CALENDAR_MCP_CalendarMcp__AgentFileOrigin: http://gateway:8080
-    volumes:
-      - mail-calendar-contacts-data:/app/data
-    networks:
-      - gateway-backend
-
-  todoist-mcp:
-    image: ${TODOIST_MCP_RUNTIME_IMAGE:-node:latest}
-    restart: unless-stopped
-    user: node
+    init: true
+    stdin_open: true
+    entrypoint: ["npx", "--yes", "supergateway@latest"]
     command:
-      - npx
-      - --yes
-      - --package=@doist/todoist-mcp@latest
-      - todoist-mcp-http
-    environment:
-      TODOIST_API_KEY: "${TODOIST_API_KEY:?Set TODOIST_API_KEY in an ignored .env file}"
-      HOST: 0.0.0.0
-      PORT: "8080"
-      ALLOWED_HOSTS: todoist-mcp
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      start_period: 60s
-      retries: 12
-    networks:
-      - gateway-backend
-
-  riganti-is-mcp:
-    image: ${RIGANTI_IS_MCP_IMAGE:-registry.tichymichal.net/mcp-riganti-is:latest}
-    restart: unless-stopped
-    environment:
-      RIGANTI_IS_BEARER_TOKEN: "${RIGANTI_IS_BEARER_TOKEN:?Set RIGANTI_IS_BEARER_TOKEN in the Portainer stack environment}"
-    healthcheck:
-      test: ["CMD", "dotnet", "/app/Riganti.IsMcp.Http.dll", "--healthcheck"]
-      interval: 10s
-      timeout: 5s
-      start_period: 15s
-      retries: 6
-    networks:
-      - gateway-backend
-
-  toggl-mcp:
-    image: ${TOGGL_MCP_IMAGE:-registry.tichymichal.net/mcp-toggl-track:latest}
-    restart: unless-stopped
-    environment:
-      TOGGL_TRACK_API_KEY: "${TOGGL_TRACK_API_KEY:?Set TOGGL_TRACK_API_KEY in the Portainer stack environment}"
-      TOGGL_TRACK_ORGANIZATION_ID: "${TOGGL_TRACK_ORGANIZATION_ID:-}"
-      TOGGL_TRACK_WORKSPACE_ID: "${TOGGL_TRACK_WORKSPACE_ID:?Set TOGGL_TRACK_WORKSPACE_ID in the Portainer stack environment}"
-      TOGGL_TRACK_API_MODE: "${TOGGL_TRACK_API_MODE:-auto}"
-      TOGGL_TRACK_BASE_URL: "${TOGGL_TRACK_BASE_URL:-}"
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 6
-    networks:
-      - gateway-backend
-
-  teams-mcp:
-    image: ${TEAMS_MCP_IMAGE:-registry.tichymichal.net/mcp-teams:latest}
-    restart: unless-stopped
-    ports:
-      - "${TEAMS_MCP_BIND_ADDRESS:-0.0.0.0}:${TEAMS_MCP_PORT:-5052}:8080"
-    environment:
-      TeamsMcp__TenantId: "${TEAMS_MCP_TENANT_ID:?Set TEAMS_MCP_TENANT_ID in an ignored .env file}"
-      TeamsMcp__ClientId: "${TEAMS_MCP_CLIENT_ID:?Set TEAMS_MCP_CLIENT_ID in an ignored .env file}"
-      TeamsMcp__ClientSecret: "${TEAMS_MCP_CLIENT_SECRET:-}"
-      TeamsMcp__AdminPassword: "${TEAMS_MCP_ADMIN_PASSWORD:?Set TEAMS_MCP_ADMIN_PASSWORD in an ignored .env file}"
-      TeamsMcp__DataPath: /app/data
+      - --stdio
+      - "npx --yes @modelcontextprotocol/server-filesystem /data"
+      - --outputTransport
+      - streamableHttp
+      - --port
+      - "8000"
     volumes:
-      - teams-data:/app/data
+      - ./.data/mcp-files:/data:ro
     networks:
       - gateway-backend
+
+  # Persistent knowledge graph, stored separately from the package cache.
+  # Gateway URL: http://memory-mcp:8000/mcp
+  memory-mcp:
+    image: node:24-bookworm-slim
+    restart: unless-stopped
+    init: true
+    stdin_open: true
+    entrypoint: ["npx", "--yes", "supergateway@latest"]
+    command:
+      - --stdio
+      - "npx --yes @modelcontextprotocol/server-memory"
+      - --outputTransport
+      - streamableHttp
+      - --port
+      - "8000"
+    environment:
+      MEMORY_FILE_PATH: /data/memory.jsonl
+    volumes:
+      - memory-data:/data
+    networks:
+      - gateway-backend
+
+  # Headless browser with a fresh profile per session.
+  # Gateway URL: http://playwright-mcp:8931/mcp
+  playwright-mcp:
+    image: mcr.microsoft.com/playwright/mcp:latest
+    restart: unless-stopped
+    init: true
+    entrypoint: ["node"]
+    command: ["/app/cli.js", "--headless", "--browser", "chromium", "--no-sandbox", "--isolated", "--port", "8931", "--host", "0.0.0.0", "--allowed-hosts", "playwright-mcp:8931"]
+    networks:
+      - gateway-backend
+
+  # Optional email over standard IMAP/SMTP. Uncomment the complete block,
+  # its two volumes below, and EMAIL_MCP_AUTHORIZATION in gateway.environment.
+  # Configure .data/email-mcp/config.toml first; see docs/deployment.md.
+  # Gateway URL: http://email-mcp:8080/mcp
+  # email-mcp:
+  #   image: ghcr.io/codefuturist/email-mcp:latest
+  #   restart: unless-stopped
+  #   init: true
+  #   command: ["http", "--host", "0.0.0.0", "--port", "8080"]
+  #   environment:
+  #     EMAIL_MCP_HTTP_TOKEN: "${EMAIL_MCP_HTTP_TOKEN:?Set EMAIL_MCP_HTTP_TOKEN in .env}"
+  #     EMAIL_MCP_HTTP_ALLOWED_HOSTS: email-mcp
+  #   volumes:
+  #     - ./.data/email-mcp:/home/node/.config/email-mcp:ro
+  #     - email-mcp-state:/home/node/.local/state/email-mcp
+  #     - email-mcp-cache:/home/node/.cache/email-mcp
+  #   networks:
+  #     - gateway-backend
+
+  # Optional calendar over standard CalDAV (e.g. Nextcloud or Radicale).
+  # Uncomment this block and CALDAV_MCP_AUTHORIZATION in gateway.environment.
+  # Gateway URL: http://calendar-mcp:8080/mcp
+  # calendar-mcp:
+  #   image: ghcr.io/gelse/caldav-mcp:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     CALDAV_URL: "${CALDAV_URL:?Set CALDAV_URL in .env}"
+  #     CALDAV_USERNAME: "${CALDAV_USERNAME:?Set CALDAV_USERNAME in .env}"
+  #     CALDAV_PASSWORD: "${CALDAV_PASSWORD:?Set CALDAV_PASSWORD in .env}"
+  #     CALDAV_MCP_API_KEY: "${CALDAV_MCP_API_KEY:?Set CALDAV_MCP_API_KEY in .env}"
+  #     TZ: "${CALDAV_TIMEZONE:-UTC}"
+  #   networks:
+  #     - gateway-backend
 
   gateway:
     image: ${CODEX_GATEWAY_IMAGE:-registry.tichymichal.net/codex-gateway:latest}
@@ -98,16 +99,6 @@ services:
     depends_on:
       gateway-runner-image:
         condition: service_completed_successfully
-      mail-calendar-contacts-mcp:
-        condition: service_started
-      teams-mcp:
-        condition: service_started
-      todoist-mcp:
-        condition: service_healthy
-      riganti-is-mcp:
-        condition: service_healthy
-      toggl-mcp:
-        condition: service_healthy
     ports:
       - "${CODEX_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${CODEX_GATEWAY_PORT:-5050}:8080"
     extra_hosts:
@@ -116,8 +107,11 @@ services:
       AdminUi__Username: "${CODEX_GATEWAY_ADMIN_USERNAME:?Set CODEX_GATEWAY_ADMIN_USERNAME in an ignored .env file}"
       AdminUi__Password: "${CODEX_GATEWAY_ADMIN_PASSWORD:?Set CODEX_GATEWAY_ADMIN_PASSWORD in an ignored .env file}"
       ConnectionStrings__Gateway: "${CODEX_GATEWAY_CONNECTION_STRING:?Set CODEX_GATEWAY_CONNECTION_STRING in an ignored .env file}"
+      Setup__ApiKey: "${CODEX_GATEWAY_SETUP_API_KEY:-}"
       SAMWISE_MCP_API_KEY: "${SAMWISE_MCP_API_KEY:?Set SAMWISE_MCP_API_KEY in an ignored .env file}"
-      WALLET_MCP_AUTHORIZATION: "Bearer ${WALLET_MCP_ACCESS_TOKEN:?Set WALLET_MCP_ACCESS_TOKEN in the Portainer stack environment}"
+      # Uncomment together with the corresponding optional service:
+      # EMAIL_MCP_AUTHORIZATION: "Bearer ${EMAIL_MCP_HTTP_TOKEN:?Set EMAIL_MCP_HTTP_TOKEN in .env}"
+      # CALDAV_MCP_AUTHORIZATION: "Bearer ${CALDAV_MCP_API_KEY:?Set CALDAV_MCP_API_KEY in .env}"
       Codex__Container__EngineExecutablePath: docker
       Codex__Container__Image: "${CODEX_GATEWAY_RUNNER_IMAGE:-registry.tichymichal.net/codex-gateway-runner:latest}"
       Codex__Container__WorkspaceVolume: "${CODEX_GATEWAY_DATA_VOLUME:-codex-gateway-data}"
@@ -162,9 +156,11 @@ services:
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       AllowedHosts: "${SAMWISE_ALLOWED_HOSTS:-*}"
       ConnectionStrings__samwise: "${SAMWISE_CONNECTION_STRING:?Set SAMWISE_CONNECTION_STRING in an ignored .env file}"
+      Setup__ApiKey: "${SAMWISE_SETUP_API_KEY:-}"
       DataProtection__KeysPath: /app/data-protection
       Authentication__RequireHttps: "${SAMWISE_REQUIRE_HTTPS:-false}"
-      OwnerAccount__Email: "${SAMWISE_OWNER_EMAIL:?Set SAMWISE_OWNER_EMAIL in an ignored .env file}"
+      OwnerAccount__Email: "${SAMWISE_OWNER_EMAIL:-}"
+      OwnerAccount__RegistrationToken: "${SAMWISE_OWNER_REGISTRATION_TOKEN:-}"
       OwnerAccount__InitialPassword: "${SAMWISE_OWNER_INITIAL_PASSWORD:-}"
       AgentEndpoints__Intake__BaseAddress: "${SAMWISE_INTAKE_BASE_URL:-http://gateway:8080/v1/}"
       AgentEndpoints__Intake__ApiKey: "${SAMWISE_INTAKE_API_KEY:?Set SAMWISE_INTAKE_API_KEY in an ignored .env file}"
@@ -188,11 +184,10 @@ services:
       - gateway-backend
 
 volumes:
+  memory-data:
+  # email-mcp-state: # Uncomment together with email-mcp.
+  # email-mcp-cache: # Uncomment together with email-mcp.
   data-protection-keys:
-  mail-calendar-contacts-data:
-    name: ${MAIL_CALENDAR_CONTACTS_DATA_VOLUME:-mcp-mail-calendar-contacts-data}
-  teams-data:
-    name: ${TEAMS_MCP_DATA_VOLUME:-mcp-teams-data}
   gateway-data:
     name: ${CODEX_GATEWAY_DATA_VOLUME:-codex-gateway-data}
   codex-home:

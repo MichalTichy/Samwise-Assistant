@@ -1,0 +1,52 @@
+@page "/register"
+@layout AuthLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+
+<PageTitle>@OwnerRegistrationText.PageTitle · Samwise</PageTitle>
+<div class="auth-page">
+    <section class="auth-story" aria-hidden="true">
+        <span>Samwise</span>
+        <h1>@OwnerRegistrationText.PageTitle</h1>
+    </section>
+    <LumexCard Class="auth-card" Shadow="@Shadow.Large" Radius="@Radius.Large">
+        <LumexCardBody Class="auth-card-body">
+            <div class="auth-heading">
+                <span class="page-kicker">Samwise</span>
+                <h1>@OwnerRegistrationText.Title</h1>
+                <p>@OwnerRegistrationText.Introduction</p>
+            </div>
+            @if (Available)
+            {
+                <EditForm Model="Input" method="post" OnValidSubmit="RegisterAsync" OnInvalidSubmit="ClearPasswords" FormName="owner-registration">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="auth-validation" role="alert" />
+                    <input type="hidden" name="Input.Token" value="@Input.Token" />
+                    @if (Error is not null)
+                    {
+                        <div class="inline-alert auth-alert" role="alert">@Error</div>
+                    }
+                    <div class="auth-field">
+                        <label for="owner-email">@OwnerRegistrationText.Email</label>
+                        <InputText id="owner-email" type="email" class="auth-input" @bind-Value="Input.Email" autocomplete="email" maxlength="254" autofocus />
+                    </div>
+                    <div class="auth-field">
+                        <label for="owner-password">@OwnerRegistrationText.Password</label>
+                        <InputText id="owner-password" type="password" class="auth-input" @bind-Value="Input.Password" autocomplete="new-password" maxlength="128" />
+                        <p>@OwnerRegistrationText.PasswordHint</p>
+                    </div>
+                    <div class="auth-field">
+                        <label for="owner-confirm-password">@OwnerRegistrationText.ConfirmPassword</label>
+                        <InputText id="owner-confirm-password" type="password" class="auth-input" @bind-Value="Input.ConfirmPassword" autocomplete="new-password" maxlength="128" />
+                    </div>
+                    <LumexButton Type="@ButtonType.Submit" FullWidth="true" Color="@ThemeColor.Primary" Size="@Size.Large">@OwnerRegistrationText.CreateAccount</LumexButton>
+                </EditForm>
+            }
+            else
+            {
+                <p role="alert">@OwnerRegistrationText.Unavailable</p>
+                <a href="/login">@OwnerRegistrationText.SignIn</a>
+            }
+        </LumexCardBody>
+    </LumexCard>
+</div>

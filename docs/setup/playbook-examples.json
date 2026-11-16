@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Email drafts",
+    "applicability": "A personal request needs an email reply whose facts or owner preference are known. Exclude routine receipts, surveys and already answered requests.",
+    "description": "Read the exact message and relevant thread. Preserve recipients and distinguish the owner's completed actions from remaining work. Ask one focused question for a material missing preference. Prepare the complete draft for review, using the connected mailbox's actual draft capability. Check for an existing equivalent draft before creating one. Saving a draft does not mean sending it. Do not send unless the owner explicitly selects and approves that action. If investigation or professional judgment is still required, preserve that obligation rather than inventing an answer. Verify the returned draft identity and report the actual result.",
+    "isEnabled": true,
+    "suitableForAutomaticApproval": false
+  },
+  {
+    "name": "Meeting scheduling",
+    "applicability": "The primary result is proposing, arranging, rescheduling, confirming or cancelling a meeting involving the owner.",
+    "description": "Read the actual conversation and verify whose availability and decision are needed. Inspect relevant calendar conflicts in the owner's timezone. Propose useful options or ask a focused preference question rather than inventing availability. A tentative blocker is not a confirmed meeting. The approval plan must show exact attendees, timezone, start/end, communication content and invitation effects before any write. Check for existing events and avoid duplicate invitations. Use only the connected capabilities; if no calendar action is available explain the missing connection. Verify the real calendar or draft result after execution.",
+    "isEnabled": true,
+    "suitableForAutomaticApproval": false
+  },
+  {
+    "name": "Parcel pickup",
+    "applicability": "An item is actually ready for physical collection before a deadline. Exclude order confirmations, in-transit updates and routine home deliveries.",
+    "description": "Verify the pickup location, availability and deadline from the source. Check whether the exact parcel already has a task or was collected. Propose one useful reminder/task with the actual deadline and source reference; respect the owner's chosen reminder timing and timezone. Do not create another task for a repeated notice or infer readiness from an estimated arrival. Never expose collection codes unnecessarily. After approval verify the created or updated task and preserve the real collection obligation until evidence shows it is fulfilled.",
+    "isEnabled": true,
+    "suitableForAutomaticApproval": false
+  },
+  {
+    "name": "Deferred follow-ups",
+    "applicability": "A concrete future check or commitment should return to Samwise at an agreed time, rather than being acted on immediately.",
+    "description": "Identify the real result, source reference, completion evidence and not-before time separately from its external deadline. Use an existing dedicated task project only after verifying its actual ID with the owner. Check for an equivalent task before creating one. Preserve enough context for a future independent run. Do not promise a trigger before verifying due-window, overdue coverage and deduplication behavior. On a later due input inspect current evidence and perform or propose only remaining useful work, without duplicating completed stages. Configuration tune-ups and external writes still need their normal approval.",
+    "isEnabled": true,
+    "suitableForAutomaticApproval": false
+  },
+  {
+    "name": "Complete verified tasks",
+    "applicability": "The sole remaining action is closing one existing task whose exact real-world outcome is proven complete by current evidence.",
+    "description": "Verify the task identity and its actual completion condition against read-only source evidence. A due date, prior agent claim, saved draft, or completed earlier stage alone is not proof. Confirm the task is still open and no answer, delivery, payment or other independent obligation remains. Propose completion of only that exact task for approval, then verify the returned task state. If a write response is lost, reconcile the external state before retrying. Do not enable automatic approval without a separately reviewed restricted completion capability and explicit owner choice.",
+    "isEnabled": true,
+    "suitableForAutomaticApproval": false
+  }
+]

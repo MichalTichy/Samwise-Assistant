@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="PageTitle" xml:space="preserve"><value>Vytvořit účet vlastníka</value></data>
+  <data name="Title" xml:space="preserve"><value>Vytvořte si účet</value></data>
+  <data name="Introduction" xml:space="preserve"><value>Toto je váš soukromý účet Samwise. E-mail a další služby připojíme až potom.</value></data>
+  <data name="Email" xml:space="preserve"><value>E-mailová adresa</value></data>
+  <data name="Password" xml:space="preserve"><value>Heslo</value></data>
+  <data name="ConfirmPassword" xml:space="preserve"><value>Potvrzení hesla</value></data>
+  <data name="PasswordHint" xml:space="preserve"><value>Použijte alespoň 10 znaků. Toto heslo slouží pouze pro Samwise.</value></data>
+  <data name="CreateAccount" xml:space="preserve"><value>Vytvořit účet</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>Tento instalační odkaz není dostupný. Pokud už účet máte, přihlaste se. Jinak požádejte průvodce nastavením o instalační odkaz.</value></data>
+  <data name="SignIn" xml:space="preserve"><value>Přihlásit se</value></data>
+  <data name="InvalidInput" xml:space="preserve"><value>Zkontrolujte e-mailovou adresu a použijte heslo o délce 10 až 128 znaků.</value></data>
+  <data name="EmailRequired" xml:space="preserve"><value>Zadejte e-mailovou adresu.</value></data>
+  <data name="EmailInvalid" xml:space="preserve"><value>Zadejte platnou e-mailovou adresu.</value></data>
+  <data name="PasswordRequired" xml:space="preserve"><value>Zadejte heslo.</value></data>
+  <data name="PasswordLength" xml:space="preserve"><value>Použijte 10 až 128 znaků.</value></data>
+  <data name="PasswordsMustMatch" xml:space="preserve"><value>Hesla se musí shodovat.</value></data>
+</root>

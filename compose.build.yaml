@@ -1,0 +1,17 @@
+# Clone Gateway separately, then set CODEX_GATEWAY_SOURCE to its checkout path.
+services:
+  gateway-runner-image:
+    build:
+      context: ${CODEX_GATEWAY_SOURCE:?Set CODEX_GATEWAY_SOURCE to the Gateway checkout}
+      target: runner
+      args:
+        CODEX_VERSION: ${CODEX_VERSION:-latest}
+  gateway:
+    build:
+      context: ${CODEX_GATEWAY_SOURCE:?Set CODEX_GATEWAY_SOURCE to the Gateway checkout}
+      target: gateway
+      args:
+        CODEX_VERSION: ${CODEX_VERSION:-latest}
+  web:
+    build:
+      context: .

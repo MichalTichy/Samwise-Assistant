@@ -1,0 +1,139 @@
+@page "/tasks"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Samwise.Web.Resources
+
+<PageTitle>@TaskResources.Tasks · Samwise</PageTitle>
+<div class="tasks-page">
+    <div class="page-heading-row">
+        <div><span class="page-kicker">Samwise</span><h1>@TaskResources.Tasks</h1><p>@TaskResources.Intro</p></div>
+        <button class="task-primary" @onclick="() => New(false)" disabled="@busy"><span aria-hidden="true">＋</span> @TaskResources.NewTask</button>
+    </div>
+    @if (error is not null && !editorOpen) { <div class="inline-alert" role="alert">@error</div> }
+    @if (message is not null && !editorOpen) { <div class="task-save-message" role="status">✓ @message</div> }
+    <div class="calendar-layout">
+        <section class="task-calendar" aria-label="@TaskResources.Calendar" aria-busy="@busy">
+            <header class="calendar-toolbar">
+                <h2>@viewMonth.ToString("MMMM yyyy")</h2>
+                <div class="calendar-controls">
+                    <button class="calendar-refresh" aria-label="@TaskResources.Refresh" @onclick="LoadAsync" disabled="@busy">↻</button>
+                    <button @onclick="Today">@TaskResources.Today</button>
+                    <button aria-label="@TaskResources.PreviousMonth" @onclick="() => ChangeMonth(-1)">‹</button>
+                    <button aria-label="@TaskResources.NextMonth" @onclick="() => ChangeMonth(1)">›</button>
+                </div>
+            </header>
+            <div class="month-grid">
+                @for (var dayIndex = 0; dayIndex < 7; dayIndex++)
+                {
+                    <div class="weekday-heading">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName((DayOfWeek)((dayIndex + 1) % 7))</div>
+                }
+                @for (var index = 0; index < 42; index++)
+                {
+                    var day = GridStart.AddDays(index);
+                    var entries = EntriesOn(day).ToList();
+                    <div class="calendar-day @(day.Month != viewMonth.Month ? "outside-month" : null) @(day == selectedDate ? "selected-day" : null)">
+                        <button class="day-number @(day == LocalToday ? "is-today" : null)" aria-label="@day.ToString("D")" aria-pressed="@(day == selectedDate)" @onclick="() => selectedDate = day">@day.Day</button>
+                        @foreach (var entry in entries.Take(3))
+                        {
+                            <button class="calendar-entry @(entry.IsCompleted ? "entry-completed" : null) @(entry.IsProjection ? "entry-projected" : null)" title="@entry.Title" aria-label="@($"{EntryTime(entry)} {entry.Title}")" @onclick="() => SelectEntryAsync(entry)">
+                                <span class="entry-dot" aria-hidden="true">@(entry.IsCompleted ? "✓" : entry.RoutineId is not null ? "↻" : "·")</span><span><time>@EntryTime(entry)</time> @entry.Title</span>
+                            </button>
+                        }
+                        @if (entries.Count > 3) { <button class="more-entries" @onclick="() => selectedDate = day">+@(entries.Count - 3)</button> }
+                    </div>
+                }
+            </div>
+            <div class="mobile-agenda">
+                @foreach (var day in Enumerable.Range(0, DateTime.DaysInMonth(viewMonth.Year, viewMonth.Month)).Select(i => viewMonth.AddDays(i)))
+                {
+                    var entries = EntriesOn(day).ToList();
+                    @if (entries.Count > 0 || day == LocalToday)
+                    {
+                        <section class="mobile-agenda-day"><h3>@day.ToString("ddd d")</h3>
+                            @foreach (var entry in entries) { <button class="agenda-entry" @onclick="() => SelectEntryAsync(entry)"><time>@EntryTime(entry)</time><strong>@entry.Title</strong><span>@(entry.RoutineId is not null ? "↻" : "")</span></button> }
+                            @if (entries.Count == 0) { <p class="task-muted">@TaskResources.NoTasks</p> }
+                        </section>
+                    }
+                }
+            </div>
+            <footer class="calendar-footer"><label><input type="checkbox" @bind="includeCompleted" /> @TaskResources.ShowCompleted</label><span>Europe/Prague</span></footer>
+        </section>
+        <aside class="calendar-side">
+            <section class="source-list"><h3>@TaskResources.ExternalSources</h3><a href="/tasks/sources/todoist">Todoist ↗</a></section>
+            <section class="day-agenda">
+                <span class="page-kicker">@selectedDate.ToString("dddd")</span><h2>@selectedDate.ToString("d MMMM")</h2>
+                @foreach (var entry in EntriesOn(selectedDate))
+                {
+                    <button class="agenda-entry" @onclick="() => SelectEntryAsync(entry)"><time>@EntryTime(entry)</time><div><strong>@entry.Title</strong><small>@(entry.SourceState is not null ? "Todoist · " + entry.SourceState : entry.IsCompleted ? TaskResources.Done : entry.RoutineId is not null ? TaskResources.Repeat : "")</small></div></button>
+                }
+                @if (!EntriesOn(selectedDate).Any()) { <p class="task-muted">@TaskResources.NoTasks</p> }
+                <button class="task-text-button" @onclick="() => New(false)">＋ @TaskResources.NewForDay</button>
+            </section>
+            <section class="routine-list"><h3>@TaskResources.Routines</h3>
+                @foreach (var routine in routines)
+                {
+                    <button class="routine-entry" @onclick="() => SelectRoutineAsync(routine.Id)"><span aria-hidden="true">↻</span><strong>@routine.Title</strong><span class="routine-state @(routine.IsEnabled ? "enabled" : null)"></span></button>
+                }
+                <button class="task-text-button" @onclick="() => New(true)">＋ @TaskResources.NewRoutine</button>
+            </section>
+        </aside>
+    </div>
+</div>
+
+@if (editorOpen)
+{
+        <dialog class="task-dialog" @ref="dialogElement" aria-labelledby="task-dialog-title">
+            <header class="task-dialog-heading"><h2 id="task-dialog-title">@(selectedId is null ? isRoutine ? TaskResources.NewRoutine : TaskResources.NewTask : isRoutine ? TaskResources.EditRoutine : TaskResources.EditTask)</h2><button class="dialog-close" aria-label="@TaskResources.Close" @onclick="() => editorOpen = false">×</button></header>
+            <div class="task-dialog-content">
+                @if (selectedRoutineId is not null && !isRoutine)
+                {
+                    <div class="occurrence-switch"><strong>@TaskResources.ThisOccurrence</strong><button class="task-text-button" @onclick="() => SelectRoutineAsync(selectedRoutineId)">@TaskResources.EditRoutine ↗</button></div>
+                }
+                @if (externalSource is not null)
+                {
+                    <div class="occurrence-switch"><div><strong>Todoist · @externalSource.State</strong><p class="task-muted">@TaskResources.SourceOwned</p><small>@TaskResources.SourceDue: @SourceDueDisplay</small></div><a href="@externalSource.Url" target="_blank" rel="noopener">Todoist ↗</a></div>
+                }
+                @if (error is not null) { <div class="inline-alert" role="alert">@error</div> }
+                <fieldset disabled="@(busy || externalSource is { IsActive: false })" class="task-form">
+                    <label>@TaskResources.Title<input class="configuration-input task-title-input" @bind="title" readonly="@(externalSource is not null)" autofocus /></label>
+                    <div class="schedule-fields">
+                    @if (!isRoutine && (selectedId is null || checklist.Any(item => !item.IsCompleted)))
+                    {
+                        <label>@(externalSource is null ? TaskResources.DateAndTime : TaskResources.NextRun)<input class="configuration-input" type="datetime-local" @bind="nextRunLocal" /></label>
+                    }
+                    @if (selectedId is null || isRoutine)
+                    {
+                        <label>@TaskResources.Repeat<select class="configuration-input" value="@(isRoutine ? repeat : "none")" @onchange="SetRepeat">
+                            @if (selectedId is null) { <option value="none">@TaskResources.DoesNotRepeat</option> }
+                            <option value="daily">@TaskResources.Daily</option><option value="weekdays">@TaskResources.Weekdays</option><option value="weekly">@TaskResources.Weekly</option><option value="monthly">@TaskResources.Monthly</option><option value="first">@TaskResources.FirstWorkday</option><option value="last">@TaskResources.LastWorkday</option><option value="secondMonday">@TaskResources.SecondMonday</option>
+                            @if (repeat == "custom") { <option value="custom">@originalCron</option> }
+                        </select></label>
+                    }
+                    @if (isRoutine)
+                    {
+                            @if (repeat != "custom") { <label>@TaskResources.RunTime<input type="time" class="configuration-input" @bind="runTime" /></label> }
+                            @if (repeat == "weekly") { <label>@TaskResources.Weekday<select class="configuration-input" @bind="weekDay">@for (var day = 0; day < 7; day++) { <option value="@day">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetDayName((DayOfWeek)day)</option> }</select></label> }
+                            @if (repeat == "monthly") { <label>@TaskResources.MonthDay<input class="configuration-input" type="number" min="1" max="31" @bind="monthDay" /></label> }
+                        <label class="task-toggle"><input type="checkbox" @bind="isEnabled" /> @TaskResources.Enabled</label>
+                    }
+                    </div>
+                    <details class="timezone-setting"><summary>@timeZoneId</summary><label>@TaskResources.TimeZone<input class="configuration-input" @bind="timeZoneId" /></label></details>
+                    <label>@TaskResources.Instructions<textarea class="configuration-input" rows="3" @bind="instructions" readonly="@(externalSource is not null)"></textarea></label>
+                    <div class="checklist-heading"><h3>@TaskResources.Checklist</h3><span>@checklist.Count(item => item.IsCompleted)/@checklist.Count</span></div>
+                    @foreach (var step in checklist)
+                    {
+                        <div class="checklist-row" @key="step.Id">
+                            @if (!isRoutine) { <input type="checkbox" aria-label="@TaskResources.Done" @bind="step.IsCompleted" /> }
+                            <input class="configuration-input" aria-label="@TaskResources.Checklist" @bind="step.Text" />
+                            <button class="remove-step" aria-label="@TaskResources.Remove" @onclick="() => checklist.Remove(step)">×</button>
+                            @if (!isRoutine && step.IsCompleted) { <input class="configuration-input evidence" placeholder="@TaskResources.Evidence" aria-label="@TaskResources.Evidence" @bind="step.Evidence" /> }
+                        </div>
+                    }
+                    <button class="task-text-button" @onclick="AddStep">＋ @TaskResources.AddStep</button>
+                </fieldset>
+                <p class="task-muted">@(isRoutine ? TaskResources.RoutineHelp : TaskResources.InstanceHelp)</p>
+                @if (workItemIds.Count > 0) { <details class="task-history"><summary>@TaskResources.History</summary>@foreach (var id in workItemIds) { <div><a href="/work-items/@id">@id</a></div> }</details> }
+            </div>
+            <footer class="task-dialog-footer"><button class="task-secondary" @onclick="() => editorOpen = false" disabled="@busy">@TaskResources.Cancel</button><button class="task-primary" @onclick="SaveAsync" disabled="@(busy || externalSource is { IsActive: false })">@TaskResources.Save</button></footer>
+        </dialog>
+}

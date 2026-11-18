@@ -29,7 +29,7 @@ internal sealed class TodoistApiClient(HttpClient httpClient)
             var text = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                throw new InvalidOperationException(
+                throw new TodoistApiException(response.StatusCode,
                     $"Todoist returned {(int)response.StatusCode}: {ReadError(text) ?? response.ReasonPhrase}");
             }
 

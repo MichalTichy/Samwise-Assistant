@@ -16,7 +16,9 @@ internal sealed class WorkItemExecutionService(
     IAgentInvocationService invocationService,
     IWorkItemEventPublisher eventPublisher,
     TimeProvider timeProvider,
-    ILogger<WorkItemExecutionService> logger) : IWorkItemExecutionService
+    ILogger<WorkItemExecutionService> logger,
+    IReadOnlyRepository<Samwise.Domain.Tasks.AgentTask>? tasks = null,
+    IEnumerable<Samwise.Logic.Tasks.IExternalTaskRunGate>? sourceGates = null) : IWorkItemExecutionService
 {
     public async Task ExecuteAsync(WorkItemExecutionRequest request, CancellationToken cancellationToken)
     {
@@ -32,6 +34,17 @@ internal sealed class WorkItemExecutionService(
         var executionStarted = false;
         try
         {
+            if (workItem.AgentTaskId is { } linkedId && tasks is not null &&
+                await tasks.GetByIdAsync(linkedId, cancellationToken) is { ExternalSource: { } source })
+            {
+                var gate = sourceGates?.SingleOrDefault(item => item.Provider == source.Provider);
+                if (gate is null || !await gate.RefreshBeforeRunAsync(linkedId, cancellationToken))
+                    throw new InvalidOperationException(Samwise.Domain.Tasks.TaskErrors.SourceUnavailable);
+                workItem = await workItemRepository.GetRequiredByIdAsync(request.WorkItemId, cancellationToken);
+                if (workItem.Status != WorkItemStatus.Approved || workItem.Revision != request.WorkItemRevision ||
+                    workItem.CurrentPlanId != request.PlanId) return;
+                if (await tasks.GetByIdAsync(linkedId, cancellationToken) is not { ExternalSource.IsActive: true }) return;
+            }
             var plan = workItem.FindCurrentPlan()
                 ?? throw new InvalidOperationException("The approved plan is missing from the work item document.");
             var stage = plan.Review?.Source == DomainWorkItem.AutomaticApprovalSource
@@ -87,12 +100,17 @@ internal sealed class WorkItemExecutionService(
             var currentWorkItem = await workItemRepository.GetRequiredByIdAsync(workItem.Id, cancellationToken);
             switch (result.Disposition)
             {
-                case ExecutionDisposition.AwaitingExternalEvent:
-                    currentWorkItem.AwaitExternalEvent(result.Summary, invocation.Id, timeProvider.GetUtcNow());
-                    currentWorkItem.AddExecutionUpdate(
-                        AgentWorkflowSupport.FormatExecutionResult(result), timeProvider.GetUtcNow());
-                    break;
                 case ExecutionDisposition.Succeeded:
+                    if (currentWorkItem.AgentTaskId is { } taskId && tasks is not null &&
+                        await tasks.GetByIdAsync(taskId, cancellationToken) is { } task &&
+                        task.CompletedAt is null && task.NextRunAt is null && task.ExternalSource is not { IsActive: false })
+                    {
+                        currentWorkItem.MarkExecutionFailed(timeProvider.GetUtcNow(),
+                            Samwise.Domain.Tasks.TaskErrors.MissingProgress);
+                        currentWorkItem.AddExecutionUpdate(Samwise.Domain.Tasks.TaskErrors.MissingProgress, timeProvider.GetUtcNow());
+                        currentWorkItem.AddExecutionUpdate(AgentWorkflowSupport.FormatExecutionResult(result), timeProvider.GetUtcNow());
+                        break;
+                    }
                     currentWorkItem.CompleteExecution(
                         result.Summary,
                         result.Outputs,
@@ -148,6 +166,12 @@ internal sealed class WorkItemExecutionService(
             {
                 return;
             }
+
+            // A competing worker may have won the start, or source synchronization may have
+            // withdrawn approval. A losing attempt must never change that worker's state.
+            if (currentWorkItem.Revision != request.WorkItemRevision || currentWorkItem.CurrentPlanId != request.PlanId ||
+                (mayHaveSideEffects ? currentWorkItem.Status != WorkItemStatus.Executing : currentWorkItem.Status != WorkItemStatus.Approved))
+                return;
 
             if (mayHaveSideEffects)
             {

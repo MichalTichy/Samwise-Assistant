@@ -242,7 +242,7 @@ public static class SetupEndpointExtensions
             workItems = items.Select(item => new
             {
                 item.Id, item.Title, status = item.Status.ToString(), item.Revision,
-                item.CurrentPlanId, item.WaitingReason, item.UpdatedAt,
+                item.CurrentPlanId, item.AgentTaskId, item.UpdatedAt,
                 pendingQuestion = item.PendingPlanningQuestion?.Prompt,
                 plans = item.Plans
             })

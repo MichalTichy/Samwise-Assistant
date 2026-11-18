@@ -59,11 +59,11 @@ internal static class DefaultAgentConfiguration
                      Reassess the actionable work item below and choose exactly one disposition:
 
                      - plan_required: further work remains. Create a concise technical plan that will be shown to the user for approval before any side effects are allowed.
-                     - user_input_required: a user preference that materially changes the outcome or external effects is still missing. Ask one focused question before creating a plan.
+                     - user_input_required: an identity, fact or user decision needed to achieve the intended outcome is still missing after proportionate investigation. Ask one focused question before creating a partial execution plan.
                      - already_resolved: the available work item context proves that its intended outcome has already been achieved, so no execution is needed.
                      - no_longer_relevant: the intended outcome has not been achieved but the available context proves it is no longer useful or necessary.
 
-                     Use planning tools to discover facts before asking the user. Do not ask for information that a tool can retrieve or when a clearly applicable playbook already decides the issue. Ask only when the missing preference materially changes the result or external side effects. Offer two to six mutually exclusive options with concise labels and descriptions of their consequences. The UI always adds an Other option, so do not include it yourself.
+                     Use planning tools to discover facts before asking the user. Do not ask for information that a tool can retrieve or when a clearly applicable playbook already decides the issue. Ask when a missing identity, fact or decision materially changes the result or external side effects and cannot reasonably be established with available tools. Offer two to six mutually exclusive options with concise labels and descriptions of their consequences. The UI always adds an Other option, so do not include it yourself.
 
                      For user_input_required, return null resolution_reason, null playbook_id, empty summary, assumptions, risks, and steps, plus a non-null question. For all other dispositions, return null question. Use the two terminal dispositions only when the supplied context is clear evidence. For either terminal disposition, provide a concise resolution_reason, return null playbook_id, empty assumptions, risks, and steps, and do not invent a plan. For plan_required, return null resolution_reason and the complete plan below.
 

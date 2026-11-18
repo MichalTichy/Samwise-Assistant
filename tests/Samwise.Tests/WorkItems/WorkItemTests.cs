@@ -10,51 +10,6 @@ public sealed class WorkItemTests
     private static readonly DateTimeOffset InitialTime = new(2026, 8, 17, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void InvoiceCreationCanWaitForApprovalAndResumeWithoutReexecutingTheOldPlan()
-    {
-        var workItem = DomainWorkItem.CreateFromInbound("Create, approve and deliver the invoice.", null, InitialTime);
-        var plan = CreatePlan(workItem, 1, InitialTime);
-        workItem.ApplyPlan(plan, InitialTime);
-        workItem.Approve(plan.Id, workItem.Revision, InitialTime);
-        workItem.StartExecution(plan.Id, workItem.Revision, InitialTime);
-
-        workItem.AwaitExternalEvent("Invoice 2884 created; wait for its approval email before drafting.", "execution-1", InitialTime);
-
-        Assert.Equal(WorkItemStatus.AwaitingExternalEvent, workItem.Status);
-        Assert.Null(workItem.Completion);
-        Assert.Null(workItem.CompletedAt);
-        Assert.Contains("2884", workItem.WaitingReason);
-        Assert.Contains(workItem.DequeueEvents(), e => e is WorkItemAwaitingExternalEvent);
-        Assert.Throws<InvalidOperationException>(() => workItem.StartExecution(plan.Id, workItem.Revision, InitialTime));
-
-        workItem.AddInboundContext("Invoice 2884 was approved.", new WorkItemSourceReference
-        {
-            InboundEventId = "approval-email", Source = "Email", ExternalId = "message-2884", AddedAt = InitialTime
-        }, InitialTime.AddDays(1));
-
-        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
-        Assert.Equal(2, workItem.Revision);
-        Assert.Null(workItem.WaitingReason);
-        Assert.Null(workItem.CurrentPlanId);
-        Assert.Same(plan, Assert.Single(workItem.Plans));
-        Assert.Contains(workItem.Comments, c => c.Body.Contains("Invoice 2884 created", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void WaitingCanBeRecheckedButCannotHideAnUncertainExecution()
-    {
-        var workItem = DomainWorkItem.CreateFromInbound("Deliver the invoice.", null, InitialTime);
-        workItem.AwaitExternalEvent("Await invoice approval.", "planning-1", InitialTime);
-        workItem.Replan(InitialTime);
-        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
-        Assert.Null(workItem.WaitingReason);
-
-        workItem.Status = WorkItemStatus.OutcomeUnknown;
-        Assert.Throws<InvalidOperationException>(() =>
-            workItem.AwaitExternalEvent("Wait instead of reconciling.", "planning-2", InitialTime));
-    }
-
-    [Fact]
     public void CurrentPlanCanBeApprovedOnlyForItsExactWorkItemRevision()
     {
         var workItem = DomainWorkItem.CreateFromInbound("Prepare the revised offer.", "Revised offer", InitialTime);

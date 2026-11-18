@@ -17,6 +17,9 @@ public sealed class MartenInstaller : IInstaller
 
         services.AddSingleton<IStorageConfiguration, SamwiseStorageConfiguration>();
         services.AddNpgsqlDataSource(connectionString);
-        services.AddMartenPostgresPersistence(useTenancy: false);
+        // Keep offsets while reading projections through JToken; the shared default parses them as
+        // unspecified DateTime values, which shifts a UTC task time into the server's local zone.
+        services.AddMartenPostgresPersistence(useTenancy: false,
+            configureSerialization: settings => settings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset);
     }
 }

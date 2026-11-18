@@ -7,9 +7,6 @@ internal static class WorkItemResources
 {
     private static readonly ResourceManager Manager = new(typeof(WorkItemResources));
 
-    public static string AwaitingExternalEvent =>
-        Manager.GetString(nameof(AwaitingExternalEvent), CultureInfo.CurrentUICulture)!;
-
     public static string Discard => Manager.GetString(nameof(Discard), CultureInfo.CurrentUICulture)!;
 
     public static string DiscardWorkItem => Manager.GetString(nameof(DiscardWorkItem), CultureInfo.CurrentUICulture)!;

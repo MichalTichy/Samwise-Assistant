@@ -4,6 +4,5 @@ public enum ExecutionDisposition
 {
     Succeeded,
     Failed,
-    OutcomeUnknown,
-    AwaitingExternalEvent
+    OutcomeUnknown
 }

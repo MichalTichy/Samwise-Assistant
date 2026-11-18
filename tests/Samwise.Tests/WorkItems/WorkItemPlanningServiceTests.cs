@@ -18,31 +18,7 @@ public sealed class WorkItemPlanningServiceTests
     private static readonly DateTimeOffset Now =
         new(2026, 9, 14, 12, 0, 0, TimeSpan.Zero);
 
-    [Fact]
-    public async Task ExternalPrerequisiteKeepsWorkOpenWithoutCreatingAnApprovalPlanOrOwnerQuestion()
-    {
-        var workItem = DomainWorkItem.CreateFromInbound("Deliver invoice 2884.", null, Now);
-        var invocations = new StubInvocationService();
-        var events = new RecordingEventPublisher();
-        var service = CreateService(workItem, new PlannerResult(
-            PlanningDisposition.AwaitingExternalEvent,
-            "Invoice 2884 exists; wait for approval, then prepare its PDF draft.",
-            EmptyPlan(), null, Receipt()), invocations, events);
-
-        await service.PlanAsync(workItem.Id, CancellationToken.None);
-
-        Assert.Equal(WorkItemStatus.AwaitingExternalEvent, workItem.Status);
-        Assert.Empty(workItem.Plans);
-        Assert.Null(workItem.PendingPlanningQuestion);
-        Assert.Null(workItem.Completion);
-        Assert.Null(workItem.CompletedAt);
-        Assert.Contains("2884", workItem.WaitingReason);
-        Assert.IsType<WorkItemAwaitingExternalEvent>(events.Published[^1]);
-        Assert.True(invocations.Completed);
-    }
-
     [Theory]
-    [InlineData(ExecutionDisposition.AwaitingExternalEvent, WorkItemStatus.AwaitingExternalEvent)]
     [InlineData(ExecutionDisposition.Succeeded, WorkItemStatus.Completed)]
     [InlineData(ExecutionDisposition.Failed, WorkItemStatus.NeedsAttention)]
     [InlineData(ExecutionDisposition.OutcomeUnknown, WorkItemStatus.OutcomeUnknown)]

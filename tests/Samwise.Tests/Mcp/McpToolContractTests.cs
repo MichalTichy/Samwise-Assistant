@@ -8,6 +8,17 @@ namespace Samwise.Tests.Mcp;
 public sealed class McpToolContractTests
 {
     [Fact]
+    public void ExecutionTaskToolRequiresWorkItemAndOwnerToolHasNoExecutionSwitch()
+    {
+        var progress = typeof(AgentTaskTools).GetMethod(nameof(AgentTaskTools.SaveProgressAsync))!;
+        var workItem = Assert.Single(progress.GetParameters(), item => item.Name == "executingWorkItemId");
+        Assert.False(workItem.HasDefaultValue);
+        Assert.Equal(NullabilityState.NotNull, new NullabilityInfoContext().Create(workItem).ReadState);
+        Assert.DoesNotContain(typeof(AgentTaskTools).GetMethod(nameof(AgentTaskTools.SaveAsync))!.GetParameters(),
+            item => item.Name == "executingWorkItemId");
+    }
+
+    [Fact]
     public void SavePlaybookDoesNotExposeAutomaticApprovalEligibility()
     {
         var savePlaybook = typeof(PlaybookTools).GetMethod(nameof(PlaybookTools.SavePlaybookAsync));
@@ -37,11 +48,14 @@ public sealed class McpToolContractTests
                 "delete_playbook",
                 "get_agent_invocation",
                 "get_agent_settings",
+                "get_agent_task",
                 "get_execution_tool_schema",
                 "get_input_event",
                 "get_playbook",
                 "get_work_item",
                 "list_agent_invocations",
+                "list_agent_routines",
+                "list_agent_tasks",
                 "list_input_events",
                 "list_playbooks",
                 "list_work_items",
@@ -50,6 +64,9 @@ public sealed class McpToolContractTests
                 "reprocess_ignored_input_event",
                 "restore_work_item",
                 "save_agent_prompt",
+                "save_agent_routine",
+                "save_agent_task",
+                "save_agent_task_progress",
                 "save_playbook"
             ],
             toolNames);

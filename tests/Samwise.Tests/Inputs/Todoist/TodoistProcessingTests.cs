@@ -1,393 +1,452 @@
+using JasperFx;
+using Marten;
+using Marten.Services;
+using MediatR;
+using Weasel.Core;
+using Newtonsoft.Json;
 using Samwise.Domain.Inbox;
+using Samwise.Domain.Tasks;
+using Samwise.Domain.WorkItems;
+using Samwise.Infrastructure.Persistence.Marten.Storage;
 using Samwise.Inputs.Todoist.Configuration;
 using Samwise.Inputs.Todoist.Discovery;
 using Samwise.Inputs.Todoist.InboundEvents;
 using Samwise.Inputs.Todoist.Ingestion;
-using Samwise.Inputs.Todoist.Usecases.Processing;
-using Samwise.Logic.Inbox.Services;
+using Samwise.Inputs.Todoist.Tasks;
+using Samwise.Logic.WorkItems.Services;
+using Samwise.Logic.Tasks.Usecases;
+using Shared.Infrastructure.CurrentTenancyProvider;
 using Shared.Infrastructure.Persistence;
+using Shared.Infrastructure.Persistence.Marten.Repository.Document;
+using Shared.Infrastructure.Persistence.Marten.SessionFactory;
 using Shared.Infrastructure.Persistence.Repositories;
-using Shared.Infrastructure.Persistence.Specifications;
 
 namespace Samwise.Tests.Inputs.Todoist;
 
 public sealed class TodoistProcessingTests
 {
-    private static readonly DateTimeOffset Now =
-        new(2026, 9, 21, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-11-17T09:00:00Z");
 
-    [Fact]
-    public async Task UnconfiguredTodoistInputRemainsInactive()
+    [Theory]
+    [InlineData("missing", "unavailable")]
+    [InlineData("completed", "completed")]
+    [InlineData("deleted", "deleted")]
+    [InlineData("undated", "undated")]
+    public async Task ExactApiStateDoesNotTreatMissingAccessAsCompletion(string id, string expected)
     {
-        var configuration = new TodoistInputConfiguration();
-        var capture = new RecordingCaptureService();
-        var handler = CreateHandler(configuration, [], [DueTask("1", "2026-09-21T13:00:00Z")], capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal(0, result.Imported);
-        Assert.Empty(capture.Events);
-        Assert.Null(configuration.LastSuccessfulCheckAt);
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        using var client = new HttpClient(new StateHttpHandler()) { BaseAddress = new Uri("https://example.invalid/") };
+        var reader = new Samwise.Infrastructure.Todoist.Readers.TodoistRestTaskReader(
+            new Samwise.Infrastructure.Todoist.Api.TodoistApiClient(client), scope.Repo<TodoistInputConfiguration>(), new TestProtector());
+        Assert.Equal(expected, (await reader.ReadTaskStateAsync(id)).State);
+        await Assert.ThrowsAsync<Samwise.Infrastructure.Todoist.Api.TodoistApiException>(() => reader.ReadTaskStateAsync("forbidden"));
     }
-
-    [Fact]
-    public async Task OnlyTasksInsideTheLeadAndOverdueWindowAreCaptured()
+    private sealed class TestProtector : Samwise.Inputs.Todoist.Authentication.ITodoistCredentialProtector
     {
-        var configuration = CreateConfiguration(leadHours: 24, overdueDays: 7);
-        var capture = new RecordingCaptureService();
-        var handler = CreateHandler(
-            configuration,
-            [],
-            [
-                DueTask("soon", "2026-09-22T11:00:00Z"),
-                DueTask("later", "2026-09-22T13:00:00Z"),
-                DueTask("overdue", "2026-09-18"),
-                DueTask("forgotten", "2026-09-01"),
-                DueTask("tomorrow-all-day", "2026-09-22")
-            ],
-            capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal(3, result.Imported);
-        Assert.Equal(
-            ["overdue", "tomorrow-all-day", "soon"],
-            capture.Events.Cast<TodoistTaskInboundEvent>().Select(item => item.TaskId));
-        Assert.Equal(Now, configuration.LastSuccessfulCheckAt);
-        Assert.Null(configuration.LastError);
+        public string Protect(string value) => value;
+        public string Unprotect(string value) => value;
     }
-
-    [Fact]
-    public async Task CapturedTaskCarriesSourceDetailsCommentsAndGuidance()
+    private sealed class StateHttpHandler : HttpMessageHandler
     {
-        var configuration = CreateConfiguration();
-        var capture = new RecordingCaptureService();
-        var reader = new StubReader([DueTask("task-1", "2026-09-21T15:00:00Z", labels: ["waiting"])])
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Comments = [new TodoistCommentSnapshot("c-1", Now.AddDays(-1), "Rosie asked for the draft.")]
-        };
-        var handler = CreateHandler(configuration, [], reader, capture);
-
-        await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        var inboundEvent = Assert.IsType<TodoistTaskInboundEvent>(Assert.Single(capture.Events));
-        Assert.Equal("Todoist", inboundEvent.Source);
-        Assert.Equal("task:task-1:due:2026-09-21T15:00:00Z", inboundEvent.ExternalId);
-        Assert.Equal("todoist:task:task-1", inboundEvent.ContextKey);
-        Assert.Equal(InboundEventStatus.Pending, inboundEvent.Status);
-        Assert.Equal("Todoist guidance.", inboundEvent.SourceGuidance);
-        Assert.Equal(new DateTimeOffset(2026, 9, 21, 15, 0, 0, TimeSpan.Zero), inboundEvent.DueAt);
-        var text = inboundEvent.GetIntakeText();
-        Assert.Contains("your connected Todoist account", text);
-        Assert.Contains("Todoist task ID: task-1", text);
-        Assert.Contains("Project: Inbox", text);
-        Assert.Contains("Labels: waiting", text);
-        Assert.Contains("Rosie asked for the draft.", text);
-    }
-
-    [Fact]
-    public async Task IgnoredProjectOrLabelIsRecordedWithoutIntakeOrComments()
-    {
-        var configuration = CreateConfiguration(
-            ignoredProjects: [new TodoistInputSource { Id = "personal", DisplayName = "Personal" }],
-            ignoredLabels: [new TodoistInputSource { Id = "manual", DisplayName = "manual" }]);
-        var capture = new RecordingCaptureService();
-        var reader = new StubReader(
-        [
-            DueTask("project", "2026-09-21T15:00:00Z", projectId: "personal"),
-            DueTask("label", "2026-09-21T15:00:00Z", labels: ["manual"])
-        ]);
-        var handler = CreateHandler(configuration, [], reader, capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal(0, result.Imported);
-        Assert.Equal(2, result.Ignored);
-        Assert.All(capture.Events, item => Assert.Equal(InboundEventStatus.Processed, item.Status));
-        Assert.Equal(0, reader.CommentReads);
-    }
-
-    [Fact]
-    public async Task AlreadyCapturedOccurrenceIsSkippedWithoutReadingComments()
-    {
-        var configuration = CreateConfiguration();
-        var previous = PreviousEvent("task-1", "2026-09-21T15:00:00Z", "work-item-1");
-        var capture = new RecordingCaptureService();
-        var reader = new StubReader([DueTask("task-1", "2026-09-21T15:00:00Z")]);
-        var handler = CreateHandler(configuration, [previous], reader, capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal(1, result.AlreadyProcessed);
-        Assert.Empty(capture.Events);
-        Assert.Equal(0, reader.CommentReads);
-    }
-
-    [Fact]
-    public async Task FailureForOneTaskDoesNotPreventLaterTasksFromBeingCaptured()
-    {
-        var configuration = CreateConfiguration();
-        var capture = new RecordingCaptureService { FailOnTaskId = "first" };
-        var handler = CreateHandler(configuration, [],
-            [DueTask("first", "2026-09-21T13:00:00Z"), DueTask("second", "2026-09-21T14:00:00Z")],
-            capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal(1, result.Imported);
-        Assert.Single(result.Errors);
-        Assert.Contains("first", result.Errors[0]);
-        Assert.Equal(["first", "second"], capture.Events.Cast<TodoistTaskInboundEvent>()
-            .Select(item => item.TaskId));
-    }
-
-    [Fact]
-    public async Task PreviouslyPendingOccurrenceIsRetried()
-    {
-        var configuration = CreateConfiguration();
-        var previous = PreviousEvent("task-1", "2026-09-21T15:00:00Z", "work-item-1");
-        previous.Status = InboundEventStatus.Pending;
-        var capture = new RecordingCaptureService();
-        var reader = new StubReader([DueTask("task-1", "2026-09-21T15:00:00Z")]);
-        var handler = CreateHandler(configuration, [previous], reader, capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal(1, result.AlreadyProcessed);
-        Assert.Same(previous, Assert.Single(capture.Events));
-        Assert.Equal(0, reader.CommentReads);
-    }
-
-    [Fact]
-    public async Task RescheduledTaskIsANewInputLinkedToTheEarlierOccurrence()
-    {
-        var configuration = CreateConfiguration();
-        var previous = PreviousEvent("task-1", "2026-09-20", "work-item-1");
-        var capture = new RecordingCaptureService();
-        var handler = CreateHandler(configuration, [previous], [DueTask("task-1", "2026-09-21T18:00:00Z")], capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal(1, result.Imported);
-        var inboundEvent = Assert.IsType<TodoistTaskInboundEvent>(Assert.Single(capture.Events));
-        var context = Assert.Single(inboundEvent.Context);
-        Assert.True(context.PreviouslyProcessed);
-        Assert.Equal(previous.Id, context.InboundEventId);
-        Assert.Equal("work-item-1", Assert.Single(context.WorkItemIds));
-    }
-
-    [Fact]
-    public async Task ReaderFailureIsRecordedOnTheConfiguration()
-    {
-        var configuration = CreateConfiguration();
-        var capture = new RecordingCaptureService();
-        var handler = CreateHandler(configuration, [], new StubReader([]) { Failure = "Todoist returned 401: Unauthorized" }, capture);
-
-        var result = await handler.Handle(new ProcessTodoistInputsUsecase(), CancellationToken.None);
-
-        Assert.Equal("Todoist returned 401: Unauthorized", Assert.Single(result.Errors));
-        Assert.Equal("Todoist returned 401: Unauthorized", configuration.LastError);
-        Assert.Null(configuration.LastSuccessfulCheckAt);
-    }
-
-    private static ProcessTodoistInputsUsecaseHandler CreateHandler(
-        TodoistInputConfiguration configuration,
-        IReadOnlyList<InboundEvent> previousEvents,
-        IReadOnlyList<TodoistTaskSnapshot> tasks,
-        RecordingCaptureService capture) =>
-        CreateHandler(configuration, previousEvents, new StubReader(tasks), capture);
-
-    private static ProcessTodoistInputsUsecaseHandler CreateHandler(
-        TodoistInputConfiguration configuration,
-        IReadOnlyList<InboundEvent> previousEvents,
-        StubReader reader,
-        RecordingCaptureService capture) => new(
-            new MemoryRepository<TodoistInputConfiguration>([configuration]),
-            new MemoryRepository<InboundEvent>(previousEvents),
-            reader,
-            capture,
-            new ImmediateLock(),
-            new FixedTimeProvider(Now));
-
-    private static TodoistInputConfiguration CreateConfiguration(
-        int leadHours = 24,
-        int overdueDays = 7,
-        IEnumerable<TodoistInputSource>? ignoredProjects = null,
-        IEnumerable<TodoistInputSource>? ignoredLabels = null)
-    {
-        var configuration = new TodoistInputConfiguration();
-        configuration.Update(
-            "protected-token",
-            15,
-            leadHours,
-            overdueDays,
-            "Todoist guidance.",
-            ignoredProjects ?? [],
-            ignoredLabels ?? []);
-        return configuration;
-    }
-
-    private static TodoistTaskSnapshot DueTask(
-        string id,
-        string due,
-        string projectId = "inbox",
-        IReadOnlyList<string>? labels = null) => new(
-            id,
-            $"Task {id}",
-            string.Empty,
-            projectId,
-            projectId == "inbox" ? "Inbox" : projectId,
-            labels ?? [],
-            1,
-            new TodoistDue { Date = due, Timezone = null, Text = "some day" },
-            null,
-            $"https://app.todoist.com/app/task/{id}");
-
-    private static TodoistTaskInboundEvent PreviousEvent(string taskId, string due, string workItemId) => new()
-    {
-        Id = $"previous-{taskId}",
-        TaskId = taskId,
-        Content = $"Task {taskId}",
-        Due = new TodoistDue { Date = due },
-        ContextKey = TodoistTaskInboundEvent.CreateContextKey(taskId),
-        ReceivedAt = Now.AddDays(-1),
-        Status = InboundEventStatus.Processed,
-        Outcomes =
-        [
-            new InboundEventOutcome
-            {
-                Id = "outcome-1",
-                WorkItemId = workItemId,
-                Kind = InboundEventOutcomeKind.CreatedWorkItem
-            }
-        ]
-    };
-
-    private sealed class StubReader(IReadOnlyList<TodoistTaskSnapshot> tasks) : ITodoistTaskReader
-    {
-        public IReadOnlyList<TodoistCommentSnapshot> Comments { get; init; } = [];
-        public string? Failure { get; init; }
-        public int CommentReads { get; private set; }
-
-        public Task<TodoistTaskReadResult> ReadDueTasksAsync(CancellationToken cancellationToken = default) =>
-            Failure is null
-                ? Task.FromResult(new TodoistTaskReadResult(tasks, "UTC"))
-                : throw new InvalidOperationException(Failure);
-
-        public Task<IReadOnlyList<TodoistCommentSnapshot>> ReadCommentsAsync(
-            string taskId,
-            CancellationToken cancellationToken = default)
-        {
-            CommentReads++;
-            return Task.FromResult(Comments);
-        }
-
-        public Task<TodoistInputCatalog> GetCatalogAsync(CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class RecordingCaptureService : IInboundEventCaptureService
-    {
-        public List<InboundEvent> Events { get; } = [];
-        public string? FailOnTaskId { get; init; }
-
-        public Task<InboundEventCaptureResult> CaptureAsync(
-            InboundEvent inboundEvent,
-            CancellationToken cancellationToken)
-        {
-            inboundEvent.Id = $"captured-{Events.Count + 1}";
-            Events.Add(inboundEvent);
-            if (inboundEvent is TodoistTaskInboundEvent task && task.TaskId == FailOnTaskId)
-            {
-                throw new InvalidOperationException("Simulated intake failure.");
-            }
-            return Task.FromResult(new InboundEventCaptureResult(inboundEvent.Id, false));
-        }
-
-    }
-
-    private sealed class ImmediateLock : ITodoistInputProcessingLock
-    {
-        public Task<IDisposable> EnterAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IDisposable>(new Lease());
-
-        private sealed class Lease : IDisposable
-        {
-            public void Dispose()
-            {
-            }
+            var id = request.RequestUri!.Segments.Last();
+            var status = id switch { "missing" => System.Net.HttpStatusCode.NotFound, "forbidden" => System.Net.HttpStatusCode.Unauthorized,
+                _ => System.Net.HttpStatusCode.OK };
+            var body = id switch { "completed" => "{\"checked\":true}", "deleted" => "{\"is_deleted\":true}", "undated" => "{\"id\":\"undated\",\"due\":null}", _ => "{}" };
+            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
         }
     }
 
-    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    [Theory]
+    [InlineData(false, 4)]
+    [InlineData(true, 3)]
+    public async Task UndoAndPostponeIsNotProofOfNewRecurringOccurrence(bool recurring, int counter)
     {
-        public override DateTimeOffset GetUtcNow() => now;
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        var source = Snapshot() with { Due = new() { Date = "2026-11-17T10:00:00Z", IsRecurring = recurring } };
+        scope.Reader.Tasks = [source]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        task.Checklist.Add(new() { Text = "Prepared", IsCompleted = true, Evidence = "Draft 123" });
+        await scope.Repo<AgentTask>().UpdateAsync(task);
+        scope.Reader.Tasks = []; scope.Reader.State = new("completed"); await scope.Sync();
+        scope.Reader.Tasks = [source with { CompletedCount = counter, Due = new() { Date = "2026-12-17T10:00:00Z", IsRecurring = recurring } }];
+        Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal(0, task.ExternalSource!.Generation); Assert.Equal("Draft 123", task.Checklist[1].Evidence);
     }
 
-    private sealed class MemoryRepository<T>(IReadOnlyList<T> initial) : IRepository<T>
-        where T : class, IItemWithId
+    [Fact]
+    public async Task RestoredSourceCannotDiscardUnresolvedPartialFailure()
     {
-        private readonly List<T> items = [.. initial];
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var failed = WorkItem.CreateFromInbound("Partial effects", "Invoice", Now);
+        failed.Status = WorkItemStatus.NeedsAttention; failed.AgentTaskId = task.Id;
+        failed.AddExecutionUpdate("Created invoice 2884; attachment failed", Now);
+        task.WorkItemIds.Add(failed.Id); task.NextRunAt = null;
+        await scope.Repo<WorkItem>().AddAsync(failed); await scope.Repo<AgentTask>().UpdateAsync(task);
+        scope.Reader.Tasks = []; scope.Reader.State = new("unavailable"); await scope.Sync();
+        scope.Reader.Tasks = [Snapshot()]; Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.True(task.ExternalSource!.IsActive); Assert.Null(task.NextRunAt);
+        failed = await scope.Repo<WorkItem>().GetRequiredByIdAsync(failed.Id);
+        Assert.Equal(WorkItemStatus.NeedsAttention, failed.Status);
+        Assert.Contains(failed.Comments, comment => comment.Body.Contains("2884", StringComparison.Ordinal));
+        Assert.Single(await scope.Repo<WorkItem>().ListAsync());
+    }
 
-        public Task<T?> GetByIdAsync(string id, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            Task.FromResult(items.SingleOrDefault(item => item.Id == id));
+    [Fact]
+    public async Task SourceCounterGapKeepsBaselineAndNewGenerationsRetainUncertainOrigin()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var first = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var uncertain = WorkItem.CreateFromInbound("Attempt", "Invoice", Now);
+        uncertain.Status = WorkItemStatus.OutcomeUnknown; uncertain.AgentTaskId = first.Id;
+        first.WorkItemIds.Add(uncertain.Id); first.NextRunAt = null;
+        await scope.Repo<WorkItem>().AddAsync(uncertain); await scope.Repo<AgentTask>().UpdateAsync(first);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = null }]; await scope.Sync();
+        Assert.Equal(3, (await scope.Repo<AgentTask>().GetRequiredByIdAsync(first.Id)).ExternalSource!.CompletedCount);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 4 }]; await scope.Sync();
+        var second = (await scope.Repo<AgentTask>().ListAsync()).Single(item => item.ExternalSource!.Generation == 1);
+        Assert.Equal(uncertain.Id, second.OriginWorkItemId);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 2 }]; await scope.Sync();
+        Assert.Equal(4, (await scope.Repo<AgentTask>().GetRequiredByIdAsync(second.Id)).ExternalSource!.CompletedCount);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 5 }]; await scope.Sync();
+        var third = (await scope.Repo<AgentTask>().ListAsync()).Single(item => item.ExternalSource!.Generation == 2);
+        Assert.Equal(uncertain.Id, third.OriginWorkItemId);
+        var scheduler = new ProcessScheduledTasksUsecaseHandler(scope.Repo<AgentRoutine>(), scope.Repo<AgentTask>(),
+            scope.Repo<WorkItem>(), scope.Repo<InboundEvent>(), new Samwise.Logic.Inbox.Services.InboundEventProcessingQueue(),
+            new Events(), new Notifications(), new Clock(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessScheduledTasksUsecaseHandler>.Instance, [new Gate(scope)]);
+        third.NextRunAt = Now; await scope.Repo<AgentTask>().UpdateAsync(third);
+        await scheduler.Handle(new(), default);
+        Assert.Single(await scope.Repo<WorkItem>().ListAsync());
+    }
 
-        public Task<IReadOnlyList<T>> GetByIdsAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            Task.FromResult<IReadOnlyList<T>>(items.Where(item => ids.Contains(item.Id)).ToList());
+    [Theory]
+    [InlineData("deleted")]
+    [InlineData("completed")]
+    public async Task RestoreSameOccurrencePreservesVerifiedChecklist(string sourceState)
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        task.Checklist.Add(new() { Text = "Draft", IsCompleted = true, Evidence = "Draft 123" });
+        await scope.Repo<AgentTask>().UpdateAsync(task);
+        scope.Reader.Tasks = []; scope.Reader.State = new(sourceState); await scope.Sync();
+        scope.Reader.Tasks = [Snapshot()]; Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal(0, task.ExternalSource!.Generation); Assert.Equal("Draft 123", task.Checklist[1].Evidence);
+    }
 
-        public Task<T?> GetBySpecAsync(ISpecification<T> specification, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            throw new NotSupportedException();
+    [Fact]
+    public async Task PostponingNewOverdueImportBeforeFirstDispatchMovesItsImplicitCheck()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot() with { Due = new() { Date = "2026-11-16T09:00:00Z" } }];
+        await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal(Now, task.NextRunAt); Assert.Null(task.LastRunAt);
+        scope.Reader.Tasks = [Snapshot() with { Due = new() { Date = "2026-11-20T09:00:00Z" } }];
+        Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal(Now.AddDays(3), task.NextRunAt); Assert.Empty(task.WorkItemIds);
+    }
 
-        public Task<TResult?> GetBySpecAsync<TResult>(ISpecification<T, TResult> specification, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            throw new NotSupportedException();
+    [Fact]
+    public async Task ChangesBeyondPromptExcerptAndLegacyNewCommentsWithdrawOldApproval()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        var snapshot = Snapshot() with { Description = new string('a', 11_000) };
+        scope.Reader.Tasks = [snapshot]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var item = WorkItem.CreateFromInbound(task.Instructions, task.Title, Now);
+        item.Status = WorkItemStatus.AwaitingApproval; item.CurrentPlanId = "old-approval"; item.AgentTaskId = task.Id;
+        task.WorkItemIds.Add(item.Id); task.NextRunAt = null;
+        await scope.Repo<WorkItem>().AddAsync(item); await scope.Repo<AgentTask>().UpdateAsync(task);
+        scope.Reader.Tasks = [snapshot with { Description = snapshot.Description + "material change beyond excerpt" }];
+        Assert.Empty((await scope.Sync()).Errors);
+        Assert.Equal(WorkItemStatus.Discarded, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(item.Id)).Status);
 
-        public Task<IReadOnlyList<T>> ListAsync(CancellationToken cancellationToken = default, string? tenantId = null) =>
-            Task.FromResult<IReadOnlyList<T>>(items);
+        var legacy = WorkItem.CreateFromInbound("Original legacy", "Legacy", Now);
+        legacy.Status = WorkItemStatus.AwaitingApproval; legacy.CurrentPlanId = "legacy-approval";
+        await scope.Repo<WorkItem>().AddAsync(legacy);
+        snapshot = Snapshot("legacy");
+        var input = new TodoistTaskInboundEvent { Id = "legacy-changed", TaskId = snapshot.TaskId, Due = snapshot.Due,
+            DueAt = snapshot.Due.ResolveDueAt("UTC")!.Value, Content = snapshot.Content, Description = snapshot.Description,
+            ReceivedAt = Now, ContextKey = TodoistTaskInboundEvent.CreateContextKey(snapshot.TaskId), DedupeKey = "legacy-changed" };
+        input.Outcomes.Add(new() { Id = "outcome", WorkItemId = legacy.Id, Kind = InboundEventOutcomeKind.CreatedWorkItem });
+        await scope.Repo<InboundEvent>().AddAsync(input);
+        scope.Reader.Tasks = [snapshot];
+        scope.Reader.Comments = [new("new-comment", Now, "Changed client instructions")];
+        Assert.Empty((await scope.Sync()).Errors);
+        Assert.Equal(WorkItemStatus.Discarded, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(legacy.Id)).Status);
+    }
 
-        public Task<IReadOnlyList<T>> ListAsync(IListSpecification<T> specification, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            Task.FromResult<IReadOnlyList<T>>(items);
+    [Fact]
+    public async Task CompletedTaskReviewsChangedInstructionsButPostponePreservesVerifiedEffects()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        task.Update(task.Title, task.Instructions, [new() { Text = "Done", IsCompleted = true, Evidence = "Invoice 2884" }], null, Now);
+        await scope.Repo<AgentTask>().UpdateAsync(task);
+        scope.Reader.Tasks = [Snapshot() with { Due = new() { Date = "2026-11-24", IsRecurring = true } }];
+        Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.NotNull(task.CompletedAt); Assert.Single(task.Checklist); Assert.Null(task.NextRunAt);
+        scope.Reader.Tasks = [scope.Reader.Tasks[0] with { Description = "Additional requirement", DeadlineDate = new DateOnly(2026, 11, 25) }];
+        Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Null(task.CompletedAt); Assert.NotNull(task.NextRunAt);
+        Assert.Equal("Invoice 2884", task.Checklist[0].Evidence);
+        Assert.False(task.Checklist[1].IsCompleted); Assert.Contains("2026-11-25", task.Instructions);
+        await scope.Sync();
+        Assert.Equal(2, (await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id)).Checklist.Count);
+    }
 
-        public Task<IReadOnlyList<TResult>> ListAsync<TResult>(IListSpecification<T, TResult> specification, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            throw new NotSupportedException();
-
-        public Task<int> CountAsync(CancellationToken cancellationToken = default, string? tenantId = null) =>
-            Task.FromResult(items.Count);
-
-        public Task AddAsync(ICollection<T> entities, CancellationToken cancellationToken = default, string? tenantId = null)
+    [Fact]
+    public async Task LegacyAdoptionKeepsOlderLiveRunLastAndNeverOverwritesAnotherTaskLink()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        var live = WorkItem.CreateFromInbound("Legacy", "Invoice", Now);
+        live.Status = WorkItemStatus.AwaitingApproval;
+        var completed = WorkItem.CreateFromInbound("Later intervention", "Done", Now.AddMinutes(1));
+        completed.Status = WorkItemStatus.Completed;
+        await scope.Repo<WorkItem>().AddAsync(live); await scope.Repo<WorkItem>().AddAsync(completed);
+        foreach (var id in new[] { "1", "2" })
         {
-            items.AddRange(entities);
-            return Task.CompletedTask;
+            var snapshot = Snapshot(id);
+            var input = new TodoistTaskInboundEvent { Id = "legacy-" + id, TaskId = id,
+                Content = snapshot.Content, Description = snapshot.Description, Due = snapshot.Due,
+                DueAt = snapshot.Due.ResolveDueAt("UTC")!.Value, ReceivedAt = Now,
+                ContextKey = TodoistTaskInboundEvent.CreateContextKey(id), DedupeKey = "legacy-" + id };
+            foreach (var workItem in new[] { live, completed })
+                input.Outcomes.Add(new() { Id = Guid.NewGuid().ToString(), Kind = InboundEventOutcomeKind.CreatedWorkItem, WorkItemId = workItem.Id });
+            await scope.Repo<InboundEvent>().AddAsync(input);
         }
+        scope.Reader.Tasks = [Snapshot("1"), Snapshot("2")];
+        var result = await scope.Sync();
+        Assert.Equal(1, result.Imported); Assert.Single(result.Errors);
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal(live.Id, task.WorkItemIds.Last());
+        Assert.Equal(task.Id, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(live.Id)).AgentTaskId);
+        Assert.Equal("1", task.ExternalSource!.TaskId);
+    }
 
-        public Task<T> AddAsync(T entity, CancellationToken cancellationToken = default, string? tenantId = null)
+    [Fact]
+    public async Task LosingPreExecutionAttemptCannotOverwriteConcurrentExecution()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var item = WorkItem.CreateFromInbound(task.Instructions, task.Title, Now);
+        item.AgentTaskId = task.Id; item.Status = WorkItemStatus.Approved; item.CurrentPlanId = "approved-plan";
+        await scope.Repo<WorkItem>().AddAsync(item);
+        var service = new WorkItemExecutionService(scope.Repo<WorkItem>(), null!, null!, null!, new Events(), new Clock(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemExecutionService>.Instance,
+            scope.Repo<AgentTask>(), [new CompetingGate(scope, item.Id)]);
+        await service.ExecuteAsync(new(item.Id, "approved-plan", item.Revision), default);
+        Assert.Equal(WorkItemStatus.Executing, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(item.Id)).Status);
+    }
+    private sealed class CompetingGate(Scope scope, string id) : Samwise.Logic.Tasks.IExternalTaskRunGate
+    {
+        public string Provider => "Todoist";
+        public async Task<bool> RefreshBeforeRunAsync(string taskId, CancellationToken ct)
         {
-            items.Add(entity);
-            return Task.FromResult(entity);
-        }
-
-        public Task UpdateAsync(T entity, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            Task.CompletedTask;
-
-        public Task GetAndUpdateAsync(string id, Func<T, Task> updateMethod, CancellationToken cancellationToken = default, string? tenantId = null) =>
-            updateMethod(items.Single(item => item.Id == id));
-
-        public Task DeleteAsync(T entity, CancellationToken cancellationToken = default, string? tenantId = null)
-        {
-            items.Remove(entity);
-            return Task.CompletedTask;
-        }
-
-        public Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default, string? tenantId = null)
-        {
-            items.RemoveAll(item => item.Id == id);
-            return Task.CompletedTask;
-        }
-
-        public Task DeleteRangeByIdsAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default, string? tenantId = null)
-        {
-            var set = ids.ToHashSet(StringComparer.Ordinal);
-            items.RemoveAll(item => set.Contains(item.Id));
-            return Task.CompletedTask;
+            var item = await scope.Repo<WorkItem>().GetRequiredByIdAsync(id);
+            item.StartExecution("approved-plan", item.Revision, Now);
+            await scope.Repo<WorkItem>().UpdateAsync(item);
+            return false; // The losing attempt fails after the other worker has claimed execution.
         }
     }
+
+    [Fact]
+    public async Task ExecutionRefreshWithdrawsChangedApprovalBeforeAnyRuntimeCall()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var item = WorkItem.CreateFromInbound(task.Instructions, task.Title, Now);
+        item.AgentTaskId = task.Id; item.Status = WorkItemStatus.Approved; item.CurrentPlanId = "approved-plan";
+        task.WorkItemIds.Add(item.Id); task.NextRunAt = null;
+        await scope.Repo<WorkItem>().AddAsync(item); await scope.Repo<AgentTask>().UpdateAsync(task);
+        scope.Reader.Tasks = [Snapshot() with { Content = "Changed after approval" }];
+        // Null dependencies deliberately fail if execution gets past the source refresh.
+        var service = new WorkItemExecutionService(scope.Repo<WorkItem>(), null!, null!, null!, new Events(), new Clock(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemExecutionService>.Instance,
+            scope.Repo<AgentTask>(), [new Gate(scope)]);
+        await service.ExecuteAsync(new(item.Id, "approved-plan", item.Revision), default);
+        Assert.Equal(WorkItemStatus.Discarded, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(item.Id)).Status);
+    }
+    private sealed class Gate(Scope scope) : Samwise.Logic.Tasks.IExternalTaskRunGate
+    {
+        public string Provider => "Todoist";
+        public async Task<bool> RefreshBeforeRunAsync(string taskId, CancellationToken ct) => (await scope.Sync()).Errors.Count == 0;
+    }
+
+    [Fact]
+    public async Task OnlyExplicitDatedDelegationIsImportedWithoutIntake()
+    {
+        await using var scope = await Scope.Create();
+        if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot("agent"), Snapshot("human") with { ProjectId = "personal" },
+            Snapshot("other") with { ResponsibleUserId = "someone-else" }, Snapshot("label") with { ProjectId = "personal", Labels = ["samwise"] }];
+        var config = await scope.Repo<TodoistInputConfiguration>().GetRequiredByIdAsync(TodoistInputConfiguration.DocumentId);
+        config.IncludedLabels = [new() { Id = "samwise" }];
+        await scope.Repo<TodoistInputConfiguration>().UpdateAsync(config);
+        var result = await scope.Sync();
+        Assert.Empty(result.Errors);
+        Assert.Equal(2, result.Imported);
+        Assert.Equal(2, (await scope.Repo<AgentTask>().ListAsync()).Count);
+        Assert.Empty(await scope.Repo<InboundEvent>().ListAsync());
+        Assert.Empty(await scope.Repo<WorkItem>().ListAsync());
+        config.IncludedProjects.Clear(); config.IncludedLabels.Clear();
+        await scope.Repo<TodoistInputConfiguration>().UpdateAsync(config);
+        await scope.Sync();
+        Assert.All(await scope.Repo<AgentTask>().ListAsync(), item => Assert.False(item.ExternalSource!.IsActive));
+    }
+
+    [Fact]
+    public async Task UnchangedPollingPreservesAgentCheckAndApprovedVersionWhilePostponeKeepsChecklist()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()];
+        Assert.Empty((await scope.Sync()).Errors);
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        task.NextRunAt = Now.AddDays(2);
+        task.Checklist.Add(new() { Text = "Completed preparation", IsCompleted = true, Evidence = "Draft 123" });
+        await scope.Repo<AgentTask>().UpdateAsync(task);
+        task = await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id);
+        var version = task.Version;
+        await scope.Sync();
+        task = await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id);
+        Assert.Equal(version, task.Version); Assert.Equal(Now.AddDays(2), task.NextRunAt);
+        scope.Reader.Tasks = [Snapshot() with { Due = new() { Date = "2026-11-24T10:00:00Z", IsRecurring = true } }];
+        Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal(Now.AddDays(2), task.NextRunAt);
+        Assert.Equal("Draft 123", task.Checklist[1].Evidence);
+        Assert.Equal(0, task.ExternalSource!.Generation);
+    }
+
+    [Fact]
+    public async Task SourceEditWithdrawsPendingApprovalButDoesNotReplayOrEraseEvidence()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var item = WorkItem.CreateFromInbound(task.Instructions, task.Title, Now);
+        item.AgentTaskId = task.Id; item.Status = WorkItemStatus.AwaitingApproval;
+        task.WorkItemIds.Add(item.Id); task.NextRunAt = null;
+        task.Checklist.Add(new() { Text = "Prepared", IsCompleted = true, Evidence = "Draft 123" });
+        await scope.Repo<WorkItem>().AddAsync(item); await scope.Repo<AgentTask>().UpdateAsync(task);
+        scope.Reader.Tasks = [Snapshot() with { Content = "Changed title" }];
+        Assert.Empty((await scope.Sync()).Errors);
+        Assert.Equal(WorkItemStatus.Discarded, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(item.Id)).Status);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal("Changed title", task.Title); Assert.Equal("Draft 123", task.Checklist[1].Evidence);
+        var saver = new SaveAgentTaskUsecaseHandler(scope.Repo<AgentTask>(), scope.Repo<WorkItem>(), new Notifications(), new Clock(), new Events());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => saver.Handle(new(task.Id, task.Version, "Local title", task.Instructions, task.Checklist, Now.AddDays(1)), default));
+    }
+
+    [Fact]
+    public async Task CompletionCounterCreatesIndependentOccurrenceWhile404PausesWithoutClaimingCompletion()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var first = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        first.Checklist[0].IsCompleted = true; first.Checklist[0].Evidence = "Receipt 123";
+        first.CompletedAt = Now; first.NextRunAt = null;
+        await scope.Repo<AgentTask>().UpdateAsync(first);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 4, Due = new() { Date = "2026-12-17", IsRecurring = true } }];
+        Assert.Empty((await scope.Sync()).Errors);
+        var tasks = await scope.Repo<AgentTask>().ListAsync(); Assert.Equal(2, tasks.Count);
+        var next = Assert.Single(tasks, item => item.Id != first.Id);
+        Assert.False(next.Checklist[0].IsCompleted); Assert.Null(next.Checklist[0].Evidence);
+        Assert.Equal(1, next.ExternalSource!.Generation);
+        scope.Reader.Tasks = []; scope.Reader.State = new("unavailable");
+        Assert.Empty((await scope.Sync()).Errors);
+        next = await scope.Repo<AgentTask>().GetRequiredByIdAsync(next.Id);
+        Assert.False(next.ExternalSource!.IsActive); Assert.Equal("unavailable", next.ExternalSource.State);
+        Assert.Null(next.CompletedAt); Assert.Null(next.NextRunAt);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 4, Due = new() { Date = "2026-12-17", IsRecurring = true } }];
+        await scope.Sync();
+        Assert.Equal(2, (await scope.Repo<AgentTask>().ListAsync()).Count);
+        Assert.True((await scope.Repo<AgentTask>().GetRequiredByIdAsync(next.Id)).ExternalSource!.IsActive);
+    }
+
+    [Fact]
+    public async Task LegacyLiveWorkIsAdoptedAndOldPendingInputCannotEnterIntake()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        var snapshot = Snapshot(); scope.Reader.Tasks = [snapshot];
+        var item = WorkItem.CreateFromInbound("Existing source", snapshot.Content, Now);
+        item.Status = WorkItemStatus.AwaitingApproval;
+        await scope.Repo<WorkItem>().AddAsync(item);
+        var input = new TodoistTaskInboundEvent { Id = "legacy-input", Due = snapshot.Due, DueAt = snapshot.Due.ResolveDueAt("UTC")!.Value,
+            TaskId = snapshot.TaskId, Content = snapshot.Content, Description = snapshot.Description, ReceivedAt = Now,
+            ContextKey = TodoistTaskInboundEvent.CreateContextKey(snapshot.TaskId), DedupeKey = "legacy" };
+        input.Outcomes.Add(new() { Id = "outcome", Kind = InboundEventOutcomeKind.CreatedWorkItem, WorkItemId = item.Id });
+        await scope.Repo<InboundEvent>().AddAsync(input);
+        Assert.Empty((await scope.Sync()).Errors);
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.Equal(item.Id, Assert.Single(task.WorkItemIds)); Assert.Null(task.NextRunAt);
+        Assert.Equal(task.Id, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(item.Id)).AgentTaskId);
+        var processor = new Samwise.Logic.Inbox.Services.InboundEventProcessingService(new RejectIntake(), new RejectPlanning(), scope.Repo<InboundEvent>());
+        await processor.ProcessAsync(input.Id, default);
+        Assert.Equal(InboundEventStatus.Processed, (await scope.Repo<InboundEvent>().GetRequiredByIdAsync(input.Id)).Status);
+        Assert.Single(await scope.Repo<WorkItem>().ListAsync());
+    }
+
+    private static TodoistTaskSnapshot Snapshot(string id = "1") => new(id, "Check invoice", "Verify approval", "agent", "Agent", [], 1,
+        new() { Date = "2026-11-17T10:00:00Z", IsRecurring = true }, null, "https://app.todoist.com/app/task/" + id, 3);
+
+    private sealed class Scope(IDocumentStore store) : IAsyncDisposable
+    {
+        public Reader Reader { get; } = new();
+        public IRepository<T> Repo<T>() where T : IItemWithId => new NoTenancyMartenRepository<T>(new NoTenancyByDefaultSessionFactory(store, new CurrentTenancyProviderNoTenancy()));
+        public Task<TodoistProcessingResult> Sync() => new TodoistTaskSyncService(Repo<TodoistInputConfiguration>(), Repo<AgentTask>(), Repo<WorkItem>(),
+            Repo<InboundEvent>(), Reader, new TodoistInputProcessingLock(), new Events(), new Notifications(), new Clock()).SynchronizeAsync(null, default);
+        public static async Task<Scope?> Create()
+        {
+            var connection = Environment.GetEnvironmentVariable("SAMWISE_TEST_POSTGRES"); if (string.IsNullOrWhiteSpace(connection)) return null;
+            var store = DocumentStore.For(options => {
+                options.Connection(connection);
+                var serializer = new JsonNetSerializer { EnumStorage = EnumStorage.AsString };
+                serializer.Configure(settings => { settings.TypeNameHandling = TypeNameHandling.Objects;
+                    settings.DateTimeZoneHandling = DateTimeZoneHandling.Unspecified;
+                    settings.DateParseHandling = DateParseHandling.DateTimeOffset; }); options.Serializer(serializer);
+                new SamwiseStorageConfiguration().Configure(options); options.DatabaseSchemaName = "todoisttest_" + Guid.NewGuid().ToString("N");
+            });
+            await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync();
+            var scope = new Scope(store);
+            await scope.Repo<TodoistInputConfiguration>().AddAsync(new TodoistInputConfiguration { ProtectedApiToken = "test-only", IncludedProjects = [new() { Id = "agent" }] });
+            return scope;
+        }
+        public ValueTask DisposeAsync() => store.DisposeAsync();
+    }
+    private sealed class Reader : ITodoistTaskReader
+    {
+        public IReadOnlyList<TodoistTaskSnapshot> Tasks { get; set; } = [];
+        public TodoistTaskState State { get; set; } = new("completed");
+        public IReadOnlyList<TodoistCommentSnapshot> Comments { get; set; } = [];
+        public Task<TodoistTaskReadResult> ReadDueTasksAsync(CancellationToken cancellationToken = default) => Task.FromResult(new TodoistTaskReadResult(Tasks, "UTC", "owner"));
+        public Task<TodoistTaskState> ReadTaskStateAsync(string taskId, CancellationToken cancellationToken = default) => Task.FromResult(Tasks.FirstOrDefault(item => item.TaskId == taskId) is { } task ? new TodoistTaskState("active", task, "UTC", "owner") : State);
+        public Task<IReadOnlyList<TodoistCommentSnapshot>> ReadCommentsAsync(string taskId, CancellationToken cancellationToken = default) => Task.FromResult(Comments);
+        public Task<TodoistInputCatalog> GetCatalogAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+    private sealed class Clock : TimeProvider { public override DateTimeOffset GetUtcNow() => Now; }
+    private sealed class Events : IWorkItemEventPublisher { public Task PublishAsync(WorkItem item) => Task.CompletedTask; }
+    private sealed class Notifications : IPublisher
+    {
+        public Task Publish(object notification, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task Publish<T>(T notification, CancellationToken cancellationToken = default) where T : INotification => Task.CompletedTask;
+    }
+    private sealed class RejectIntake : Samwise.Logic.Inbox.Services.IInboundEventClassificationService
+    { public Task<IReadOnlyList<string>> ClassifyAsync(string id, CancellationToken ct) => throw new InvalidOperationException("Legacy Todoist must not create Intake work"); }
+    private sealed class RejectPlanning : IWorkItemPlanningService
+    { public Task PlanAsync(string id, CancellationToken ct) => throw new InvalidOperationException("Legacy Todoist must not replay plans"); }
 }

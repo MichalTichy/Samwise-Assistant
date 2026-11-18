@@ -1,24 +1,11 @@
-# Samwise.Inputs.Todoist
+# Todoist task source
 
-This is the complete application module for Todoist input. It owns the Todoist configuration, the task inbound-event document, reader transport models and port, processing and configuration use cases, the per-task event specification, locking, and initialization.
+The module keeps its original project name, configuration document ID and Data Protection purpose so saved credentials and history survive the move. The UI is now `/tasks/sources/todoist`; the former configuration URL is an alias. It does not create Intake events.
 
-`Samwise.Infrastructure.Todoist` is the direct Todoist API v1 adapter and polling host for this module. The UI-managed configuration holds the API token, which the adapter protects with ASP.NET Data Protection. The module captures concrete events through the generic `IInboundEventCaptureService`; neither `Samwise.Domain` nor the generic workflow depends on Todoist.
+Only dated tasks in an explicitly selected project OR with a selected label are delegated. Exclusions override inclusion. Tasks assigned to another account are excluded. No selections means no delegation. The overdue range limits initial imports; future dated tasks appear directly in the calendar. Existing linked tasks are reconciled regardless of age.
 
-## Behavior
+`SyncTodoistTasksUsecase` reads task details and recent comments into an internal `AgentTask`. Todoist owns title, instructions and source due date; Samwise owns checklist, evidence and the next check. Identical polls do not change the task version or overwrite the next check. Source changes withdraw unexecuted plans and update the same instance, retaining evidence. A due-date change alone is a postponement. A higher completion counter or an explicitly completed recurring occurrence followed by a later recurring due date creates a fresh occurrence. Restoration of the same occurrence preserves evidence. Missing/regressed counters retain the last known baseline. New generations retain unresolved execution origins; restored access cannot discard an unresolved failure.
 
-- Every active task whose due instant falls between `now − OverdueDays` and `now + LeadHours` becomes one `TodoistTaskInboundEvent`.
-- All-day tasks are due at the start of their day; floating times use the task timezone, then the Todoist account timezone.
-- The external identity is the task ID plus its due value, so a reschedule or the next occurrence of a recurring task is a new input. Earlier occurrences of the same task are supplied as linked context so intake can append to the existing work item.
-- Tasks in ignored projects or with an ignored label are recorded without an AI call.
-- A check captures and queues every eligible task before AI processing begins. A failure to capture one task is reported without blocking later tasks; pending events are recovered by the shared worker.
-- The connector never writes to Todoist. Completing or commenting on a task is an ordinary plan step that execution performs with the Gateway Todoist MCP tools, using the task ID from the work item's source reference.
+Completion, deletion, loss of delegation and removal of a due date stop automatic checks. A 404 means unavailable, not completed. API errors prevent a run without asserting completion. The scheduler and execution service refresh the exact source before starting. There is no automatic writeback to Todoist; any human-action Todoist creation or update still requires the normal approved execution tools.
 
-## Structure
-
-- `Authentication` contains the credential-protection port.
-- `Configuration` contains the persisted input configuration.
-- `Discovery` contains the project and label catalogue exposed to configuration UI.
-- `Ingestion` contains the reader port, task and comment snapshots, processing result, and per-process lock.
-- `InboundEvents` contains the task event document, its due value, comments, and specification.
-- `Usecases/Configuration` and `Usecases/Processing` contain only externally triggered application operations.
-- `Initialization` and `Installers` compose the module without leaking Todoist types into the generic Domain or Logic projects.
+Legacy inbound events remain readable as history. Pending legacy events are retired without Intake. On first import, one live legacy work item is adopted; multiple live work items produce a visible reconciliation error instead of duplicating work.

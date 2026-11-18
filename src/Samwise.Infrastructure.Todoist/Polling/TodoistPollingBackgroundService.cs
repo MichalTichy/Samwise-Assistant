@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Samwise.Inputs.Todoist.Configuration;
-using Samwise.Inputs.Todoist.Usecases.Processing;
+using Samwise.Inputs.Todoist.Tasks;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Infrastructure.Todoist.Polling;
@@ -22,7 +22,7 @@ internal sealed class TodoistPollingBackgroundService(
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var sender = scope.ServiceProvider.GetRequiredService<ISender>();
-                var result = await sender.Send(new ProcessTodoistInputsUsecase(), stoppingToken);
+                var result = await sender.Send(new SyncTodoistTasksUsecase(), stoppingToken);
                 if (result.Errors.Count > 0)
                 {
                     logger.LogWarning(

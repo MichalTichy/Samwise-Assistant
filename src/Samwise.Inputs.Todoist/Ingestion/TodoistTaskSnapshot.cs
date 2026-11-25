@@ -12,8 +12,11 @@ public sealed record TodoistTaskSnapshot(
     int Priority,
     TodoistDue Due,
     DateOnly? DeadlineDate,
-    string Url);
+    string Url,
+    int? CompletedCount = null,
+    string? ResponsibleUserId = null);
 
 public sealed record TodoistCommentSnapshot(string CommentId, DateTimeOffset? PostedAt, string Content);
 
-public sealed record TodoistTaskReadResult(IReadOnlyList<TodoistTaskSnapshot> Tasks, string? AccountTimeZone);
+public sealed record TodoistTaskReadResult(IReadOnlyList<TodoistTaskSnapshot> Tasks, string? AccountTimeZone,
+    string? AccountUserId = null);

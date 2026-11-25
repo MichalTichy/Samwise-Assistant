@@ -7,6 +7,11 @@
 
 <PageTitle>Board · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="board-page">
 <div class="page-heading-row">
     <div>
@@ -15,7 +20,7 @@
         <p>Every card represents an actionable work item and its current approval state.</p>
     </div>
     <div class="heading-actions">
-        <button type="button" class="button-link button-link-secondary board-action" @onclick="LoadAsync" disabled="@(IsLoading || discarding)" title="The board also refreshes automatically every 10 seconds">Refresh</button>
+        <ActionButton Variant="@Variant.Flat" Class="board-action" OnClick="LoadAsync" Disabled="@(IsActionRunning || IsLoading || discarding)">Refresh</ActionButton>
         <a class="button-link button-link-secondary board-action" href="/work-items/discarded">Discarded</a>
         <a class="button-link button-link-secondary board-action" href="/work-items/auto-executions">Auto report</a>
         <a class="button-link button-link-primary board-new-input" href="/">New input</a>
@@ -130,7 +135,7 @@ else
         </LumexModalBody>
         <LumexModalFooter>
             <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="CloseDiscardDialog" Disabled="@discarding">@WorkItemResources.Cancel</LumexButton>
-            <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@discarding">@(discarding ? WorkItemResources.Discarding : WorkItemResources.DiscardWorkItem)</LumexButton>
+            <ActionButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@(IsActionRunning || discarding)">@(discarding ? WorkItemResources.Discarding : WorkItemResources.DiscardWorkItem)</ActionButton>
         </LumexModalFooter>
     </LumexModalContent>
 </LumexModal>

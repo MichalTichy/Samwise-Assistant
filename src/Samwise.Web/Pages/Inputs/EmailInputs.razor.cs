@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Samwise.Inputs.Email;
@@ -40,9 +39,6 @@ public partial class EmailInputs : AppComponentBase
     private bool accountEnabled = true;
     private bool savingAccount;
     private IReadOnlyList<string> accountErrors = [];
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<EmailInputConfiguration> ConfigurationRepository { get; set; } = default!;
@@ -122,7 +118,7 @@ public partial class EmailInputs : AppComponentBase
         settingsSaveMessage = null;
     }
 
-    private async Task SaveSettingsAsync()
+    private Task SaveSettingsAsync() => ExecuteActionAsync(async () =>
     {
         savingSettings = true;
         settingsSaveMessage = null;
@@ -130,7 +126,7 @@ public partial class EmailInputs : AppComponentBase
         pageMessageIsSuccess = false;
         try
         {
-            var result = await Sender.Send(new SaveEmailInputConfigurationUsecase(
+            var result = await SendAsync(new SaveEmailInputConfigurationUsecase(
                 pollingIntervalMinutes,
                 ignoredSenderAddresses));
             if (!result.Succeeded)
@@ -146,7 +142,7 @@ public partial class EmailInputs : AppComponentBase
         {
             savingSettings = false;
         }
-    }
+    });
 
     private void NewAccount()
     {
@@ -192,13 +188,13 @@ public partial class EmailInputs : AppComponentBase
         accountErrors = [];
     }
 
-    private async Task SaveAccountAsync()
+    private Task SaveAccountAsync() => ExecuteActionAsync(async () =>
     {
         savingAccount = true;
         accountErrors = [];
         try
         {
-            var result = await Sender.Send(new SaveEmailAccountUsecase(
+            var result = await SendAsync(new SaveEmailAccountUsecase(
                 selectedAccountId,
                 accountName,
                 accountEmailAddress,
@@ -226,7 +222,7 @@ public partial class EmailInputs : AppComponentBase
         {
             savingAccount = false;
         }
-    }
+    });
 
     private void AuthenticationMethodChanged()
     {
@@ -234,14 +230,14 @@ public partial class EmailInputs : AppComponentBase
         microsoftAuthorizationChallenge = null;
     }
 
-    private async Task StartMicrosoftAuthorizationAsync()
+    private Task StartMicrosoftAuthorizationAsync() => ExecuteActionAsync(async () =>
     {
         startingMicrosoftAuthorization = true;
         accountErrors = [];
         try
         {
             ApplyMicrosoft365Defaults();
-            var result = await Sender.Send(new StartMicrosoftEmailAuthorizationUsecase());
+            var result = await SendAsync(new StartMicrosoftEmailAuthorizationUsecase());
             if (!result.Succeeded || result.Challenge is null)
             {
                 accountErrors = result.Errors;
@@ -254,7 +250,7 @@ public partial class EmailInputs : AppComponentBase
         {
             startingMicrosoftAuthorization = false;
         }
-    }
+    });
 
     private void ApplyMicrosoft365Defaults()
     {
@@ -271,14 +267,14 @@ public partial class EmailInputs : AppComponentBase
         }
     }
 
-    private async Task TestAccountAsync(string accountId)
+    private Task TestAccountAsync(string accountId) => ExecuteActionAsync(async () =>
     {
         testingAccountId = accountId;
         pageMessage = null;
         pageMessageIsSuccess = false;
         try
         {
-            var result = await Sender.Send(new TestEmailAccountConnectionUsecase(accountId));
+            var result = await SendAsync(new TestEmailAccountConnectionUsecase(accountId));
             pageMessage = result.Message;
             pageMessageIsSuccess = result.Succeeded;
         }
@@ -286,20 +282,20 @@ public partial class EmailInputs : AppComponentBase
         {
             testingAccountId = null;
         }
-    }
+    });
 
     private Task ProcessAllAsync() => ProcessAsync(null);
 
     private Task ProcessAccountAsync(string accountId) => ProcessAsync(accountId);
 
-    private async Task ProcessAsync(string? accountId)
+    private Task ProcessAsync(string? accountId) => ExecuteActionAsync(async () =>
     {
         processingAccountId = accountId ?? AllAccountsMarker;
         pageMessage = null;
         pageMessageIsSuccess = false;
         try
         {
-            var result = await Sender.Send(new ProcessEmailsUsecase(EmailSelection.Unread, accountId));
+            var result = await SendAsync(new ProcessEmailsUsecase(EmailSelection.Unread, accountId));
             pageMessage = FormatProcessingResult(result);
             pageMessageIsSuccess = result.Errors.Count == 0;
             await LoadAsync();
@@ -308,7 +304,7 @@ public partial class EmailInputs : AppComponentBase
         {
             processingAccountId = null;
         }
-    }
+    });
 
     private static string FormatProcessingResult(EmailProcessingResult result)
     {

@@ -10,6 +10,7 @@ This is the single deployable Samwise process and the Blazor Interactive Server 
 - `Components/Routes.razor` applies authorization and redirects anonymous users to login.
 - `Components/Layout/` contains the authenticated application shell, navigation, reconnect UI, and the shell-free authentication layout.
 - `Pages/` groups routed views and their feature-specific components and read specifications. Keep markup and code-behind together.
+- Interactive writes use `AppComponentBase.ExecuteActionAsync` and `SendAsync`. Use `ActionButton` for slow click actions. For submit buttons, bind `Pending` to the form’s operation so mouse and keyboard submits show the same progress.
 - `Pages/Login` and `Pages/Settings/ChangePassword` are the deliberately small custom account UI.
 - `Components/Shared/` contains presentation-only helpers such as login redirection.
 - `Endpoints/OwnerAccountEndpoints` contains the antiforgery-protected logout endpoint.

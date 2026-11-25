@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Inputs.Teams.Authentication;
 using Samwise.Inputs.Teams.Configuration;
@@ -39,9 +38,6 @@ public partial class TeamsInputs : AppComponentBase
     private TeamsConnectionState connectionState = new(false, null, null, null);
     private string? pageMessage;
     private bool pageMessageIsSuccess;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<TeamsInputConfiguration> ConfigurationRepository { get; set; } = default!;
@@ -130,7 +126,7 @@ public partial class TeamsInputs : AppComponentBase
         }
     }
 
-    private async Task RefreshConnectionAsync()
+    private Task RefreshConnectionAsync() => ExecuteActionAsync(async () =>
     {
         refreshingConnection = true;
         try
@@ -149,9 +145,9 @@ public partial class TeamsInputs : AppComponentBase
         {
             refreshingConnection = false;
         }
-    }
+    });
 
-    private async Task StartAuthorizationAsync()
+    private Task StartAuthorizationAsync() => ExecuteActionAsync(async () =>
     {
         startingAuthorization = true;
         pageMessage = null;
@@ -159,7 +155,7 @@ public partial class TeamsInputs : AppComponentBase
         try
         {
             var hadEnteredClientSecret = !string.IsNullOrWhiteSpace(clientSecret);
-            var saveResult = await Sender.Send(CreateSaveRequest());
+            var saveResult = await SendAsync(CreateSaveRequest());
             if (!saveResult.Succeeded)
             {
                 pageMessage = string.Join(" ", saveResult.Errors);
@@ -169,7 +165,7 @@ public partial class TeamsInputs : AppComponentBase
             clientSecret = string.Empty;
             hasClientSecret = removeClientSecret ? false : hasClientSecret || hadEnteredClientSecret;
             removeClientSecret = false;
-            var result = await Sender.Send(new StartTeamsAuthorizationUsecase());
+            var result = await SendAsync(new StartTeamsAuthorizationUsecase());
             if (result.Succeeded)
             {
                 connectionState = connectionState with { PendingChallenge = result.Challenge, Error = null };
@@ -183,16 +179,16 @@ public partial class TeamsInputs : AppComponentBase
         {
             startingAuthorization = false;
         }
-    }
+    });
 
-    private async Task DisconnectAsync()
+    private Task DisconnectAsync() => ExecuteActionAsync(async () =>
     {
         disconnecting = true;
         pageMessage = null;
         pageMessageIsSuccess = false;
         try
         {
-            await Sender.Send(new DisconnectTeamsAuthorizationUsecase());
+            await SendAsync(new DisconnectTeamsAuthorizationUsecase());
             connectionState = new TeamsConnectionState(false, null, null, null);
             catalog = new TeamsInputCatalog([], [], []);
             pageMessage = "Microsoft Teams account disconnected.";
@@ -202,9 +198,9 @@ public partial class TeamsInputs : AppComponentBase
         {
             disconnecting = false;
         }
-    }
+    });
 
-    private async Task SaveAsync()
+    private Task SaveAsync() => ExecuteActionAsync(async () =>
     {
         saving = true;
         pageMessage = null;
@@ -212,7 +208,7 @@ public partial class TeamsInputs : AppComponentBase
         try
         {
             var hadEnteredClientSecret = !string.IsNullOrWhiteSpace(clientSecret);
-            var result = await Sender.Send(CreateSaveRequest());
+            var result = await SendAsync(CreateSaveRequest());
             pageMessage = result.Succeeded ? "Teams input settings saved." : string.Join(" ", result.Errors);
             pageMessageIsSuccess = result.Succeeded;
             if (result.Succeeded)
@@ -227,7 +223,7 @@ public partial class TeamsInputs : AppComponentBase
         {
             saving = false;
         }
-    }
+    });
 
     private SaveTeamsInputConfigurationUsecase CreateSaveRequest() => new(
         tenantId,
@@ -244,14 +240,14 @@ public partial class TeamsInputs : AppComponentBase
         ignoredChats,
         ignoredChannels);
 
-    private async Task ProcessNowAsync()
+    private Task ProcessNowAsync() => ExecuteActionAsync(async () =>
     {
         processing = true;
         pageMessage = null;
         pageMessageIsSuccess = false;
         try
         {
-            var result = await Sender.Send(new ProcessTeamsInputsUsecase());
+            var result = await SendAsync(new ProcessTeamsInputsUsecase());
             pageMessage = $"Teams: {result.Imported} imported, {result.Ignored} ignored, "
                 + $"{result.AlreadyProcessed} already processed."
                 + (result.Errors.Count == 0 ? string.Empty : $" {string.Join(" ", result.Errors)}")
@@ -267,7 +263,7 @@ public partial class TeamsInputs : AppComponentBase
         {
             processing = false;
         }
-    }
+    });
 
     private Task SetIgnoredPeople(IReadOnlyList<TeamsInputSource> value)
     {

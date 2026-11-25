@@ -5,6 +5,11 @@
 
 <PageTitle>Discarded Work Items · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="discarded-page">
     <div class="page-heading-row">
         <div>
@@ -13,7 +18,7 @@
             <p>Work Items kept outside the active Board. Restore one to start a fresh planning revision.</p>
         </div>
         <div class="heading-actions">
-            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@IsLoading">Refresh</LumexButton>
+            <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsActionRunning || IsLoading)">Refresh</ActionButton>
             <a class="button-link button-link-secondary" href="/board">Back to Board</a>
         </div>
     </div>
@@ -67,11 +72,11 @@
                             <span>Discarded by @(workItem.DiscardedFrom ?? "Samwise")</span>
                             <div class="discarded-work-item-actions">
                                 <a class="button-link button-link-secondary" href="@WorkItemRoutes.Detail(workItem.Id)">View details</a>
-                                <LumexButton Color="@ThemeColor.Primary"
+                                <ActionButton Color="@ThemeColor.Primary"
                                              OnClick="@(() => RestoreAsync(workItem.Id))"
-                                             Disabled="@(restoringWorkItemId is not null)">
+                                             Disabled="@(IsActionRunning || restoringWorkItemId is not null)">
                                     @(restoringWorkItemId == workItem.Id ? "Restoring…" : "Restore & replan")
-                                </LumexButton>
+                                </ActionButton>
                             </div>
                         </footer>
                     </LumexCardBody>

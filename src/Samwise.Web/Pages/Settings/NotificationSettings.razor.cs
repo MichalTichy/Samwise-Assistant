@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Samwise.Domain.Notifications;
@@ -28,9 +27,6 @@ public partial class NotificationSettings : AppComponentBase
     private bool sendingTest;
     private string? pageMessage;
     private bool pageMessageIsSuccess;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<Samwise.Domain.Notifications.NotificationSettings> SettingsRepository { get; set; } = default!;
@@ -85,7 +81,7 @@ public partial class NotificationSettings : AppComponentBase
     {
         try
         {
-            await Sender.Send(new SavePushDeviceUsecase(
+            await SendAsync(new SavePushDeviceUsecase(
                 subscription.Endpoint,
                 subscription.P256dh,
                 subscription.Auth,
@@ -134,12 +130,12 @@ public partial class NotificationSettings : AppComponentBase
     private async Task LoadDevicesAsync() =>
         devices = await DeviceRepository.ListAsync(new PushDevicesSpecification(), ComponentToken);
 
-    private async Task SaveSettingsAsync()
+    private Task SaveSettingsAsync() => ExecuteActionAsync(async () =>
     {
         busy = true;
         try
         {
-            await Sender.Send(new SaveNotificationSettingsUsecase(
+            await SendAsync(new SaveNotificationSettingsUsecase(
                 notifyPlanAwaitingApproval,
                 notifyQuestionAsked,
                 notifyNeedsAttention,
@@ -147,7 +143,7 @@ public partial class NotificationSettings : AppComponentBase
                 notifyDailyAutoExecutionSummary));
             ShowMessage("Notification settings saved.", true);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             ShowMessage(exception.Message, false);
         }
@@ -155,9 +151,9 @@ public partial class NotificationSettings : AppComponentBase
         {
             busy = false;
         }
-    }
+    });
 
-    private async Task RemoveAsync(PushDevice device)
+    private Task RemoveAsync(PushDevice device) => ExecuteActionAsync(async () =>
     {
         busy = true;
         try
@@ -168,11 +164,11 @@ public partial class NotificationSettings : AppComponentBase
                 browserState = browserState! with { Endpoint = null };
             }
 
-            await Sender.Send(new RemovePushDeviceUsecase(device.Id));
+            await SendAsync(new RemovePushDeviceUsecase(device.Id));
             await LoadDevicesAsync();
             ShowMessage($"{device.Name} will no longer receive notifications.", true);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             ShowMessage(exception.Message, false);
         }
@@ -180,14 +176,14 @@ public partial class NotificationSettings : AppComponentBase
         {
             busy = false;
         }
-    }
+    });
 
-    private async Task SendTestAsync()
+    private Task SendTestAsync() => ExecuteActionAsync(async () =>
     {
         sendingTest = true;
         try
         {
-            var result = await Sender.Send(new SendTestNotificationUsecase());
+            var result = await SendAsync(new SendTestNotificationUsecase());
             await LoadDevicesAsync();
             var message = $"Test sent to {result.Delivered} device(s).";
             if (result.Removed > 0)
@@ -197,7 +193,7 @@ public partial class NotificationSettings : AppComponentBase
 
             ShowMessage(result.Errors.Count == 0 ? message : $"{message} {string.Join(" ", result.Errors)}", result.Errors.Count == 0);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             ShowMessage(exception.Message, false);
         }
@@ -205,7 +201,7 @@ public partial class NotificationSettings : AppComponentBase
         {
             sendingTest = false;
         }
-    }
+    });
 
     private void ShowMessage(string message, bool success)
     {

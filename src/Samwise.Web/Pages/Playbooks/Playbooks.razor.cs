@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.Playbooks;
 using Samwise.Logic.Playbooks.Specifications;
@@ -21,9 +20,6 @@ public partial class Playbooks : AppComponentBase
     private string? saveMessage;
     private bool saving;
     private bool confirmingDelete;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<Playbook> PlaybookRepository { get; set; } = default!;
@@ -67,35 +63,27 @@ public partial class Playbooks : AppComponentBase
         saveMessage = null;
     }
 
-    private async Task DeleteAsync()
+    private Task DeleteAsync() => ExecuteActionAsync(async () =>
     {
-        if (selectedId is null || saving)
+        if (selectedId is null)
         {
             return;
         }
 
-        saving = true;
-        try
-        {
-            await Sender.Send(new DeletePlaybookUsecase(selectedId));
-            NewPlaybook();
-            await LoadAsync();
-            saveMessage = "Deleted";
-        }
-        finally
-        {
-            saving = false;
-        }
-    }
+        await SendAsync(new DeletePlaybookUsecase(selectedId));
+        NewPlaybook();
+        await LoadAsync();
+        saveMessage = "Deleted";
+    });
 
-    private async Task SaveAsync()
+    private Task SaveAsync() => ExecuteActionAsync(async () =>
     {
         confirmingDelete = false;
         saving = true;
         saveMessage = null;
         try
         {
-            var result = await Sender.Send(new SavePlaybookUsecase(
+            var result = await SendAsync(new SavePlaybookUsecase(
                 selectedId,
                 name,
                 applicability,
@@ -117,5 +105,5 @@ public partial class Playbooks : AppComponentBase
         {
             saving = false;
         }
-    }
+    });
 }

@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.Agents;
 using Samwise.Logic.Agents;
@@ -27,9 +26,6 @@ public partial class AgentSettings : AppComponentBase
     private IReadOnlyList<string> errors = [];
     private string? saveMessage;
     private bool saving;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<AgentConfiguration> AgentConfigurationRepository { get; set; } = default!;
@@ -159,7 +155,7 @@ public partial class AgentSettings : AppComponentBase
         }
     }
 
-    private async Task SaveAsync()
+    private Task SaveAsync() => ExecuteActionAsync(async () =>
     {
         if (selected is null)
         {
@@ -171,7 +167,7 @@ public partial class AgentSettings : AppComponentBase
         try
         {
             var selectedStage = selected.Stage;
-            var result = await Sender.Send(new SaveAgentStageConfigurationUsecase(
+            var result = await SendAsync(new SaveAgentStageConfigurationUsecase(
                 selectedStage,
                 content,
                 model,
@@ -185,7 +181,7 @@ public partial class AgentSettings : AppComponentBase
                 saveMessage = "Saved";
             }
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             errors = [$"Saving agent settings failed: {exception.Message}"];
         }
@@ -193,7 +189,7 @@ public partial class AgentSettings : AppComponentBase
         {
             saving = false;
         }
-    }
+    });
 
     private Task LoadConfigurationsAsync() => ExecuteLoadAsync(
         token => AgentConfigurationRepository.GetRequiredByIdAsync(AgentConfiguration.DocumentId, token),

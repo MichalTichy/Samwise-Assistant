@@ -28,16 +28,14 @@
                            @bind-Value="input.Text" />
             <ValidationMessage For="() => input.Text" />
 
-            @if (!string.IsNullOrWhiteSpace(error))
+            @if (ActionError is not null)
             {
-                <div class="inline-alert">@error</div>
+                <div class="inline-alert" role="alert">@ActionError</div>
             }
 
             <div class="capture-footer">
                 <span><b>One path for every source.</b> This follows the same intake flow future email and Teams messages will use.</span>
-                <LumexButton Type="@ButtonType.Submit" Color="@ThemeColor.Primary" Variant="@Variant.Shadow" Disabled="@submitting" Class="capture-submit">
-                    @(submitting ? "Submitting…" : "Submit input")
-                </LumexButton>
+                <ActionButton Type="@ButtonType.Submit" Color="@ThemeColor.Primary" Variant="@Variant.Shadow" Pending="@IsActionRunning" Class="capture-submit">Submit input</ActionButton>
             </div>
         </EditForm>
         </LumexCardBody>

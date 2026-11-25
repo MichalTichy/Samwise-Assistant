@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Inputs.Todoist.Configuration;
 using Samwise.Inputs.Todoist.Discovery;
@@ -29,9 +28,6 @@ public partial class TodoistInputs : AppComponentBase
     private bool processing;
     private string? pageMessage;
     private bool pageMessageIsSuccess;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<TodoistInputConfiguration> ConfigurationRepository { get; set; } = default!;
@@ -82,7 +78,7 @@ public partial class TodoistInputs : AppComponentBase
         });
     }
 
-    private async Task LoadCatalogAsync()
+    private Task LoadCatalogAsync() => ExecuteActionAsync(async () =>
     {
         if (!hasApiToken || IsLoading)
         {
@@ -97,7 +93,7 @@ public partial class TodoistInputs : AppComponentBase
         {
             catalog = await TaskReader.GetCatalogAsync(ComponentToken);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             catalog = null;
             pageMessage = $"Todoist could not be reached: {exception.Message}";
@@ -107,9 +103,9 @@ public partial class TodoistInputs : AppComponentBase
             loadingCatalog = false;
             StateHasChanged();
         }
-    }
+    });
 
-    private async Task SaveAsync()
+    private Task SaveAsync() => ExecuteActionAsync(async () =>
     {
         saving = true;
         pageMessage = null;
@@ -117,7 +113,7 @@ public partial class TodoistInputs : AppComponentBase
         try
         {
             var hadEnteredApiToken = !string.IsNullOrWhiteSpace(apiToken);
-            var result = await Sender.Send(new SaveTodoistInputConfigurationUsecase(
+            var result = await SendAsync(new SaveTodoistInputConfigurationUsecase(
                 apiToken,
                 removeApiToken,
                 pollingIntervalMinutes,
@@ -154,16 +150,16 @@ public partial class TodoistInputs : AppComponentBase
         {
             saving = false;
         }
-    }
+    });
 
-    private async Task ProcessNowAsync()
+    private Task ProcessNowAsync() => ExecuteActionAsync(async () =>
     {
         processing = true;
         pageMessage = null;
         pageMessageIsSuccess = false;
         try
         {
-            var result = await Sender.Send(new ProcessTodoistInputsUsecase());
+            var result = await SendAsync(new ProcessTodoistInputsUsecase());
             pageMessage = $"Todoist: {result.Imported} imported, {result.Ignored} ignored, "
                 + $"{result.AlreadyProcessed} already processed."
                 + (result.Errors.Count == 0 ? string.Empty : $" {string.Join(" ", result.Errors)}");
@@ -177,7 +173,7 @@ public partial class TodoistInputs : AppComponentBase
         {
             processing = false;
         }
-    }
+    });
 
     private static bool IsSelected(IEnumerable<TodoistInputSource> selected, string id) =>
         selected.Any(source => string.Equals(source.Id, id, StringComparison.Ordinal));

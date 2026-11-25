@@ -5,6 +5,11 @@
 
 <PageTitle>Email inputs · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="page-heading-row">
     <div>
         <span class="page-kicker">Configuration · Inputs</span>
@@ -12,10 +17,10 @@
         <p>Connect IMAP inboxes with a password or Microsoft 365 sign-in and choose how often Samwise looks for new messages.</p>
     </div>
     <div class="heading-actions">
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@IsLoading">Refresh</LumexButton>
-        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ProcessAllAsync" Disabled="@(processingAccountId is not null || !accounts.Any(account => account.IsEnabled))">
+        <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsActionRunning || IsLoading)">Refresh</ActionButton>
+        <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ProcessAllAsync" Disabled="@(IsActionRunning || processingAccountId is not null || !accounts.Any(account => account.IsEnabled))">
             @(processingAccountId == AllAccountsMarker ? "Processing…" : "Process unread now")
-        </LumexButton>
+        </ActionButton>
     </div>
 </div>
 
@@ -59,9 +64,9 @@ else
 
             <div class="email-card-actions">
                 <span class="save-state">@settingsSaveMessage</span>
-                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@savingSettings">
+                <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@(IsActionRunning || savingSettings)">
                     @(savingSettings ? "Saving…" : "Save email settings")
-                </LumexButton>
+                </ActionButton>
             </div>
         </LumexCardBody>
     </LumexCard>
@@ -107,9 +112,9 @@ else
 
             <div class="email-card-actions">
                 <span class="save-state">@settingsSaveMessage</span>
-                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@savingSettings">
+                <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@(IsActionRunning || savingSettings)">
                     @(savingSettings ? "Saving…" : "Save ignored senders")
-                </LumexButton>
+                </ActionButton>
             </div>
         </LumexCardBody>
     </LumexCard>
@@ -164,12 +169,12 @@ else
                     </div>
                     <div class="email-account-actions">
                         <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="() => EditAccount(account)">Edit</LumexButton>
-                        <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" Disabled="@(testingAccountId is not null)" OnClick="() => TestAccountAsync(account.Id)">
+                        <ActionButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" Disabled="@(IsActionRunning || testingAccountId is not null)" OnClick="() => TestAccountAsync(account.Id)">
                             @(testingAccountId == account.Id ? "Testing…" : "Test")
-                        </LumexButton>
-                        <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Primary" Disabled="@(processingAccountId is not null)" OnClick="() => ProcessAccountAsync(account.Id)">
+                        </ActionButton>
+                        <ActionButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Primary" Disabled="@(IsActionRunning || processingAccountId is not null)" OnClick="() => ProcessAccountAsync(account.Id)">
                             @(processingAccountId == account.Id ? "Processing…" : "Process unread")
-                        </LumexButton>
+                        </ActionButton>
                     </div>
                 </article>
             }
@@ -241,9 +246,9 @@ else
                             </div>
                             @if (microsoftAuthorizationChallenge is null)
                             {
-                                <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="StartMicrosoftAuthorizationAsync" Disabled="@startingMicrosoftAuthorization">
+                                <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="StartMicrosoftAuthorizationAsync" Disabled="@(IsActionRunning || startingMicrosoftAuthorization)">
                                     @(startingMicrosoftAuthorization ? "Starting sign-in…" : selectedAccountId is null ? "Connect Microsoft 365" : "Connect or reconnect")
-                                </LumexButton>
+                                </ActionButton>
                             }
                             else
                             {
@@ -295,9 +300,9 @@ else
 
                 <div class="email-editor-actions">
                     <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="CancelAccountEdit">Cancel</LumexButton>
-                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAccountAsync" Disabled="@savingAccount">
+                    <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAccountAsync" Disabled="@(IsActionRunning || savingAccount)">
                         @(savingAccount ? "Saving…" : "Save account")
-                    </LumexButton>
+                    </ActionButton>
                 </div>
             </LumexCardBody>
         </LumexCard>

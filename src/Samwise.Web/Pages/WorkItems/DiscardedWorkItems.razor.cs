@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Logic.WorkItems.Specifications;
 using Samwise.Logic.WorkItems.Usecases;
@@ -18,9 +17,6 @@ public partial class DiscardedWorkItems : AppComponentBase
     [Inject]
     private IReadOnlyRepository<DomainWorkItem> WorkItemRepository { get; set; } = default!;
 
-    [Inject]
-    private ISender Sender { get; set; } = default!;
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -37,16 +33,16 @@ public partial class DiscardedWorkItems : AppComponentBase
             items => workItems = items);
     }
 
-    private async Task RestoreAsync(string workItemId)
+    private Task RestoreAsync(string workItemId) => ExecuteActionAsync(async () =>
     {
         restoringWorkItemId = workItemId;
         error = null;
         try
         {
-            await Sender.Send(new RestoreWorkItemUsecase(workItemId));
+            await SendAsync(new RestoreWorkItemUsecase(workItemId));
             await LoadAsync();
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             error = $"The Work Item could not be restored: {exception.Message}";
         }
@@ -54,5 +50,5 @@ public partial class DiscardedWorkItems : AppComponentBase
         {
             restoringWorkItemId = null;
         }
-    }
+    });
 }

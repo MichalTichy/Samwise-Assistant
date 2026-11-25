@@ -5,13 +5,18 @@
 
 <PageTitle>Input events · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="page-heading-row">
     <div>
         <span class="page-kicker">Audit trail</span>
         <h1>Input events</h1>
         <p>Every observed input remains visible together with Samwise’s handling decision.</p>
     </div>
-    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@IsLoading">Refresh</LumexButton>
+    <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsActionRunning || IsLoading)">Refresh</ActionButton>
 </div>
 
 @if (Submitted)
@@ -77,15 +82,15 @@
                     @if (item.Status == InboundEventStatus.NeedsReview ||
                          item is { Status: InboundEventStatus.Processed, Outcomes.Count: 0 })
                     {
-                        <LumexButton Size="@Size.Small"
+                        <ActionButton Size="@Size.Small"
                                      Variant="@Variant.Flat"
                                      Color="@ThemeColor.Default"
-                                     Disabled="@(retryingEventId is not null)"
+                                     Disabled="@(IsActionRunning || retryingEventId is not null)"
                                      OnClick="() => RetryAsync(item.Id)">
                             @(retryingEventId == item.Id
                                 ? "Processing…"
                                 : item.Status == InboundEventStatus.NeedsReview ? "Retry" : "Reprocess")
-                        </LumexButton>
+                        </ActionButton>
                     }
                 </div>
             </div>

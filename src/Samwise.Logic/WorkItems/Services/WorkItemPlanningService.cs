@@ -106,10 +106,14 @@ internal sealed class WorkItemPlanningService(
                 return;
             }
 
+            // Imported human work may remain open after an assessment finds no useful intervention.
+            // This never turns an unfinished task into an already-resolved outcome.
             if (result.Disposition is PlanningDisposition.AlreadyResolved or PlanningDisposition.NoLongerRelevant &&
                 currentWorkItem.AgentTaskId is { } taskId && tasks is not null &&
                 await tasks.GetByIdAsync(taskId, cancellationToken) is { CompletedAt: null, NextRunAt: null } linkedTask &&
-                linkedTask.ExternalSource is not { IsActive: false })
+                linkedTask.ExternalSource is not { IsActive: false } &&
+                !(result.Disposition == PlanningDisposition.NoLongerRelevant &&
+                  linkedTask.ExternalSource is { Provider: "Todoist", IsActive: true }))
             {
                 currentWorkItem.MarkPlanningFailed(timeProvider.GetUtcNow(),
                     Samwise.Domain.Tasks.TaskErrors.MissingPlanningProgress);

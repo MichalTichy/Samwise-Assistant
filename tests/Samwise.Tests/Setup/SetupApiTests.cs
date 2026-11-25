@@ -12,7 +12,8 @@ using Samwise.Infrastructure.AgentRuntimes.Agents;
 using Samwise.Inputs.Email;
 using Samwise.Inputs.Teams.Authentication;
 using Samwise.Inputs.Teams.Configuration;
-using Samwise.Inputs.Todoist.Configuration;
+using Samwise.TaskSources.Todoist.Configuration;
+using Samwise.TaskSources.Todoist.Usecases.Configuration;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Prompts;
 using Samwise.Logic.Prompts.Usecases;
@@ -48,7 +49,7 @@ public sealed class SetupApiTests
         await using var app = CreateApp("setup-secret");
         await app.StartAsync();
         using var client = CreateClient(app, "setup-secret");
-        foreach (var path in new[] { "/api/setup/status", "/api/setup/inputs" })
+        foreach (var path in new[] { "/api/setup/status", "/api/setup/inputs", "/api/setup/task-sources" })
         {
             using var response = await client.GetAsync(path);
             response.EnsureSuccessStatusCode();
@@ -91,6 +92,25 @@ public sealed class SetupApiTests
         Assert.Equal("high", sent.ReasoningEffort);
     }
 
+    [Theory]
+    [InlineData("/api/setup/task-sources/todoist")]
+    [InlineData("/api/setup/inputs/todoist")]
+    public async Task TodoistTaskSourceAndLegacySetupRoutesPreserveTheSameSaveRequest(string route)
+    {
+        await using var app = CreateApp("setup-secret");
+        await app.StartAsync();
+        using var client = CreateClient(app, "setup-secret");
+        using var response = await client.PutAsJsonAsync(route, new SaveTodoistTaskSourceConfigurationUsecase(
+            null, false, 15, 24, 7, "Keep human tasks open",
+            [new() { Id = "private-project" }], []));
+        response.EnsureSuccessStatusCode();
+        var saved = app.Services.GetRequiredService<CapturingSender>().SavedTodoist;
+        Assert.NotNull(saved);
+        Assert.Null(saved.ApiToken);
+        Assert.Equal("private-project", Assert.Single(saved.IgnoredProjects).Id);
+        Assert.Equal("Keep human tasks open", saved.IntakeGuidance);
+    }
+
     private static WebApplication CreateApp(string? key)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Production", Args = [] });
@@ -112,7 +132,7 @@ public sealed class SetupApiTests
         {
             Planning = new AgentStageConfiguration { Prompt = "Existing trusted instructions {{work_item}}" }
         }));
-        builder.Services.AddSingleton<IReadOnlyRepository<TodoistInputConfiguration>>(new EmptyRepository<TodoistInputConfiguration>(new TodoistInputConfiguration
+        builder.Services.AddSingleton<IReadOnlyRepository<TodoistTaskSourceConfiguration>>(new EmptyRepository<TodoistTaskSourceConfiguration>(new TodoistTaskSourceConfiguration
         {
             ProtectedApiToken = "protected-token-secret"
         }));
@@ -167,8 +187,14 @@ public sealed class SetupApiTests
     private sealed class CapturingSender : ISender
     {
         public SaveAgentStageConfigurationUsecase? SavedStage { get; private set; }
+        public SaveTodoistTaskSourceConfigurationUsecase? SavedTodoist { get; private set; }
         public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
         {
+            if (request is SaveTodoistTaskSourceConfigurationUsecase todoist)
+            {
+                SavedTodoist = todoist;
+                return Task.FromResult((TResponse)(object)new TodoistTaskSourceConfigurationSaveResult(true, []));
+            }
             SavedStage = Assert.IsType<SaveAgentStageConfigurationUsecase>(request);
             return Task.FromResult((TResponse)(object)AgentStageConfigurationSaveResult.Success);
         }

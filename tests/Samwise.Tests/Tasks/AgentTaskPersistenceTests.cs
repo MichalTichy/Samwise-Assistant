@@ -18,6 +18,7 @@ using Shared.Infrastructure.CurrentTenancyProvider;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Marten.Repository.Document;
 using Shared.Infrastructure.Persistence.Marten.SessionFactory;
+using Shared.Infrastructure.Persistence.Marten.UnitOfWorks;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Tests.Tasks;
@@ -335,6 +336,96 @@ public sealed class AgentTaskPersistenceTests
         Assert.Contains("2884", migrated.LatestPlanningFeedback);
         Assert.Contains(migrated.Comments, comment => comment.Body.Contains("2884", StringComparison.Ordinal));
         await repository.DeleteByIdAsync(original.Id);
+    }
+
+    [Fact]
+    public async Task ImportedHumanTaskRemainsInItsSourceDueMonthAfterAssessmentEnds()
+    {
+        if (CreateStore() is not { } store) return;
+        await using var dispose = store;
+        await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync();
+        var due = Now.AddMonths(-3);
+        var task = new AgentTask { Title = "Collect parcel", Instructions = "Collection remains the owner's action",
+            Checklist = [new() { Text = "Collected" }], OccurrenceAt = Now, LastRunAt = Now,
+            ExternalSource = new() { Provider = "Todoist", TaskId = "parcel", DueAt = due } };
+        await Repository<AgentTask>(store).AddAsync(task);
+
+        var summary = Assert.Single(await Repository<AgentTask>(store).ListAsync(
+            new TaskSummariesSpecification(false, due.AddDays(-1), due.AddDays(1))));
+
+        Assert.Equal(task.Id, summary.Id);
+        Assert.Equal(due, summary.SourceDueAt);
+        Assert.Null(summary.NextRunAt);
+        Assert.Null(summary.CompletedAt);
+        Assert.Equal(0, summary.CompletedCount);
+    }
+
+    [Fact]
+    public async Task TodoistRenameMigrationPreservesSavedConfigurationAndLegacyHistory()
+    {
+        if (CreateStore(isolated: false) is not { } store) return;
+        await using var dispose = store;
+        await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync();
+        var config = new Samwise.TaskSources.Todoist.Configuration.TodoistTaskSourceConfiguration
+        {
+            ProtectedApiToken = "protected-original-token", LastSuccessfulCheckAt = Now,
+            IgnoredProjects = [new() { Id = "private-project", DisplayName = "Private" }],
+            IncludedLabels = [new() { Id = "legacy-selection" }]
+        };
+        var legacyEvent = new Samwise.TaskSources.Todoist.Legacy.TodoistTaskInboundEvent
+        {
+            Id = "todoist-rename-history", TaskId = "original-task", Content = "Original task",
+            Due = new() { Date = "2026-11-17", IsRecurring = true },
+            Comments = [new() { CommentId = "comment", Content = "Historical instructions" }],
+            Status = InboundEventStatus.Processed,
+            Outcomes = [new() { Id = "outcome", WorkItemId = "existing-work", Kind = InboundEventOutcomeKind.CreatedWorkItem }]
+        };
+        var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
+        var oldConfig = JsonConvert.SerializeObject(config, settings);
+        foreach (var replacement in MigrateTodoistTaskSourceTypeOwnership.ConfigurationReplacements)
+            oldConfig = oldConfig.Replace(replacement.NewName, replacement.OldName, StringComparison.Ordinal);
+        var oldEvent = JsonConvert.SerializeObject(legacyEvent, settings);
+        foreach (var replacement in MigrateTodoistTaskSourceTypeOwnership.LegacyEventReplacements)
+            oldEvent = oldEvent.Replace(replacement.NewName, replacement.OldName, StringComparison.Ordinal);
+        Assert.Contains("Samwise.Inputs.Todoist", oldConfig);
+        Assert.Contains("Samwise.Inputs.Todoist", oldEvent);
+        await using (var session = store.LightweightSession())
+        {
+            session.Store(config);
+            session.Store<InboundEvent>(legacyEvent);
+            await session.SaveChangesAsync();
+            session.QueueSqlCommand("update samwise.mt_doc_todoistinputconfiguration set data = ?::jsonb, mt_dotnet_type = ? where id = ?",
+                oldConfig, MigrateTodoistTaskSourceTypeOwnership.ConfigurationReplacements[0].OldName, config.Id);
+            session.QueueSqlCommand("update samwise.mt_doc_inboundevent set data = ?::jsonb, mt_dotnet_type = ? where id = ?",
+                oldEvent, MigrateTodoistTaskSourceTypeOwnership.LegacyEventReplacements[0].OldName, legacyEvent.Id);
+            await session.SaveChangesAsync();
+        }
+        await using (var unit = new UnitOfWorkProvider())
+        {
+            // Match startup migrations: SQL participates in the shared unit-of-work transaction.
+            var factory = new NoTenancyByDefaultSessionFactory(store, new CurrentTenancyProviderNoTenancy());
+            await using var session = await factory.OpenSessionAsync(unit.Get());
+            await new MigrateTodoistTaskSourceTypeOwnership().MigrateAsync(session, default);
+            await new MigrateTodoistTaskSourceTypeOwnership().MigrateAsync(session, default); // Safe if repeated.
+            await session.SaveChangesAsync();
+            await unit.CommitAsync();
+        }
+        await using (var session = store.QuerySession())
+        {
+            var saved = await session.LoadAsync<Samwise.TaskSources.Todoist.Configuration.TodoistTaskSourceConfiguration>(config.Id);
+            Assert.NotNull(saved);
+            Assert.Equal(config.ProtectedApiToken, saved.ProtectedApiToken);
+            Assert.Equal(Now, saved.LastSuccessfulCheckAt);
+            Assert.Equal("private-project", Assert.Single(saved.IgnoredProjects).Id);
+            Assert.Equal("legacy-selection", Assert.Single(saved.IncludedLabels).Id);
+            var history = Assert.IsType<Samwise.TaskSources.Todoist.Legacy.TodoistTaskInboundEvent>(
+                await session.LoadAsync<InboundEvent>(legacyEvent.Id));
+            Assert.Equal("original-task", history.TaskId);
+            Assert.True(history.Due.IsRecurring);
+            Assert.Equal("Historical instructions", Assert.Single(history.Comments).Content);
+            Assert.Equal(InboundEventStatus.Processed, history.Status);
+            Assert.Equal("existing-work", Assert.Single(history.Outcomes).WorkItemId);
+        }
     }
 
     private static IDocumentStore? CreateStore(bool isolated = true)

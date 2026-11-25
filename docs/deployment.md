@@ -95,9 +95,9 @@ The example uses [caldav-mcp](https://github.com/gelse/caldav-mcp) with an exist
 
 Move formerly bundled integration service definitions, volumes, and environment variables into your own Compose override or separate stack before updating. Preserve existing volume names to retain provider state. Separate services must share a network with Gateway or expose a reachable authenticated endpoint. Update Gateway registrations accordingly and retain existing volumes during migration.
 
-### Todoist input
+### Todoist task source
 
-Samwise's optional Todoist input connects directly to its API. Paste its token under **Configuration → Inputs → Todoist**; no MCP service or Compose variable is needed. The persisted Data Protection key ring protects the stored token.
+Samwise's optional Todoist task source connects directly to its API. Paste its token under **Agent Tasks → Todoist** (`/tasks/sources/todoist`); no MCP service or Compose variable is needed. The persisted Data Protection key ring protects the stored token. All dated tasks assigned to the owner or nobody are imported, including overdue tasks, except explicit project/label exclusions. Samwise assesses each due task; personal work stays open unless completion is evidenced and approved. Playbooks are managed in Samwise configuration, independently of application deployment.
 
 ## iPhone notifications
 

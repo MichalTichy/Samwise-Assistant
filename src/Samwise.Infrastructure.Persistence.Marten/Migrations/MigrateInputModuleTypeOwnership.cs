@@ -89,7 +89,7 @@ public sealed class MigrateInputModuleTypeOwnership : IMartenMigration
         return replacement is null ? value : replacement.NewName;
     }
 
-    private static async Task MigrateTableAsync(
+    internal static async Task MigrateTableAsync(
         IDocumentSession session,
         string tableName,
         IReadOnlyList<TypeNameReplacement> replacements,

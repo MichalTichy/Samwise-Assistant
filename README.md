@@ -12,11 +12,13 @@ Samwise owns the workflow and its history. [Codex CLI API Gateway](https://githu
 
 ```mermaid
 flowchart LR
-    Sources["Mail, Teams, Todoist, manual input"] --> Intake["Understand and classify"]
+    Sources["Mail, Teams, manual input"] --> Intake["Understand and classify"]
     Intake -->|"Action needed"| Plan["Investigate and propose a plan"]
     Intake -->|"New evidence"| Update["Update existing work"]
     Update --> Plan
     Intake -->|"Informational"| Ignore["Record and ignore"]
+    Todoist["Todoist task source"] --> Calendar["Task calendar and scheduled assessment"]
+    Calendar --> Plan
     Plan --> Review["Your review"]
     Review -->|"Approve"| Execute["Execute with granted tools"]
     Review -->|"Change it"| Plan
@@ -32,7 +34,7 @@ Each flow needs the relevant accounts, tools and playbook. These are configurabl
 - **Keep track of promises.** You write “I'll send the documents by Friday” in a work email. Samwise finds the commitment, checks for an existing task and proposes one in your task manager. A later sent email can provide evidence of fulfilment, allowing it to reassess the work and propose completing the matching task. It can only recognize completion from connected sources.
 - **Prepare replies without sending.** A customer asks a question. Samwise retrieves the thread and shows you a proposed recipient and reply. After approval, it saves a draft in Outlook or another supported mailbox. You edit and send it yourself; sending permission can remain ungranted.
 - **Find a meeting time.** A request arrives by email or Teams. Samwise checks connected calendars and proposes an available slot. After approval of the exact time and participants, it can create the event or a calendar-backed Teams meeting. The plan must make any invitation-sending effect clear.
-- **Turn notices into follow-ups.** A parcel notice becomes a proposed pickup task with the actual deadline. A future check can be recorded in Todoist and return to Samwise when it enters the configured due window. Repeated notices can update existing work; informational messages can be ignored.
+- **Turn notices into follow-ups.** A parcel notice becomes a proposed pickup task with the actual deadline. A future check is scheduled on the linked internal task; the original Todoist deadline stays intact. Repeated notices can update existing work; informational messages can be ignored.
 
 A deadline is different from a timed reminder. Web Push alerts draw attention to work-item events; task reminders need support and configuration in the connected task service. Setup checks how alerts actually reach you rather than treating a saved date as delivery evidence.
 
@@ -90,7 +92,7 @@ For every recreation, use the same `-f compose.yaml -f compose.local.yaml -f com
 | --- | --- | --- |
 | Email | New received and sent mail via read-only IMAP; Microsoft 365 OAuth supported | Search threads, inspect attachments, save drafts; send only if granted |
 | Microsoft Teams | Microsoft Graph ingestion for configured activity | Chat/channel context, transcripts, meetings and separately granted message writes |
-| Todoist | Tasks entering a configured due window | Find, create or complete tasks through a separate MCP connection |
+| Todoist | Dated tasks synchronized into the task calendar | Find, create or complete tasks through a separate MCP connection |
 | Calendar and contacts | No automatic input | Availability, event and contact operations through a connected provider |
 | Manual | Web form and dedicated input API, including mobile Shortcuts | The tools granted for the selected work |
 

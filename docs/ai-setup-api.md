@@ -16,11 +16,12 @@ Paths are relative to `/api/setup`. JSON property names use camelCase.
 | `PUT /agents/{stage}` | `{model,reasoningEffort,prompt?}`; omitted prompt is preserved. Returns `{succeeded,errors}`. Check `succeeded`, not merely HTTP 200. |
 | `GET /playbooks` | Current playbooks including disabled entries and full guidance. |
 | `POST /playbooks` | `{playbookId:null|existing-id,name,applicability,description,isEnabled,suitableForAutomaticApproval:false}` → `{succeeded,playbookId,errors}`. Omit/null ID only for a new playbook. |
-| `GET /inputs` | Nonsecret email, Todoist, and Teams configuration and connection indicators. Preserve filters/lists on update. |
+| `GET /inputs` | Nonsecret email and Teams configuration and connection indicators (includes legacy Todoist compatibility data). Preserve filters/lists on update. |
 | `PUT /inputs/email` | `{pollingIntervalMinutes:5,ignoredSenderAddresses:[]}` |
 | `POST /inputs/email/accounts` | Email account body below; reuse ID when updating. |
 | `POST /inputs/email/authorize` | Start Microsoft email device authorization; see source use case for app/client settings and returned challenge. |
-| `PUT /inputs/todoist` | Todoist body below; null token preserves existing credential. |
+| `GET /task-sources` | Nonsecret task-source configuration and connection indicators. |
+| `PUT /task-sources/todoist` | Todoist body below; null token preserves existing credential. |
 | `PUT /inputs/teams` | Teams body below; null secret preserves existing credential. |
 | `POST /inputs/teams/authorize` | Start Teams device authorization after saving tenant/client settings. |
 | `GET /inputs/teams/authorization` | Inspect current Teams connection/challenge state. |
@@ -50,7 +51,7 @@ Generic email account:
 
 Security `0` is SSL, `1` STARTTLS. Authentication `0` is password, `1` Microsoft 365 OAuth. For Microsoft 365 use the actual authorization ID from the owner-completed device flow instead of a password. Updating an existing account with null password preserves its stored credential. Account creation establishes current mailbox checkpoints, so it is not a historical import.
 
-Todoist input:
+Todoist task source:
 
 ```json
 {
@@ -119,3 +120,5 @@ HTTP server definition:
 ```
 
 Use discovery to populate reviewed tool names before registration/grants. `executionMode:1` means Gateway-hosted. Stdio definitions use `transport:"stdio"`, `command`, `arguments`, and environment variable **names**; the package/executable must be available inside Gateway, not only on the assistant’s machine. Planning grants should include Samwise lookups needed by its prompt and playbooks, including execution schema lookup where used. Never grant write tools solely because a tool is labeled safe by its provider.
+
+Todoist is configured as a task source at `/tasks/sources/todoist`. The old `PUT /inputs/todoist` and `/configuration/inputs/todoist` routes remain compatibility aliases.

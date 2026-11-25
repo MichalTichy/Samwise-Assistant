@@ -2,8 +2,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Samwise.Inputs.Todoist.Configuration;
-using Samwise.Inputs.Todoist.Tasks;
+using Samwise.TaskSources.Todoist.Configuration;
+using Samwise.TaskSources.Todoist.Synchronization;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Infrastructure.Todoist.Polling;
@@ -46,18 +46,18 @@ internal sealed class TodoistPollingBackgroundService(
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();
-            var repository = scope.ServiceProvider.GetRequiredService<IReadOnlyRepository<TodoistInputConfiguration>>();
+            var repository = scope.ServiceProvider.GetRequiredService<IReadOnlyRepository<TodoistTaskSourceConfiguration>>();
             var configuration = await repository.GetByIdAsync(
-                TodoistInputConfiguration.DocumentId,
+                TodoistTaskSourceConfiguration.DocumentId,
                 cancellationToken);
             return TimeSpan.FromMinutes(
                 configuration?.PollingIntervalMinutes
-                ?? TodoistInputConfiguration.DefaultPollingIntervalMinutes);
+                ?? TodoistTaskSourceConfiguration.DefaultPollingIntervalMinutes);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogError(exception, "Loading the Todoist polling interval failed");
-            return TimeSpan.FromMinutes(TodoistInputConfiguration.DefaultPollingIntervalMinutes);
+            return TimeSpan.FromMinutes(TodoistTaskSourceConfiguration.DefaultPollingIntervalMinutes);
         }
     }
 }

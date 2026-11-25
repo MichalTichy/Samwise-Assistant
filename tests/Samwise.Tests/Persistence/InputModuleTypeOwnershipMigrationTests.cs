@@ -30,6 +30,7 @@ public sealed class InputModuleTypeOwnershipMigrationTests
         var migrations = provider.GetServices<IMartenMigration>().ToList();
 
         Assert.Contains(migrations, migration => migration is MigrateInputModuleTypeOwnership);
+        Assert.Contains(migrations, migration => migration is MigrateTodoistTaskSourceTypeOwnership);
         Assert.Contains(migrations, migration => migration is MigrateInboundEventsToMultipleOutcomes);
         Assert.Contains(migrations, migration => migration is SplitPlaybookApplicability);
         Assert.Contains(services, service => service.ServiceType == typeof(IInitializer)

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Todoist task-source configuration, synchronization, run gates and legacy history compatibility.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Samwise.Domain\Samwise.Domain.csproj" />
+    <ProjectReference Include="..\Samwise.Logic\Samwise.Logic.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Initializer\Shared.Infrastructure.Initializer.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.IoC\Shared.Infrastructure.IoC.csproj" />
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Persistence\Shared.Infrastructure.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.5.0" />
+  </ItemGroup>
+</Project>

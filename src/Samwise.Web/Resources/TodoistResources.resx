@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Intro" xml:space="preserve"><value>All dated tasks appear in the calendar. Samwise assesses how it can help and verifies completion; tasks stay in Todoist until their actual outcome is fulfilled.</value></data>
+  <data name="ScopeTitle" xml:space="preserve"><value>Import scope and exclusions</value></data>
+  <data name="ScopeDescription" xml:space="preserve"><value>Import all dated tasks assigned to you or nobody, including overdue tasks. No project or label selection is required. Select projects or labels below only to exclude them. Human work stays open when Samwise has nothing useful to do; completion requires evidence and approval.</value></data>
+  <data name="ProjectExclusions" xml:space="preserve"><value>Exclude tasks in these projects.</value></data>
+  <data name="LabelExclusions" xml:space="preserve"><value>Exclude tasks carrying these labels.</value></data>
+</root>

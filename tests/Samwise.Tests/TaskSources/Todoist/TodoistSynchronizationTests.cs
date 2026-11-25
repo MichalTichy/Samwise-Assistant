@@ -420,9 +420,7 @@ public sealed class TodoistSynchronizationTests
         Assert.Equal(WorkItemStatus.Discarded, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(item.Id)).Status);
         task = await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id);
         Assert.False(task.ExternalSource!.IsActive); Assert.Equal("dismissed", task.ExternalSource.State); Assert.Null(task.NextRunAt);
-        var config = await scope.Repo<TodoistTaskSourceConfiguration>().GetRequiredByIdAsync(TodoistTaskSourceConfiguration.DocumentId);
-        var dismissed = Assert.Single(config.DismissedTasks);
-        Assert.Equal("1", dismissed.TaskId); Assert.Equal(task.Id, dismissed.AgentTaskId); Assert.Equal(Now, dismissed.DismissedAt);
+        Assert.True((await scope.Dismiss(task.Id)).Succeeded); // Repeating a removal is harmless.
 
         var unchanged = await scope.Sync();
         Assert.Empty(unchanged.Errors); Assert.Equal(0, unchanged.Imported); Assert.Equal(1, unchanged.Ignored);
@@ -442,7 +440,15 @@ public sealed class TodoistSynchronizationTests
         var next = Assert.Single(tasks, candidate => candidate.ExternalSource!.Generation == 1);
         Assert.True(next.ExternalSource!.IsActive); Assert.Equal("active", next.ExternalSource.State);
         Assert.NotNull(next.NextRunAt); Assert.Null(next.Checklist[0].Evidence);
-        Assert.Empty((await scope.Repo<TodoistTaskSourceConfiguration>().GetRequiredByIdAsync(TodoistTaskSourceConfiguration.DocumentId)).DismissedTasks);
+
+        // Removing from an older occurrence still removes the Todoist task through its latest generation.
+        Assert.True((await scope.Dismiss(task.Id)).Succeeded);
+        next = await scope.Repo<AgentTask>().GetRequiredByIdAsync(next.Id);
+        Assert.False(next.ExternalSource!.IsActive); Assert.Equal("dismissed", next.ExternalSource.State);
+        Assert.Equal("completed", (await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id)).ExternalSource!.State);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 5, Due = new() { Date = "2027-01-17T10:00:00Z", IsRecurring = true } }];
+        Assert.Equal(0, (await scope.Sync()).Imported);
+        Assert.Equal(2, (await scope.Repo<AgentTask>().ListAsync()).Count);
     }
 
     [Fact]
@@ -456,7 +462,6 @@ public sealed class TodoistSynchronizationTests
         task.WorkItemIds.Add(running.Id); task.NextRunAt = null;
         await scope.Repo<WorkItem>().AddAsync(running); await scope.Repo<AgentTask>().UpdateAsync(task);
 
-        // Opening an older generation still removes the Todoist task as a whole.
         Assert.True((await scope.Dismiss(task.Id)).Succeeded);
         Assert.Equal(WorkItemStatus.Executing, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(running.Id)).Status);
         task = await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id);
@@ -480,7 +485,8 @@ public sealed class TodoistSynchronizationTests
         await scope.Repo<AgentTask>().AddAsync(internalTask);
         Assert.False((await scope.Dismiss("internal")).Succeeded);
         Assert.False((await scope.Dismiss("missing")).Succeeded);
-        Assert.Empty((await scope.Repo<TodoistTaskSourceConfiguration>().GetRequiredByIdAsync(TodoistTaskSourceConfiguration.DocumentId)).DismissedTasks);
+        Assert.False((await scope.Restore("1")).Succeeded);
+        Assert.Null((await scope.Repo<AgentTask>().GetRequiredByIdAsync("internal")).ExternalSource);
     }
 
     private static TodoistTaskSnapshot Snapshot(string id = "1") => new(id, "Check invoice", "Verify approval", "agent", "Agent", [], 1,
@@ -493,10 +499,10 @@ public sealed class TodoistSynchronizationTests
         public Task<TodoistSynchronizationResult> Sync() => new TodoistTaskSyncService(Repo<TodoistTaskSourceConfiguration>(), Repo<AgentTask>(), Repo<WorkItem>(),
             Repo<InboundEvent>(), Reader, Lock, new Events(), new Notifications(), new Clock()).SynchronizeAsync(null, default);
         public Task<TodoistTaskDismissalResult> Dismiss(string agentTaskId) => new DismissTodoistTaskUsecaseHandler(
-            Repo<TodoistTaskSourceConfiguration>(), Repo<AgentTask>(), Repo<WorkItem>(), Lock, new Events(), new Notifications(), new Clock())
+            Repo<AgentTask>(), Repo<WorkItem>(), Lock, new Events(), new Notifications(), new Clock())
             .Handle(new(agentTaskId), default);
         public Task<TodoistTaskDismissalResult> Restore(string todoistTaskId) => new RestoreTodoistTaskUsecaseHandler(
-            Repo<TodoistTaskSourceConfiguration>(), Repo<AgentTask>(), Lock, new Notifications(), new Clock())
+            Repo<AgentTask>(), Lock, new Notifications(), new Clock())
             .Handle(new(todoistTaskId), default);
         private TodoistSynchronizationLock Lock { get; } = new();
         public static async Task<Scope?> Create()

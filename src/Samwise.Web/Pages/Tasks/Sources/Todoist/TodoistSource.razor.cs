@@ -6,6 +6,7 @@ using Samwise.TaskSources.Todoist.Synchronization;
 using Samwise.TaskSources.Todoist.Usecases.Configuration;
 using Samwise.TaskSources.Todoist.Usecases.Dismissal;
 using Samwise.Web.Resources;
+using Samwise.Domain.Tasks;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Web.Pages.Tasks.Sources.Todoist;
@@ -21,7 +22,7 @@ public partial class TodoistSource : AppComponentBase
     private string intakeGuidance = string.Empty;
     private List<TodoistSourceSelection> ignoredProjects = [];
     private List<TodoistSourceSelection> ignoredLabels = [];
-    private List<TodoistDismissedTask> dismissedTasks = [];
+    private IReadOnlyList<DismissedTodoistTask> dismissedTasks = [];
     private TodoistSourceCatalog? catalog;
     private DateTimeOffset? lastSuccessfulCheckAt;
     private string? lastError;
@@ -33,6 +34,9 @@ public partial class TodoistSource : AppComponentBase
 
     [Inject]
     private IReadOnlyRepository<TodoistTaskSourceConfiguration> ConfigurationRepository { get; set; } = default!;
+
+    [Inject]
+    private IReadOnlyRepository<AgentTask> TaskRepository { get; set; } = default!;
 
     [Inject]
     private ITodoistTaskReader TaskReader { get; set; } = default!;
@@ -63,8 +67,12 @@ public partial class TodoistSource : AppComponentBase
     {
         pageMessage = null;
         pageMessageIsSuccess = false;
-        return ExecuteLoadAsync(token => ConfigurationRepository.GetRequiredByIdAsync(TodoistTaskSourceConfiguration.DocumentId, token), configuration =>
+        return ExecuteLoadAsync(async token => (
+            await ConfigurationRepository.GetRequiredByIdAsync(TodoistTaskSourceConfiguration.DocumentId, token),
+            await TaskRepository.ListAsync(new DismissedTodoistTasksSpecification(), token)), loaded =>
         {
+            var (configuration, dismissed) = loaded;
+            dismissedTasks = dismissed;
             apiToken = string.Empty;
             hasApiToken = configuration.IsConfigured;
             removeApiToken = false;
@@ -74,7 +82,6 @@ public partial class TodoistSource : AppComponentBase
             intakeGuidance = configuration.IntakeGuidance;
             ignoredProjects = configuration.IgnoredProjects.ToList();
             ignoredLabels = configuration.IgnoredLabels.ToList();
-            dismissedTasks = OrderDismissed(configuration.DismissedTasks ?? []);
             lastSuccessfulCheckAt = configuration.LastSuccessfulCheckAt;
             lastError = configuration.LastError;
             loadingCatalog = hasApiToken;
@@ -178,25 +185,18 @@ public partial class TodoistSource : AppComponentBase
         }
     });
 
-    private Task RestoreAsync(TodoistDismissedTask task) => ExecuteActionAsync(async () =>
+    private Task RestoreAsync(DismissedTodoistTask task) => ExecuteActionAsync(async () =>
     {
         pageMessage = null;
         pageMessageIsSuccess = false;
-        var result = await SendAsync(new RestoreTodoistTaskUsecase(task.TaskId));
+        var result = await SendAsync(new RestoreTodoistTaskUsecase(task.TodoistTaskId));
         pageMessage = result.Succeeded
             ? string.Format(TodoistResources.Restored, task.Title)
             : result.Error;
         pageMessageIsSuccess = result.Succeeded;
         // Refresh only the removal list so unsaved settings edits on this page are kept.
-        var configuration = await ConfigurationRepository.GetRequiredByIdAsync(
-            TodoistTaskSourceConfiguration.DocumentId, ComponentToken);
-        dismissedTasks = OrderDismissed(configuration.DismissedTasks ?? []);
+        dismissedTasks = await TaskRepository.ListAsync(new DismissedTodoistTasksSpecification(), ComponentToken);
     });
-
-    private static List<TodoistDismissedTask> OrderDismissed(IEnumerable<TodoistDismissedTask> tasks) => tasks
-        .OrderByDescending(task => task.DismissedAt)
-        .ThenBy(task => task.Title, StringComparer.OrdinalIgnoreCase)
-        .ToList();
 
     private static string HistoryUrl(string agentTaskId) => $"/tasks?TaskId={Uri.EscapeDataString(agentTaskId)}";
 

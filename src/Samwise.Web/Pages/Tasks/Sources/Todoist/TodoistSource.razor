@@ -188,7 +188,7 @@ else
                 <ul class="todoist-dismissed-list">
                     @foreach (var task in dismissedTasks)
                     {
-                        <li @key="task.TaskId">
+                        <li @key="task.AgentTaskId">
                             <div class="todoist-dismissed-text">
                                 <strong>@task.Title</strong>
                                 <small>@FormatDismissedAt(task.DismissedAt)</small>
@@ -198,10 +198,7 @@ else
                                 {
                                     <a href="@task.Url" target="_blank" rel="noopener">Todoist ↗</a>
                                 }
-                                @if (task.AgentTaskId is not null)
-                                {
-                                    <a href="@HistoryUrl(task.AgentTaskId)">@TodoistResources.DismissedHistory</a>
-                                }
+                                <a href="@HistoryUrl(task.AgentTaskId)">@TodoistResources.DismissedHistory</a>
                                 <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" Size="@Size.Small"
                                               OnClick="() => RestoreAsync(task)" Disabled="@IsActionRunning">@TodoistResources.Restore</ActionButton>
                             </div>

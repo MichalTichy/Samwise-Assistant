@@ -72,13 +72,13 @@ internal sealed class TodoistTaskSyncService(IRepository<TodoistTaskSourceConfig
         DateTimeOffset now, CancellationToken ct)
     {
         var existing = await tasks.GetBySpecAsync(new LatestTodoistTaskSpecification(id), ct);
+        // Every generation derives from the latest one, so its owner removal excludes all future occurrences.
+        if (existing?.ExternalSource?.State == TodoistTaskRetirement.DismissedState) return "ignored";
         var snapshot = state.Task;
         var due = snapshot?.Due.ResolveDueAt(state.AccountTimeZone);
         var selected = snapshot is not null && config.IsSelected(snapshot.ProjectId, snapshot.Labels) &&
             (snapshot.ResponsibleUserId is null || snapshot.ResponsibleUserId == state.AccountUserId);
-        // An owner removal outranks every source state, so no occurrence or generation is imported again.
-        var sourceState = config.IsTaskDismissed(id) ? TodoistTaskRetirement.DismissedState
-            : state.State != "active" ? state.State : !selected ? "out_of_scope" : due is null ? "undated" : "active";
+        var sourceState = state.State != "active" ? state.State : !selected ? "out_of_scope" : due is null ? "undated" : "active";
         if (sourceState != "active")
         {
             if (existing is not null && existing.ExternalSource!.IsActive)

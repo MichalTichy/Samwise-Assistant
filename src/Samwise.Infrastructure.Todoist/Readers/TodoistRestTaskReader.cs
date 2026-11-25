@@ -143,7 +143,8 @@ internal sealed class TodoistRestTaskReader(
             },
             deadline,
             $"https://app.todoist.com/app/task/{Uri.EscapeDataString(id)}",
-            task.TryGetProperty("completed_count", out var count) && count.TryGetInt32(out var completedCount) ? completedCount : null,
+            task.TryGetProperty("completed_count", out var count) && count.ValueKind == JsonValueKind.Number
+                && count.TryGetInt32(out var completedCount) ? completedCount : null,
             GetString(task, "responsible_uid"));
     }
 

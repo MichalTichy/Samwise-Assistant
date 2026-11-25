@@ -1,0 +1,18 @@
+.action-spinner {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border: 0.125em solid currentColor;
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .action-spinner {
+        animation: action-spin 0.7s linear infinite;
+    }
+}
+
+@keyframes action-spin {
+    to { transform: rotate(360deg); }
+}

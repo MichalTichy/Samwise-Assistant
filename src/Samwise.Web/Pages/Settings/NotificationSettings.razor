@@ -6,6 +6,11 @@
 
 <PageTitle>Notifications · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="page-heading-row">
     <div>
         <span class="page-kicker">Configuration</span>
@@ -13,9 +18,9 @@
         <p>Get a push notification when Samwise needs you, such as a plan waiting for approval or a question.</p>
     </div>
     <div class="heading-actions">
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="SendTestAsync" Disabled="@(sendingTest || devices.Count == 0)">
+        <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="SendTestAsync" Disabled="@(IsActionRunning || sendingTest || devices.Count == 0)">
             @(sendingTest ? "Sending…" : "Send test notification")
-        </LumexButton>
+        </ActionButton>
     </div>
 </div>
 
@@ -74,7 +79,7 @@ else
                         <strong>Notifications are on</strong>
                         <p>@device.Name</p>
                     </div>
-                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="() => RemoveAsync(device)" Disabled="@busy">Turn off</LumexButton>
+                    <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="() => RemoveAsync(device)" Disabled="@(IsActionRunning || busy)">Turn off</ActionButton>
                 </div>
             }
             else
@@ -127,7 +132,7 @@ else
             </div>
             <div class="email-card-actions">
                 <span></span>
-                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@busy">Save</LumexButton>
+                <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveSettingsAsync" Disabled="@(IsActionRunning || busy)">Save</ActionButton>
             </div>
         </LumexCardBody>
     </LumexCard>
@@ -166,7 +171,7 @@ else
                         }
                     </div>
                     <div class="email-account-actions">
-                        <LumexButton Size="@Size.Small" Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="() => RemoveAsync(device)" Disabled="@busy">Remove</LumexButton>
+                        <ActionButton Size="@Size.Small" Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="() => RemoveAsync(device)" Disabled="@(IsActionRunning || busy)">Remove</ActionButton>
                     </div>
                 </article>
             }

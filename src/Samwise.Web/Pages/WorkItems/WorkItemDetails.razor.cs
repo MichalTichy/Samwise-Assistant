@@ -1,6 +1,5 @@
 using Samwise.Web.Components;
 using System.Text.RegularExpressions;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.WorkItems.Usecases;
@@ -16,17 +15,12 @@ public partial class WorkItemDetails : AppComponentBase
 {
     private const string OtherPlanningAnswer = "__other__";
     private WorkItemDetailsModel? details;
-    private bool actionBusy;
     private string contextText = string.Empty;
     private string rejectionFeedback = string.Empty;
-    private string? actionError;
     private bool decisionSheetOpen;
     private string selectedPlanningAnswer = string.Empty;
     private string otherPlanningAnswer = string.Empty;
     private string? loadedPlanningQuestionId;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<DomainWorkItem> WorkItemRepository { get; set; } = default!;
@@ -88,12 +82,12 @@ public partial class WorkItemDetails : AppComponentBase
     {
         var workItem = RequireDetails().WorkItem;
         var plan = RequireDetails().CurrentPlan ?? throw new InvalidOperationException("There is no current plan.");
-        return RunActionAsync(() => Sender.Send(new ApproveWorkItemPlanUsecase(workItem.Id, plan.Id, workItem.Revision)));
+        return RunActionAsync(() => SendAsync(new ApproveWorkItemPlanUsecase(workItem.Id, plan.Id, workItem.Revision)));
     }
 
     private void OpenDecisionSheet()
     {
-        actionError = null;
+        ActionError = null;
         decisionSheetOpen = true;
     }
 
@@ -103,13 +97,13 @@ public partial class WorkItemDetails : AppComponentBase
     {
         if (string.IsNullOrWhiteSpace(rejectionFeedback))
         {
-            actionError = "Add feedback before rejecting the plan.";
+            ActionError = "Add feedback before rejecting the plan.";
             return;
         }
 
         var workItem = RequireDetails().WorkItem;
         var plan = RequireDetails().CurrentPlan ?? throw new InvalidOperationException("There is no current plan.");
-        await RunActionAsync(() => Sender.Send(new RejectWorkItemPlanUsecase(
+        await RunActionAsync(() => SendAsync(new RejectWorkItemPlanUsecase(
             workItem.Id,
             plan.Id,
             workItem.Revision,
@@ -121,32 +115,32 @@ public partial class WorkItemDetails : AppComponentBase
     {
         if (string.IsNullOrWhiteSpace(contextText))
         {
-            actionError = "Write a comment before adding context.";
+            ActionError = "Write a comment before adding context.";
             return;
         }
 
         var text = contextText;
-        await RunActionAsync(() => Sender.Send(new AddWorkItemContextUsecase(WorkItemId, text)));
+        await RunActionAsync(() => SendAsync(new AddWorkItemContextUsecase(WorkItemId, text)));
         contextText = string.Empty;
     }
 
-    private Task DiscardAsync() => RunActionAsync(() => Sender.Send(new DiscardWorkItemUsecase(WorkItemId)));
+    private Task DiscardAsync() => RunActionAsync(() => SendAsync(new DiscardWorkItemUsecase(WorkItemId)));
 
-    private Task ReplanAsync() => RunActionAsync(() => Sender.Send(new ReplanWorkItemUsecase(WorkItemId)));
+    private Task ReplanAsync() => RunActionAsync(() => SendAsync(new ReplanWorkItemUsecase(WorkItemId)));
 
-    private Task RestoreAsync() => RunActionAsync(() => Sender.Send(new RestoreWorkItemUsecase(WorkItemId)));
+    private Task RestoreAsync() => RunActionAsync(() => SendAsync(new RestoreWorkItemUsecase(WorkItemId)));
 
-    private Task ReopenCompletedAsync() => RunActionAsync(() => Sender.Send(new ReopenCompletedWorkItemUsecase(
+    private Task ReopenCompletedAsync() => RunActionAsync(() => SendAsync(new ReopenCompletedWorkItemUsecase(
         WorkItemId,
         "The intended outcome remains unfinished; reassess the current external state before planning.")));
 
     private Task RetryExecutionAsync() =>
-        RunActionAsync(() => Sender.Send(new RetryWorkItemExecutionUsecase(WorkItemId)));
+        RunActionAsync(() => SendAsync(new RetryWorkItemExecutionUsecase(WorkItemId)));
 
     private void SelectPlanningAnswer(string answer)
     {
         selectedPlanningAnswer = answer;
-        actionError = null;
+        ActionError = null;
         if (answer != OtherPlanningAnswer)
         {
             otherPlanningAnswer = string.Empty;
@@ -159,42 +153,29 @@ public partial class WorkItemDetails : AppComponentBase
             ?? throw new InvalidOperationException("There is no current planning question.");
         if (string.IsNullOrWhiteSpace(selectedPlanningAnswer))
         {
-            actionError = "Choose an answer before continuing.";
+            ActionError = "Choose an answer before continuing.";
             return;
         }
 
         if (selectedPlanningAnswer == OtherPlanningAnswer && string.IsNullOrWhiteSpace(otherPlanningAnswer))
         {
-            actionError = "Write your answer before continuing.";
+            ActionError = "Write your answer before continuing.";
             return;
         }
 
-        await RunActionAsync(() => Sender.Send(new AnswerPlanningQuestionUsecase(
+        await RunActionAsync(() => SendAsync(new AnswerPlanningQuestionUsecase(
             WorkItemId,
             question.Id,
             selectedPlanningAnswer == OtherPlanningAnswer ? null : selectedPlanningAnswer,
             selectedPlanningAnswer == OtherPlanningAnswer ? otherPlanningAnswer : null)));
     }
 
-    private async Task RunActionAsync(Func<Task> action)
+    private Task RunActionAsync(Func<Task> action) => ExecuteActionAsync(async () =>
     {
-        actionBusy = true;
-        actionError = null;
-        try
-        {
-            await action();
-            decisionSheetOpen = false;
-            await LoadAsync();
-        }
-        catch (Exception exception)
-        {
-            actionError = exception.Message;
-        }
-        finally
-        {
-            actionBusy = false;
-        }
-    }
+        await action();
+        decisionSheetOpen = false;
+        await LoadAsync();
+    });
 
     private WorkItemDetailsModel RequireDetails() =>
         details ?? throw new InvalidOperationException("The work item is not loaded.");

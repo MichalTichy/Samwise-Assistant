@@ -6,6 +6,11 @@
 
 <PageTitle>Todoist inputs · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="page-heading-row">
     <div>
         <span class="page-kicker">Configuration · Inputs</span>
@@ -13,13 +18,13 @@
         <p>Tasks due soon become input for Samwise, so a plan is ready for approval before the deadline.</p>
     </div>
     <div class="heading-actions">
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadCatalogAsync" Disabled="@(loadingCatalog || !hasApiToken)">Test connection</LumexButton>
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(processing || !hasApiToken)">
+        <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadCatalogAsync" Disabled="@(IsActionRunning || loadingCatalog || !hasApiToken)">Test connection</ActionButton>
+        <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(IsActionRunning || processing || !hasApiToken)">
             @(processing ? "Processing…" : "Process now")
-        </LumexButton>
-        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@(saving || IsLoading)">
+        </ActionButton>
+        <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@(IsActionRunning || saving || IsLoading)">
             @(saving ? "Saving…" : "Save Todoist settings")
-        </LumexButton>
+        </ActionButton>
     </div>
 </div>
 

@@ -1,6 +1,5 @@
 using Samwise.Web.Components;
 using System.ComponentModel.DataAnnotations;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Inputs.Manual.Usecases;
 
@@ -9,33 +8,15 @@ namespace Samwise.Web.Pages;
 public partial class Home : AppComponentBase
 {
     private readonly ManualWorkItemInput input = new();
-    private bool submitting;
-    private string? error;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
 
-    private async Task SubmitAsync()
+    private Task SubmitAsync() => ExecuteActionAsync(async () =>
     {
-        submitting = true;
-        error = null;
-        try
-        {
-            await Sender.Send(new SubmitManualInputUsecase(input.Text));
-            Navigation.NavigateTo("/inbox?submitted=true");
-        }
-        catch (Exception exception)
-        {
-            error = exception.Message;
-        }
-        finally
-        {
-            submitting = false;
-        }
-    }
+        await SendAsync(new SubmitManualInputUsecase(input.Text));
+        Navigation.NavigateTo("/inbox?submitted=true");
+    });
 
     private sealed class ManualWorkItemInput
     {

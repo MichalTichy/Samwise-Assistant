@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.Inbox;
 using Samwise.Logic.Inbox;
@@ -17,9 +16,6 @@ public partial class Inbox : AppComponentBase
 
     [Parameter, SupplyParameterFromQuery(Name = "submitted")]
     public bool Submitted { get; set; }
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<InboundEvent> InboundEventRepository { get; set; } = default!;
@@ -54,16 +50,16 @@ public partial class Inbox : AppComponentBase
                     item.Explanation);
             }).ToList());
 
-    private async Task RetryAsync(string inboundEventId)
+    private Task RetryAsync(string inboundEventId) => ExecuteActionAsync(async () =>
     {
         retryingEventId = inboundEventId;
         actionError = null;
         try
         {
-            await Sender.Send(new RetryInboundEventUsecase(inboundEventId));
+            await SendAsync(new RetryInboundEventUsecase(inboundEventId));
             await LoadAsync();
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             actionError = exception.Message;
         }
@@ -71,7 +67,7 @@ public partial class Inbox : AppComponentBase
         {
             retryingEventId = null;
         }
-    }
+    });
 
     private static string FormatStatus(InboxEventItem item) => item.Status switch
     {

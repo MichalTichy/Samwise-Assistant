@@ -1,5 +1,4 @@
 using Samwise.Web.Components;
-using MediatR;
 using Microsoft.AspNetCore.Components;
 using Samwise.Domain.WorkItems;
 using Samwise.Logic.WorkItems;
@@ -34,9 +33,6 @@ public partial class Board : AppComponentBase
     private string? discardError;
     private bool discarding;
     private string? defaultMobileColumnKey;
-
-    [Inject]
-    private ISender Sender { get; set; } = default!;
 
     [Inject]
     private IReadOnlyRepository<DomainWorkItem> WorkItemRepository { get; set; } = default!;
@@ -156,7 +152,7 @@ public partial class Board : AppComponentBase
         return Task.CompletedTask;
     }
 
-    private async Task DiscardAsync()
+    private Task DiscardAsync() => ExecuteActionAsync(async () =>
     {
         if (IsLoading || discarding || workItemToDiscard is not { } workItem)
         {
@@ -167,12 +163,12 @@ public partial class Board : AppComponentBase
         discardError = null;
         try
         {
-            await Sender.Send(new DiscardWorkItemUsecase(workItem.Id, discardReason));
+            await SendAsync(new DiscardWorkItemUsecase(workItem.Id, discardReason));
             workItems = workItems.Where(card => card.Id != workItem.Id).ToList();
             workItemToDiscard = null;
             discardReason = string.Empty;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ComponentToken.IsCancellationRequested)
         {
             discardError = exception.Message;
         }
@@ -180,7 +176,7 @@ public partial class Board : AppComponentBase
         {
             discarding = false;
         }
-    }
+    });
 
     private static string FormatStatus(WorkItemStatus status) => status switch
     {

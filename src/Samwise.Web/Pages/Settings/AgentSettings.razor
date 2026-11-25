@@ -5,6 +5,11 @@
 
 <PageTitle>Agent settings · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="page-heading-row">
     <div>
         <span class="page-kicker">Configuration</span>
@@ -204,12 +209,12 @@
 
             <div class="prompt-actions">
                 <span>Changes apply to the next run.</span>
-                <LumexButton Color="@ThemeColor.Primary"
+                <ActionButton Color="@ThemeColor.Primary"
                              Variant="@Variant.Shadow"
                              OnClick="SaveAsync"
-                             Disabled="@(saving || availableModels.Count == 0)">
+                             Disabled="@(IsActionRunning || saving || availableModels.Count == 0)">
                     @(saving ? "Saving…" : "Save agent settings")
-                </LumexButton>
+                </ActionButton>
             </div>
 
             <div class="placeholder-legend">

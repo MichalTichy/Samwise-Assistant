@@ -13,7 +13,7 @@
             <p>Completed Work Items whose plans Samwise approved and executed without your intervention.</p>
         </div>
         <div class="heading-actions">
-            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@IsLoading">Refresh</LumexButton>
+            <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsActionRunning || IsLoading)">Refresh</ActionButton>
             <a class="button-link button-link-secondary" href="/board">Back to Board</a>
         </div>
     </div>

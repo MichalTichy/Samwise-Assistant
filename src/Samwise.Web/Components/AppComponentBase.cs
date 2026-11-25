@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.AspNetCore.Components;
 
 namespace Samwise.Web.Components;
@@ -8,6 +9,56 @@ public abstract class AppComponentBase : ComponentBase, IAsyncDisposable
     private CancellationTokenSource? currentLoad;
     private Task? refresh;
     private bool disposed;
+
+    protected bool IsActionRunning { get; private set; }
+    protected string? ActionError { get; set; }
+
+    [Inject] private ISender Sender { get; set; } = default!;
+
+    protected async Task<TResult> SendAsync<TResult>(IRequest<TResult> request)
+    {
+        var result = await Sender.Send(request, ComponentToken);
+        ComponentToken.ThrowIfCancellationRequested();
+        return result;
+    }
+
+    protected async Task SendAsync(IRequest request)
+    {
+        await Sender.Send(request, ComponentToken);
+        ComponentToken.ThrowIfCancellationRequested();
+    }
+
+    protected async Task ExecuteActionAsync(Func<Task> action)
+    {
+        if (disposed || IsActionRunning)
+        {
+            return;
+        }
+
+        IsActionRunning = true;
+        ActionError = null;
+        try
+        {
+            StateHasChanged();
+            await action();
+        }
+        catch (OperationCanceledException) when (ComponentToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            ComponentLogger.LogError(exception, "An action failed in {Component}", GetType().Name);
+            ActionError = "The action could not be completed. Please try again.";
+        }
+        finally
+        {
+            IsActionRunning = false;
+            if (!disposed)
+            {
+                StateHasChanged();
+            }
+        }
+    }
 
     protected AppComponentBase() => ComponentToken = lifetime.Token;
 

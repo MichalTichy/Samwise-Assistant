@@ -5,6 +5,11 @@
 
 <PageTitle>Microsoft Teams inputs · Samwise</PageTitle>
 
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
 <div class="page-heading-row">
     <div>
         <span class="page-kicker">Configuration · Inputs</span>
@@ -12,13 +17,13 @@
         <p>Choose which Teams activity becomes input for Samwise and which conversations should stay quiet.</p>
     </div>
     <div class="heading-actions">
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadCatalogAsync" Disabled="@(loadingCatalog || !connectionState.Connected)">Refresh catalogue</LumexButton>
-        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(processing || !connectionState.Connected)">
+        <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadCatalogAsync" Disabled="@(IsActionRunning || loadingCatalog || !connectionState.Connected)">Refresh catalogue</ActionButton>
+        <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(IsActionRunning || processing || !connectionState.Connected)">
             @(processing ? "Processing…" : "Process now")
-        </LumexButton>
-        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@(saving || IsLoading)">
+        </ActionButton>
+        <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@(IsActionRunning || saving || IsLoading)">
             @(saving ? "Saving…" : "Save Teams settings")
-        </LumexButton>
+        </ActionButton>
     </div>
 </div>
 
@@ -156,9 +161,9 @@ else
                         <strong>Connected</strong>
                         <small>@(connectionState.Username ?? "Microsoft account")</small>
                     </div>
-                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="DisconnectAsync" Disabled="@disconnecting">
+                    <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="DisconnectAsync" Disabled="@(IsActionRunning || disconnecting)">
                         @(disconnecting ? "Disconnecting…" : "Disconnect")
-                    </LumexButton>
+                    </ActionButton>
                 </div>
 
                 @if (loadingCatalog)
@@ -183,9 +188,9 @@ else
                     </div>
                     @if (connectionState.PendingChallenge is null)
                     {
-                        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Flat" OnClick="StartAuthorizationAsync" Disabled="@startingAuthorization">
+                        <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Flat" OnClick="StartAuthorizationAsync" Disabled="@(IsActionRunning || startingAuthorization)">
                             @(startingAuthorization ? "Starting sign-in…" : "Connect Microsoft account")
-                        </LumexButton>
+                        </ActionButton>
                     }
                     else
                     {
@@ -207,9 +212,9 @@ else
                 {
                     <div class="email-card-actions">
                         <small>After completing Microsoft sign-in, refresh the connection.</small>
-                        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="RefreshConnectionAsync" Disabled="@refreshingConnection">
+                        <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="RefreshConnectionAsync" Disabled="@(IsActionRunning || refreshingConnection)">
                             @(refreshingConnection ? "Checking…" : "Refresh connection")
-                        </LumexButton>
+                        </ActionButton>
                     </div>
                 }
             }

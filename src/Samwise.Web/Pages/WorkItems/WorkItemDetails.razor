@@ -36,7 +36,7 @@ else
             <a href="/board">← Board</a>
             <div class="work-item-detail-nav-actions">
                 <span class="detail-nav-revision">Revision @workItem.Revision</span>
-                <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsLoading || actionBusy)">Refresh</LumexButton>
+                <ActionButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsLoading || IsActionRunning)">Refresh</ActionButton>
             </div>
         </div>
 
@@ -51,13 +51,13 @@ else
             </div>
             @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
             {
-                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy" Class="detail-discard-header">Discard work item</LumexButton>
+                <ActionButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@IsActionRunning" Class="detail-discard-header">Discard work item</ActionButton>
             }
         </header>
 
-        @if (!string.IsNullOrWhiteSpace(actionError))
+        @if (!string.IsNullOrWhiteSpace(ActionError))
         {
-            <div class="inline-alert detail-alert">@actionError</div>
+            <div class="inline-alert detail-alert">@ActionError</div>
         }
 
         <div class="work-item-detail-grid">
@@ -69,12 +69,12 @@ else
                         <div>
                             <h2>Execution outcome is unknown</h2>
                             <p>Samwise may already have made external changes. Inspect the agent activity and the affected system before retrying. A retry runs the same approved plan again and may repeat those changes.</p>
-                            <LumexButton Color="@ThemeColor.Danger"
+                            <ActionButton Color="@ThemeColor.Danger"
                                          Variant="@Variant.Shadow"
                                          OnClick="RetryExecutionAsync"
-                                         Disabled="@actionBusy">
-                                @(actionBusy ? "Retrying execution…" : "Retry execution")
-                            </LumexButton>
+                                         Disabled="@IsActionRunning">
+                                @(IsActionRunning ? "Retrying execution…" : "Retry execution")
+                            </ActionButton>
                         </div>
                     </section>
                 }
@@ -216,7 +216,7 @@ else
                                         <p>The last planning or pre-execution check failed. Retry to create a new plan from the current Work Item and tool catalogue.</p>
                                     </div>
                                     <div class="approval-buttons">
-                                        <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
+                                        <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ReplanAsync" Disabled="@IsActionRunning">Replan</ActionButton>
                                     </div>
                                 </div>
                             }
@@ -280,18 +280,18 @@ else
 
                                 <div class="planning-question-actions">
                                     <span>Answer the question, or recheck the current source state if it may have changed.</span>
-                                    <LumexButton Color="@ThemeColor.Default"
+                                    <ActionButton Color="@ThemeColor.Default"
                                                  Variant="@Variant.Flat"
                                                  OnClick="ReplanAsync"
-                                                 Disabled="@actionBusy">
-                                        @(actionBusy ? "Rechecking…" : "Recheck & replan")
-                                    </LumexButton>
-                                    <LumexButton Color="@ThemeColor.Primary"
+                                                 Disabled="@IsActionRunning">
+                                        @(IsActionRunning ? "Rechecking…" : "Recheck & replan")
+                                    </ActionButton>
+                                    <ActionButton Color="@ThemeColor.Primary"
                                                  Variant="@Variant.Shadow"
                                                  OnClick="AnswerPlanningQuestionAsync"
-                                                 Disabled="@(actionBusy || string.IsNullOrWhiteSpace(selectedPlanningAnswer))">
-                                        @(actionBusy ? "Planning…" : "Continue planning")
-                                    </LumexButton>
+                                                 Disabled="@(IsActionRunning || string.IsNullOrWhiteSpace(selectedPlanningAnswer))">
+                                        @(IsActionRunning ? "Planning…" : "Continue planning")
+                                    </ActionButton>
                                 </div>
                             </section>
                         }
@@ -309,7 +309,7 @@ else
                                 <div>
                                     <h2>Samwise needs attention</h2>
                                     <p>The last agent run did not finish cleanly. Review the activity, then request a new plan.</p>
-                                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
+                                    <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ReplanAsync" Disabled="@IsActionRunning">Replan</ActionButton>
                                 </div>
                             }
                             else if (workItem.Status == WorkItemStatus.Discarded)
@@ -318,12 +318,12 @@ else
                                 <div>
                                     <h2>Work Item discarded</h2>
                                     <p>This Work Item will not be planned or executed unless you restore it.</p>
-                                    <LumexButton Color="@ThemeColor.Primary"
+                                    <ActionButton Color="@ThemeColor.Primary"
                                                  Variant="@Variant.Shadow"
                                                  OnClick="RestoreAsync"
-                                                 Disabled="@actionBusy">
-                                        @(actionBusy ? "Restoring…" : "Restore & replan")
-                                    </LumexButton>
+                                                 Disabled="@IsActionRunning">
+                                        @(IsActionRunning ? "Restoring…" : "Restore & replan")
+                                    </ActionButton>
                                 </div>
                             }
                         </section>
@@ -365,12 +365,12 @@ else
                         {
                             <p class="completion-empty">No structured completion details were recorded for this Work Item.</p>
                         }
-                        <LumexButton Color="@ThemeColor.Primary"
+                        <ActionButton Color="@ThemeColor.Primary"
                                      Variant="@Variant.Light"
                                      OnClick="ReopenCompletedAsync"
-                                     Disabled="@actionBusy">
-                            @(actionBusy ? "Reopening…" : "Outcome still unfinished · reopen & replan")
-                        </LumexButton>
+                                     Disabled="@IsActionRunning">
+                            @(IsActionRunning ? "Reopening…" : "Outcome still unfinished · reopen & replan")
+                        </ActionButton>
                     </section>
                 }
 
@@ -392,7 +392,7 @@ else
                                            @bind-Value="contextText" />
                             <div>
                                 <span>New context invalidates the current plan.</span>
-                                <LumexButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="AddContextAsync" Disabled="@actionBusy">Add context</LumexButton>
+                                <ActionButton Size="@Size.Small" Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="AddContextAsync" Disabled="@IsActionRunning">Add context</ActionButton>
                             </div>
                         </div>
                     }
@@ -479,7 +479,7 @@ else
         @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
         {
             <div class="detail-discard-footer">
-                <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@actionBusy" FullWidth="true">Discard work item</LumexButton>
+                <ActionButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@IsActionRunning" FullWidth="true">Discard work item</ActionButton>
             </div>
         }
     </div>
@@ -488,10 +488,10 @@ else
     {
         <div class="decision-bar" role="region" aria-label="Your decision">
             <span class="decision-bar-copy">Approve plan @model.CurrentPlan.PlanNumber, including its tool parameters, or tell Samwise what to change.</span>
-            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="OpenDecisionSheet" Disabled="@actionBusy">Reject…</LumexButton>
-            <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ApproveAsync" Disabled="@actionBusy">
-                @(actionBusy ? "Working…" : "Approve & execute")
-            </LumexButton>
+            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="OpenDecisionSheet" Disabled="@IsActionRunning">Reject…</LumexButton>
+            <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="ApproveAsync" Disabled="@IsActionRunning">
+                @(IsActionRunning ? "Working…" : "Approve & execute")
+            </ActionButton>
         </div>
 
         @if (decisionSheetOpen)
@@ -504,9 +504,9 @@ else
                     <button type="button" class="mobile-sheet-close" aria-label="Close" @onclick="CloseDecisionSheet">×</button>
                 </div>
                 <p class="mobile-sheet-copy">Tell Samwise what to change and it prepares a revised plan.</p>
-                @if (!string.IsNullOrWhiteSpace(actionError))
+                @if (!string.IsNullOrWhiteSpace(ActionError))
                 {
-                    <div class="inline-alert detail-alert">@actionError</div>
+                    <div class="inline-alert detail-alert">@ActionError</div>
                 }
                 <LumexTextarea Class="feedback-textarea"
                                MinRows="4"
@@ -516,9 +516,9 @@ else
                                Placeholder="Feedback for a revised plan…"
                                @bind-Value="rejectionFeedback" />
                 <div class="mobile-sheet-actions">
-                    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="RejectAsync" Disabled="@actionBusy">Reject with feedback</LumexButton>
-                    <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" FullWidth="true" OnClick="ReplanAsync" Disabled="@actionBusy">Replan without feedback</LumexButton>
-                    <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" FullWidth="true" OnClick="DiscardAsync" Disabled="@actionBusy">Discard work item</LumexButton>
+                    <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="RejectAsync" Disabled="@IsActionRunning">Reject with feedback</ActionButton>
+                    <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" FullWidth="true" OnClick="ReplanAsync" Disabled="@IsActionRunning">Replan without feedback</ActionButton>
+                    <ActionButton Variant="@Variant.Light" Color="@ThemeColor.Danger" FullWidth="true" OnClick="DiscardAsync" Disabled="@IsActionRunning">Discard work item</ActionButton>
                 </div>
             </div>
         }
@@ -526,7 +526,7 @@ else
     else if (workItem.Status == WorkItemStatus.NeedsAttention)
     {
         <div class="decision-bar decision-bar-single decision-bar-phone-only">
-            <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="ReplanAsync" Disabled="@actionBusy">Replan</LumexButton>
+            <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" FullWidth="true" OnClick="ReplanAsync" Disabled="@IsActionRunning">Replan</ActionButton>
         </div>
     }
 

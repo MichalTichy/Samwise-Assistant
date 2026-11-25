@@ -12,6 +12,7 @@ using Samwise.TaskSources.Todoist.Configuration;
 using Samwise.TaskSources.Todoist.Discovery;
 using Samwise.TaskSources.Todoist.Legacy;
 using Samwise.TaskSources.Todoist.Synchronization;
+using Samwise.TaskSources.Todoist.Usecases.Dismissal;
 using Samwise.Logic.WorkItems.Services;
 using Samwise.Logic.Tasks.Usecases;
 using Shared.Infrastructure.CurrentTenancyProvider;
@@ -402,6 +403,92 @@ public sealed class TodoistSynchronizationTests
         Assert.Single(await scope.Repo<WorkItem>().ListAsync());
     }
 
+    [Fact]
+    public async Task DismissedRecurringTaskIsNotReimportedForAnyOccurrenceUntilRestored()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var item = WorkItem.CreateFromInbound(task.Instructions, task.Title, Now);
+        item.AgentTaskId = task.Id; item.Status = WorkItemStatus.AwaitingApproval; item.CurrentPlanId = "pending-plan";
+        task.WorkItemIds.Add(item.Id); task.NextRunAt = null;
+        task.Checklist.Add(new() { Text = "Prepared", IsCompleted = true, Evidence = "Draft 123" });
+        await scope.Repo<WorkItem>().AddAsync(item); await scope.Repo<AgentTask>().UpdateAsync(task);
+
+        var dismissal = await scope.Dismiss(task.Id);
+        Assert.True(dismissal.Succeeded); Assert.Equal("1", dismissal.TodoistTaskId);
+        Assert.Equal(WorkItemStatus.Discarded, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(item.Id)).Status);
+        task = await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id);
+        Assert.False(task.ExternalSource!.IsActive); Assert.Equal("dismissed", task.ExternalSource.State); Assert.Null(task.NextRunAt);
+        Assert.True((await scope.Dismiss(task.Id)).Succeeded); // Repeating a removal is harmless.
+
+        var unchanged = await scope.Sync();
+        Assert.Empty(unchanged.Errors); Assert.Equal(0, unchanged.Imported); Assert.Equal(1, unchanged.Ignored);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 4, Due = new() { Date = "2026-12-17T10:00:00Z", IsRecurring = true } }];
+        var nextOccurrence = await scope.Sync();
+        Assert.Empty(nextOccurrence.Errors); Assert.Equal(0, nextOccurrence.Imported);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.False(task.ExternalSource!.IsActive); Assert.Equal("dismissed", task.ExternalSource.State);
+        Assert.Equal(0, task.ExternalSource.Generation); Assert.Equal("Draft 123", task.Checklist[1].Evidence);
+
+        Assert.True((await scope.Restore("1")).Succeeded);
+        Assert.Equal("restored", (await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id)).ExternalSource!.State);
+        Assert.False((await scope.Restore("1")).Succeeded);
+        var reimport = await scope.Sync();
+        Assert.Empty(reimport.Errors); Assert.Equal(1, reimport.Imported);
+        var tasks = await scope.Repo<AgentTask>().ListAsync(); Assert.Equal(2, tasks.Count);
+        var next = Assert.Single(tasks, candidate => candidate.ExternalSource!.Generation == 1);
+        Assert.True(next.ExternalSource!.IsActive); Assert.Equal("active", next.ExternalSource.State);
+        Assert.NotNull(next.NextRunAt); Assert.Null(next.Checklist[0].Evidence);
+
+        // Removing from an older occurrence still removes the Todoist task through its latest generation.
+        Assert.True((await scope.Dismiss(task.Id)).Succeeded);
+        next = await scope.Repo<AgentTask>().GetRequiredByIdAsync(next.Id);
+        Assert.False(next.ExternalSource!.IsActive); Assert.Equal("dismissed", next.ExternalSource.State);
+        Assert.Equal("completed", (await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id)).ExternalSource!.State);
+        scope.Reader.Tasks = [Snapshot() with { CompletedCount = 5, Due = new() { Date = "2027-01-17T10:00:00Z", IsRecurring = true } }];
+        Assert.Equal(0, (await scope.Sync()).Imported);
+        Assert.Equal(2, (await scope.Repo<AgentTask>().ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task DismissalNeverInterruptsStartedExecutionAndRestoreReactivatesSameOccurrence()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        scope.Reader.Tasks = [Snapshot()]; await scope.Sync();
+        var task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        var running = WorkItem.CreateFromInbound(task.Instructions, task.Title, Now);
+        running.AgentTaskId = task.Id; running.Status = WorkItemStatus.Executing;
+        task.WorkItemIds.Add(running.Id); task.NextRunAt = null;
+        await scope.Repo<WorkItem>().AddAsync(running); await scope.Repo<AgentTask>().UpdateAsync(task);
+
+        Assert.True((await scope.Dismiss(task.Id)).Succeeded);
+        Assert.Equal(WorkItemStatus.Executing, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(running.Id)).Status);
+        task = await scope.Repo<AgentTask>().GetRequiredByIdAsync(task.Id);
+        Assert.False(task.ExternalSource!.IsActive); Assert.Equal("dismissed", task.ExternalSource.State);
+        Assert.Empty((await scope.Sync()).Errors);
+        Assert.Equal(WorkItemStatus.Executing, (await scope.Repo<WorkItem>().GetRequiredByIdAsync(running.Id)).Status);
+
+        Assert.True((await scope.Restore("1")).Succeeded);
+        Assert.Empty((await scope.Sync()).Errors);
+        task = Assert.Single(await scope.Repo<AgentTask>().ListAsync());
+        Assert.True(task.ExternalSource!.IsActive); Assert.Equal("active", task.ExternalSource.State);
+        Assert.Equal(0, task.ExternalSource.Generation);
+    }
+
+    [Fact]
+    public async Task OnlyImportedTodoistTasksCanBeDismissed()
+    {
+        await using var scope = await Scope.Create(); if (scope is null) return;
+        var internalTask = new AgentTask { Id = "internal" };
+        internalTask.Update("Internal", "Internal", [new() { Text = "Internal" }], Now.AddDays(1), Now);
+        await scope.Repo<AgentTask>().AddAsync(internalTask);
+        Assert.False((await scope.Dismiss("internal")).Succeeded);
+        Assert.False((await scope.Dismiss("missing")).Succeeded);
+        Assert.False((await scope.Restore("1")).Succeeded);
+        Assert.Null((await scope.Repo<AgentTask>().GetRequiredByIdAsync("internal")).ExternalSource);
+    }
+
     private static TodoistTaskSnapshot Snapshot(string id = "1") => new(id, "Check invoice", "Verify approval", "agent", "Agent", [], 1,
         new() { Date = "2026-11-17T10:00:00Z", IsRecurring = true }, null, "https://app.todoist.com/app/task/" + id, 3);
 
@@ -410,7 +497,14 @@ public sealed class TodoistSynchronizationTests
         public Reader Reader { get; } = new();
         public IRepository<T> Repo<T>() where T : IItemWithId => new NoTenancyMartenRepository<T>(new NoTenancyByDefaultSessionFactory(store, new CurrentTenancyProviderNoTenancy()));
         public Task<TodoistSynchronizationResult> Sync() => new TodoistTaskSyncService(Repo<TodoistTaskSourceConfiguration>(), Repo<AgentTask>(), Repo<WorkItem>(),
-            Repo<InboundEvent>(), Reader, new TodoistSynchronizationLock(), new Events(), new Notifications(), new Clock()).SynchronizeAsync(null, default);
+            Repo<InboundEvent>(), Reader, Lock, new Events(), new Notifications(), new Clock()).SynchronizeAsync(null, default);
+        public Task<TodoistTaskDismissalResult> Dismiss(string agentTaskId) => new DismissTodoistTaskUsecaseHandler(
+            Repo<AgentTask>(), Repo<WorkItem>(), Lock, new Events(), new Notifications(), new Clock())
+            .Handle(new(agentTaskId), default);
+        public Task<TodoistTaskDismissalResult> Restore(string todoistTaskId) => new RestoreTodoistTaskUsecaseHandler(
+            Repo<AgentTask>(), Lock, new Notifications(), new Clock())
+            .Handle(new(todoistTaskId), default);
+        private TodoistSynchronizationLock Lock { get; } = new();
         public static async Task<Scope?> Create()
         {
             var connection = Environment.GetEnvironmentVariable("SAMWISE_TEST_POSTGRES"); if (string.IsNullOrWhiteSpace(connection)) return null;

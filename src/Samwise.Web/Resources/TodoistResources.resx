@@ -9,4 +9,11 @@
   <data name="ScopeDescription" xml:space="preserve"><value>Import all dated tasks assigned to you or nobody, including overdue tasks. No project or label selection is required. Select projects or labels below only to exclude them. Human work stays open when Samwise has nothing useful to do; completion requires evidence and approval.</value></data>
   <data name="ProjectExclusions" xml:space="preserve"><value>Exclude tasks in these projects.</value></data>
   <data name="LabelExclusions" xml:space="preserve"><value>Exclude tasks carrying these labels.</value></data>
+  <data name="DismissedTitle" xml:space="preserve"><value>Removed tasks</value></data>
+  <data name="DismissedDescription" xml:space="preserve"><value>Tasks removed from Samwise in the task calendar. Samwise ignores them and every future occurrence; Todoist itself is unchanged. Restore a task to import it again on the next sync.</value></data>
+  <data name="NoDismissedTasks" xml:space="preserve"><value>No Todoist tasks have been removed from Samwise.</value></data>
+  <data name="DismissedAt" xml:space="preserve"><value>Removed {0}</value></data>
+  <data name="DismissedHistory" xml:space="preserve"><value>Samwise history</value></data>
+  <data name="Restore" xml:space="preserve"><value>Restore</value></data>
+  <data name="Restored" xml:space="preserve"><value>"{0}" was restored and will be imported on the next Todoist sync.</value></data>
 </root>

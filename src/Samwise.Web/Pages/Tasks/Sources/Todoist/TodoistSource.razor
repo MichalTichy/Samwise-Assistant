@@ -168,6 +168,47 @@ else
         </LumexCard>
     </div>
 </section>
+
+<section class="teams-ignore-section todoist-dismissed-section">
+    <div class="email-accounts-heading">
+        <div>
+            <h2>@TodoistResources.DismissedTitle</h2>
+            <p>@TodoistResources.DismissedDescription</p>
+        </div>
+    </div>
+
+    <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="email-card-body">
+            @if (dismissedTasks.Count == 0)
+            {
+                <div class="empty-inline teams-source-empty">@TodoistResources.NoDismissedTasks</div>
+            }
+            else
+            {
+                <ul class="todoist-dismissed-list">
+                    @foreach (var task in dismissedTasks)
+                    {
+                        <li @key="task.AgentTaskId">
+                            <div class="todoist-dismissed-text">
+                                <strong>@task.Title</strong>
+                                <small>@FormatDismissedAt(task.DismissedAt)</small>
+                            </div>
+                            <div class="todoist-dismissed-actions">
+                                @if (!string.IsNullOrWhiteSpace(task.Url))
+                                {
+                                    <a href="@task.Url" target="_blank" rel="noopener">Todoist ↗</a>
+                                }
+                                <a href="@HistoryUrl(task.AgentTaskId)">@TodoistResources.DismissedHistory</a>
+                                <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" Size="@Size.Small"
+                                              OnClick="() => RestoreAsync(task)" Disabled="@IsActionRunning">@TodoistResources.Restore</ActionButton>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </LumexCardBody>
+    </LumexCard>
+</section>
 }
 
 @code {

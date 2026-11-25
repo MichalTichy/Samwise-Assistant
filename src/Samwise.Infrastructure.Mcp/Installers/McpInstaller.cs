@@ -34,6 +34,7 @@ public sealed class McpInstaller : IInstaller
             .WithTools<PlaybookTools>()
             .WithTools<ExecutionToolCatalogTools>()
             .WithTools<AgentSettingsTools>()
-            .WithTools<AgentTaskTools>();
+            .WithTools<AgentTaskTools>()
+            .WithTools<TodoistTaskSourceTools>();
     }
 }

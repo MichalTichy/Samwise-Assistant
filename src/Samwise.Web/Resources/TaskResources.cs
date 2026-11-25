@@ -8,6 +8,12 @@ internal static class TaskResources
     public static string ExternalSources => Manager.GetString(nameof(ExternalSources), CultureInfo.CurrentUICulture)!;
     public static string SourceOwned => Manager.GetString(nameof(SourceOwned), CultureInfo.CurrentUICulture)!;
     public static string SourceDue => Manager.GetString(nameof(SourceDue), CultureInfo.CurrentUICulture)!;
+    public static string RemoveFromSamwise => Manager.GetString(nameof(RemoveFromSamwise), CultureInfo.CurrentUICulture)!;
+    public static string RemoveFromSamwiseTitle => Manager.GetString(nameof(RemoveFromSamwiseTitle), CultureInfo.CurrentUICulture)!;
+    public static string RemoveFromSamwiseConfirm => Manager.GetString(nameof(RemoveFromSamwiseConfirm), CultureInfo.CurrentUICulture)!;
+    public static string KeepInSamwise => Manager.GetString(nameof(KeepInSamwise), CultureInfo.CurrentUICulture)!;
+    public static string RemovedFromSamwise => Manager.GetString(nameof(RemovedFromSamwise), CultureInfo.CurrentUICulture)!;
+    public static string RemoveError => Manager.GetString(nameof(RemoveError), CultureInfo.CurrentUICulture)!;
     private static readonly ResourceManager Manager = new(typeof(TaskResources));
     public static string Tasks => Manager.GetString(nameof(Tasks), CultureInfo.CurrentUICulture)!;
     public static string Routines => Manager.GetString(nameof(Routines), CultureInfo.CurrentUICulture)!;

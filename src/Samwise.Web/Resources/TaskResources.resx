@@ -66,4 +66,10 @@
 <data name="ExternalSources" xml:space="preserve"><value>External sources</value></data>
 <data name="SourceOwned" xml:space="preserve"><value>Edit the title, instructions and source due date in Todoist. Schedule the next Samwise check below.</value></data>
 <data name="SourceDue" xml:space="preserve"><value>Due in Todoist</value></data>
+  <data name="RemoveFromSamwise" xml:space="preserve"><value>Remove from Samwise</value></data>
+  <data name="RemoveFromSamwiseTitle" xml:space="preserve"><value>Remove this Todoist task from Samwise?</value></data>
+  <data name="RemoveFromSamwiseConfirm" xml:space="preserve"><value>Samwise stops tracking this task and every future occurrence, and withdraws any work that has not started. Todoist itself is not changed. You can restore the task in the Todoist source settings.</value></data>
+  <data name="KeepInSamwise" xml:space="preserve"><value>Keep</value></data>
+  <data name="RemovedFromSamwise" xml:space="preserve"><value>Todoist task removed from Samwise. Restore it in the Todoist source settings.</value></data>
+  <data name="RemoveError" xml:space="preserve"><value>The Todoist task could not be removed from Samwise.</value></data>
 </root>

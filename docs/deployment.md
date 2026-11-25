@@ -97,7 +97,7 @@ Move formerly bundled integration service definitions, volumes, and environment 
 
 ### Todoist task source
 
-Samwise's optional Todoist task source connects directly to its API. Paste its token under **Agent Tasks → Todoist** (`/tasks/sources/todoist`); no MCP service or Compose variable is needed. The persisted Data Protection key ring protects the stored token. All dated tasks assigned to the owner or nobody are imported, including overdue tasks, except explicit project/label exclusions. Samwise assesses each due task; personal work stays open unless completion is evidenced and approved. Playbooks are managed in Samwise configuration, independently of application deployment.
+Samwise's optional Todoist task source connects directly to its API. Paste its token under **Agent Tasks → Todoist** (`/tasks/sources/todoist`); no MCP service or Compose variable is needed. The persisted Data Protection key ring protects the stored token. All dated tasks assigned to the owner or nobody are imported, including overdue tasks, except explicit project/label exclusions and individual tasks removed from Samwise (restorable under **Removed tasks** on the same page). Samwise assesses each due task; personal work stays open unless completion is evidenced and approved. Playbooks are managed in Samwise configuration, independently of application deployment.
 
 ## iPhone notifications
 

@@ -4,6 +4,7 @@ using Microsoft.JSInterop;
 using Samwise.Domain.Tasks;
 using Samwise.Logic.Tasks;
 using Samwise.Logic.Tasks.Usecases;
+using Samwise.TaskSources.Todoist.Usecases.Dismissal;
 using Samwise.Web.Resources;
 using Shared.Infrastructure.Persistence.Repositories;
 
@@ -29,9 +30,11 @@ public partial class Tasks : IAsyncDisposable
     private TimeOnly runTime = new(9, 0);
     private int weekDay = 1, monthDay = 1;
     private DateTime? nextRunLocal;
-    private bool isRoutine, isEnabled = true, includeCompleted = true, busy, editorOpen;
+    private bool isRoutine, isEnabled = true, includeCompleted = true, busy, editorOpen, confirmingRemoval;
     private string? selectedRoutineId;
     private ExternalTaskReference? externalSource;
+    private bool CanRemoveFromSamwise => selectedId is not null &&
+        externalSource is { Provider: "Todoist" } source && source.State != "dismissed";
     private string SourceDueDisplay => externalSource?.DueAt is { } due
         ? TimeZoneInfo.ConvertTimeBySystemTimeZoneId(due, "Europe/Prague").ToString("g") + " (Europe/Prague)" : "—";
     private DateTime selectedDate = LocalToday;
@@ -85,6 +88,7 @@ public partial class Tasks : IAsyncDisposable
         editorOpen = true;
         selectedRoutineId = null;
         externalSource = null;
+        confirmingRemoval = false;
         selectedId = null;
         version = 0;
         title = instructions = string.Empty;
@@ -206,6 +210,26 @@ public partial class Tasks : IAsyncDisposable
         }
         catch (Exception exception) { Logger.LogError(exception, "Saving agent task failed"); error = TaskResources.SaveError; }
         finally { busy = false; }
+    }
+
+    private async Task RemoveFromSamwiseAsync()
+    {
+        if (busy || selectedId is null) return;
+        busy = true;
+        error = message = null;
+        var removed = false;
+        try
+        {
+            var result = await Sender.Send(new DismissTodoistTaskUsecase(selectedId));
+            if (!result.Succeeded) { error = result.Error; return; }
+            removed = true;
+            confirmingRemoval = false;
+            editorOpen = false;
+            message = TaskResources.RemovedFromSamwise;
+        }
+        catch (Exception exception) { Logger.LogError(exception, "Removing Todoist task from Samwise failed"); error = TaskResources.RemoveError; }
+        finally { busy = false; }
+        if (removed) await LoadAsync();
     }
 
     private async Task ChangeMonth(int delta) { viewMonth = viewMonth.AddMonths(delta); await LoadAsync(); }

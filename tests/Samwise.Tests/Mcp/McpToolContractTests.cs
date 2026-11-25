@@ -46,6 +46,7 @@ public sealed class McpToolContractTests
         Assert.Equal(
             [
                 "delete_playbook",
+                "dismiss_todoist_task",
                 "get_agent_invocation",
                 "get_agent_settings",
                 "get_agent_task",
@@ -62,6 +63,7 @@ public sealed class McpToolContractTests
                 "reopen_completed_work_item",
                 "replan_work_item",
                 "reprocess_ignored_input_event",
+                "restore_todoist_task",
                 "restore_work_item",
                 "save_agent_prompt",
                 "save_agent_routine",

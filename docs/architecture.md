@@ -16,12 +16,11 @@ ProcessEmailsUsecase(NewSinceCheckpoint) -> EmailInboundEvent
 ProcessEmailsUsecase(NewSinceCheckpoint) -> SentEmailInboundEvent
 ProcessEmailsUsecase(Unread) -> EmailInboundEvent
 ProcessTeamsInputsUsecase -> TeamsConversationInboundEvent | TeamsTranscriptInboundEvent
-ProcessTodoistInputsUsecase -> TodoistTaskInboundEvent
 ```
 
-Both operations call `InboundEventCaptureService`, which uses `Source + ExternalId` for connector-level deduplication. A deterministic key has a database unique constraint. The service stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.
+Input operations call `InboundEventCaptureService`, which uses `Source + ExternalId` for connector-level deduplication. A deterministic key has a database unique constraint. The service stores an `InboundEvent` in `Pending` state and calls the inbound-event processing service, which performs classification and, when the result is actionable, planning.
 
-Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapter stores account and message metadata plus a normalized body on `EmailInboundEvent` or `SentEmailInboundEvent`; their stable external identity is account ID, mailbox, UIDVALIDITY, and UID. Each derived event computes its intake text from its source fields. A related sent message is appended to an active Work Item like any other new context, invalidating the current plan before reassessment. Teams and Todoist sources follow the same rule. Connectors do not create or modify work items themselves.
+Manual web text stores the entered text on `ManualInboundEvent`. The IMAP adapter stores account and message metadata plus a normalized body on `EmailInboundEvent` or `SentEmailInboundEvent`; their stable external identity is account ID, mailbox, UIDVALIDITY, and UID. Each derived event computes its intake text from its source fields. A related sent message is appended to an active Work Item like any other new context, invalidating the current plan before reassessment. Teams sources follow the same rule. Todoist is an opt-in external task source under `/tasks`, synchronized directly into `AgentTask` rather than Intake. Its historical input documents remain readable. Connectors do not create or modify work items themselves.
 
 Use cases represent external triggers only: a user action, an endpoint request, or a newly received input event. A use-case handler coordinates the integral steps of that operation by calling scoped processing, classification, planning, execution, and invocation-lifecycle services. It never sends another use case.
 

@@ -4,6 +4,7 @@ namespace Samwise.Inputs.Todoist.Ingestion;
 
 public interface ITodoistTaskReader
 {
+    Task<TodoistTaskState> ReadTaskStateAsync(string taskId, CancellationToken cancellationToken = default);
     /// <summary>Reads all active tasks that have a due date, plus the account timezone.</summary>
     Task<TodoistTaskReadResult> ReadDueTasksAsync(CancellationToken cancellationToken = default);
 

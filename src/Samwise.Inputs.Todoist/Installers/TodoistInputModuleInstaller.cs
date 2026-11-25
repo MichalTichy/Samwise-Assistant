@@ -13,5 +13,7 @@ public sealed class TodoistInputModuleInstaller : IInstaller
         services.AddMediatR(options =>
             options.RegisterServicesFromAssembly(typeof(TodoistInputModuleInstaller).Assembly));
         services.AddSingleton<ITodoistInputProcessingLock, TodoistInputProcessingLock>();
+        services.AddScoped<Samwise.Inputs.Todoist.Tasks.ITodoistTaskSyncService, Samwise.Inputs.Todoist.Tasks.TodoistTaskSyncService>();
+        services.AddScoped<Samwise.Logic.Tasks.IExternalTaskRunGate, Samwise.Inputs.Todoist.Tasks.TodoistTaskRunGate>();
     }
 }

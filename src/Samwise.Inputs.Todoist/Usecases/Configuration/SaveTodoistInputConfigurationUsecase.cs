@@ -1,6 +1,7 @@
 using MediatR;
 using Samwise.Inputs.Todoist.Authentication;
 using Samwise.Inputs.Todoist.Configuration;
+using Samwise.Inputs.Todoist.Ingestion;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Inputs.Todoist.Usecases.Configuration;
@@ -13,18 +14,22 @@ public sealed record SaveTodoistInputConfigurationUsecase(
     int OverdueDays,
     string? IntakeGuidance,
     IReadOnlyList<TodoistInputSource> IgnoredProjects,
-    IReadOnlyList<TodoistInputSource> IgnoredLabels)
+    IReadOnlyList<TodoistInputSource> IgnoredLabels,
+    IReadOnlyList<TodoistInputSource>? IncludedProjects = null,
+    IReadOnlyList<TodoistInputSource>? IncludedLabels = null)
     : IRequest<TodoistInputConfigurationSaveResult>;
 
 internal sealed class SaveTodoistInputConfigurationUsecaseHandler(
     IRepository<TodoistInputConfiguration> repository,
-    ITodoistCredentialProtector credentialProtector)
+    ITodoistCredentialProtector credentialProtector,
+    ITodoistInputProcessingLock processingLock)
     : IRequestHandler<SaveTodoistInputConfigurationUsecase, TodoistInputConfigurationSaveResult>
 {
     public async Task<TodoistInputConfigurationSaveResult> Handle(
         SaveTodoistInputConfigurationUsecase request,
         CancellationToken cancellationToken)
     {
+        using var lease = await processingLock.EnterAsync(cancellationToken);
         var errors = Validate(request);
         if (errors.Count > 0)
         {
@@ -46,7 +51,9 @@ internal sealed class SaveTodoistInputConfigurationUsecaseHandler(
             request.OverdueDays,
             request.IntakeGuidance,
             request.IgnoredProjects,
-            request.IgnoredLabels);
+            request.IgnoredLabels,
+            request.IncludedProjects,
+            request.IncludedLabels);
         await repository.UpdateAsync(configuration, cancellationToken);
         return new TodoistInputConfigurationSaveResult(true, []);
     }
@@ -69,9 +76,10 @@ internal sealed class SaveTodoistInputConfigurationUsecaseHandler(
             errors.Add("The overdue range must be between 0 and 365 days.");
         }
 
-        if (request.IgnoredProjects.Concat(request.IgnoredLabels).Any(source => string.IsNullOrWhiteSpace(source.Id)))
+        if (request.IgnoredProjects.Concat(request.IgnoredLabels).Concat(request.IncludedProjects ?? [])
+            .Concat(request.IncludedLabels ?? []).Any(source => string.IsNullOrWhiteSpace(source.Id)))
         {
-            errors.Add("Every ignored Todoist project or label must have an ID.");
+            errors.Add("Every Todoist project or label selection must have an ID.");
         }
 
         return errors;

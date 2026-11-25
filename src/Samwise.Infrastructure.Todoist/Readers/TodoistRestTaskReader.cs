@@ -28,7 +28,23 @@ internal sealed class TodoistRestTaskReader(
         var tasks = await client.GetCollectionAsync("tasks", token, cancellationToken);
         return new TodoistTaskReadResult(
             tasks.Select(task => MapTask(task, projectNames)).OfType<TodoistTaskSnapshot>().ToList(),
-            ReadTimeZone(user));
+            ReadTimeZone(user), GetString(user, "id"));
+    }
+
+    public async Task<TodoistTaskState> ReadTaskStateAsync(string taskId, CancellationToken cancellationToken = default)
+    {
+        var token = await GetTokenAsync(cancellationToken);
+        JsonElement data;
+        try { data = await client.GetAsync($"tasks/{Uri.EscapeDataString(taskId)}", token, cancellationToken); }
+        catch (TodoistApiException exception) when (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
+        { return new TodoistTaskState("unavailable"); }
+        if (GetBoolean(data, "is_deleted")) return new TodoistTaskState("deleted");
+        if (GetBoolean(data, "checked") || GetString(data, "completed_at") is not null)
+            return new TodoistTaskState("completed");
+        var task = MapTask(data, new Dictionary<string, string>());
+        if (task is null) return new TodoistTaskState("undated");
+        var user = await client.GetAsync("user", token, cancellationToken);
+        return new TodoistTaskState("active", task, ReadTimeZone(user), GetString(user, "id"));
     }
 
     public async Task<IReadOnlyList<TodoistCommentSnapshot>> ReadCommentsAsync(
@@ -126,7 +142,9 @@ internal sealed class TodoistRestTaskReader(
                 IsRecurring = GetBoolean(due, "is_recurring")
             },
             deadline,
-            $"https://app.todoist.com/app/task/{Uri.EscapeDataString(id)}");
+            $"https://app.todoist.com/app/task/{Uri.EscapeDataString(id)}",
+            task.TryGetProperty("completed_count", out var count) && count.TryGetInt32(out var completedCount) ? completedCount : null,
+            GetString(task, "responsible_uid"));
     }
 
     internal static TodoistCommentSnapshot MapComment(JsonElement comment) => new(

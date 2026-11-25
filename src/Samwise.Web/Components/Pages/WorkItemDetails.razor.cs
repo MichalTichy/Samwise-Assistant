@@ -383,7 +383,6 @@ public partial class WorkItemDetails : IAsyncDisposable
     {
         WorkItemStatus.AwaitingApproval => "Awaiting approval",
         WorkItemStatus.AwaitingUserInput => "Needs your input",
-        WorkItemStatus.AwaitingExternalEvent => Resources.WorkItemResources.AwaitingExternalEvent,
         WorkItemStatus.NeedsAttention => "Needs attention",
         WorkItemStatus.OutcomeUnknown => "Outcome unknown",
         _ => status.ToString()

@@ -4,7 +4,6 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
-  <data name="AwaitingExternalEvent" xml:space="preserve"><value>Waiting for external event</value></data>
   <data name="Discard" xml:space="preserve"><value>Discard</value></data>
   <data name="DiscardWorkItem" xml:space="preserve"><value>Discard Work Item</value></data>
   <data name="DiscardConfirmation" xml:space="preserve"><value>Discard this Work Item?</value></data>

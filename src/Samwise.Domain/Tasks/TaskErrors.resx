@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="InvalidTask" xml:space="preserve"><value>Invalid task or checklist. Completed items require evidence.</value></data>
+  <data name="CompletedWithNext" xml:space="preserve"><value>A completed task cannot have another run scheduled.</value></data>
+  <data name="NotDue" xml:space="preserve"><value>This task is not due.</value></data>
+  <data name="NoOccurrence" xml:space="preserve"><value>No next occurrence.</value></data>
+  <data name="StaleTask" xml:space="preserve"><value>The task changed. Reload it before saving.</value></data>
+  <data name="FutureCheck" xml:space="preserve"><value>Schedule the next run in the future.</value></data>
+  <data name="ResolveExecution" xml:space="preserve"><value>Resolve the active or uncertain execution before editing this task.</value></data>
+  <data name="MissingNext" xml:space="preserve"><value>An unfinished task requires a next run time.</value></data>
+  <data name="StaleRoutine" xml:space="preserve"><value>The recurrence changed. Reload it before saving.</value></data>
+  <data name="InvalidRecurrence" xml:space="preserve"><value>The recurrence has no future occurrence.</value></data>
+  <data name="InvalidOccurrence" xml:space="preserve"><value>The time does not belong to this recurrence.</value></data>
+  <data name="RetiredPlan" xml:space="preserve"><value>Task updated; continue from its new checklist and scheduled time.</value></data>
+  <data name="MissingProgress" xml:space="preserve"><value>Approved effects completed, but the internal checklist has no next check. Review task progress before continuing.</value></data>
+  <data name="MissingPlanningProgress" xml:space="preserve"><value>The internal checklist needs a verified progress update or a next check. Plan that task update rather than abandoning the task.</value></data>
+  <data name="LegacyWaiting" xml:space="preserve"><value>Legacy waiting state removed. Review the remaining work before continuing.</value></data>
+  <data name="ExternalSourceOwned" xml:space="preserve"><value>Edit the title and instructions in the external source. Inactive source tasks cannot be scheduled.</value></data>
+<data name="SourceUnavailable" xml:space="preserve"><value>The external task could not be verified. Refresh its source before approving execution again.</value></data>
+<data name="InterruptedExecution" xml:space="preserve"><value>Samwise restarted during execution. The external result is unknown and the upstream agent may still be running. Reconcile its invocation and external effects before closing this work item; no automatic retry was scheduled.</value></data>
+<data name="ChangedSource" xml:space="preserve"><value>Review the changed Todoist instructions and verify whether additional work is required. Preserve completed effects.</value></data>
+</root>

@@ -57,17 +57,6 @@ else
 
         <div class="work-item-detail-grid">
             <main class="work-item-detail-main">
-                @if (workItem.Status == WorkItemStatus.AwaitingExternalEvent)
-                {
-                    <section class="detail-card state-card">
-                        <span class="state-symbol">⋯</span>
-                        <div>
-                            <h2>@Samwise.Web.Resources.WorkItemResources.AwaitingExternalEvent</h2>
-                            <p>@workItem.WaitingReason</p>
-                            <LumexButton Color="@ThemeColor.Default" Variant="@Variant.Flat" OnClick="ReplanAsync" Disabled="@actionBusy">Recheck &amp; replan</LumexButton>
-                        </div>
-                    </section>
-                }
                 @if (workItem.Status == WorkItemStatus.OutcomeUnknown)
                 {
                     <section class="detail-card state-card outcome-warning">

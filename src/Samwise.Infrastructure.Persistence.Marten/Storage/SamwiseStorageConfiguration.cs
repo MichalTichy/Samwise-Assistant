@@ -1,4 +1,5 @@
 using Marten;
+using Samwise.Domain.Tasks;
 using Samwise.Domain.Agents;
 using Samwise.Domain.Inbox;
 using Samwise.Domain.Notifications;
@@ -30,6 +31,7 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
         options.Schema.For<AgentInvocation>().Index(invocation => invocation.WorkItemId);
         options.Schema.For<InboundEvent>()
             .AddSubClass<ManualInboundEvent>()
+            .AddSubClass<ScheduledTaskInboundEvent>()
             .AddSubClass<EmailInboundEvent>()
             .AddSubClass<SentEmailInboundEvent>()
             .AddSubClass<TeamsConversationInboundEvent>()
@@ -48,5 +50,7 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
         options.Schema.For<DailyAutoExecutionDigest>();
         options.Schema.For<PushDevice>();
         options.Schema.For<PushApplicationKeys>();
+        options.Schema.For<AgentTask>().Index(task => task.NextRunAt);
+        options.Schema.For<AgentRoutine>().Index(routine => routine.NextOccurrenceAt);
     }
 }

@@ -18,7 +18,8 @@ internal sealed class WorkItemPlanningService(
     IWorkItemEventPublisher eventPublisher,
     IWorkItemAutomaticApprovalService automaticApprovalService,
     TimeProvider timeProvider,
-    ILogger<WorkItemPlanningService> logger) : IWorkItemPlanningService
+    ILogger<WorkItemPlanningService> logger,
+    IReadOnlyRepository<Samwise.Domain.Tasks.AgentTask>? tasks = null) : IWorkItemPlanningService
 {
     public async Task PlanAsync(string workItemId, CancellationToken cancellationToken)
     {
@@ -105,21 +106,25 @@ internal sealed class WorkItemPlanningService(
                 return;
             }
 
+            if (result.Disposition is PlanningDisposition.AlreadyResolved or PlanningDisposition.NoLongerRelevant &&
+                currentWorkItem.AgentTaskId is { } taskId && tasks is not null &&
+                await tasks.GetByIdAsync(taskId, cancellationToken) is { CompletedAt: null, NextRunAt: null } linkedTask &&
+                linkedTask.ExternalSource is not { IsActive: false })
+            {
+                currentWorkItem.MarkPlanningFailed(timeProvider.GetUtcNow(),
+                    Samwise.Domain.Tasks.TaskErrors.MissingPlanningProgress);
+                currentWorkItem.AddExecutionUpdate(Samwise.Domain.Tasks.TaskErrors.MissingPlanningProgress, timeProvider.GetUtcNow());
+                await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
+                await eventPublisher.PublishAsync(currentWorkItem);
+                return;
+            }
+
             if (result.Disposition == PlanningDisposition.AlreadyResolved)
             {
                 currentWorkItem.CompleteDuringPlanning(
                     result.ResolutionReason!,
                     invocation.Id,
                     timeProvider.GetUtcNow());
-                await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
-                await eventPublisher.PublishAsync(currentWorkItem);
-                return;
-            }
-
-            if (result.Disposition == PlanningDisposition.AwaitingExternalEvent)
-            {
-                currentWorkItem.AwaitExternalEvent(
-                    result.ResolutionReason!, invocation.Id, timeProvider.GetUtcNow());
                 await workItemRepository.UpdateAsync(currentWorkItem, cancellationToken);
                 await eventPublisher.PublishAsync(currentWorkItem);
                 return;

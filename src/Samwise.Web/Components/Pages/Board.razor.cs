@@ -20,7 +20,7 @@ public partial class Board : IAsyncDisposable
         new("draft", "Draft", "dot-draft", [WorkItemStatus.Planning, WorkItemStatus.NeedsAttention, WorkItemStatus.OutcomeUnknown]),
         new("input", "Needs your input", "dot-input", [WorkItemStatus.AwaitingUserInput]),
         new("approval", "Approval", "dot-approval", [WorkItemStatus.AwaitingApproval]),
-        new("progress", "In progress", "dot-running", [WorkItemStatus.Approved, WorkItemStatus.Executing, WorkItemStatus.AwaitingExternalEvent]),
+        new("progress", "In progress", "dot-running", [WorkItemStatus.Approved, WorkItemStatus.Executing]),
         new("done", "Done", "dot-complete", [WorkItemStatus.Completed])
     ];
 
@@ -161,7 +161,7 @@ public partial class Board : IAsyncDisposable
                 return new WorkItemCard(
                     workItem.Id,
                     workItem.Title,
-                    workItem.WaitingReason ?? workItem.Description,
+                    workItem.Description,
                     workItem.Status,
                     workItem.Revision,
                     workItem.UpdatedAt,
@@ -250,7 +250,6 @@ public partial class Board : IAsyncDisposable
     {
         WorkItemStatus.AwaitingApproval => "Awaiting approval",
         WorkItemStatus.AwaitingUserInput => "Needs your input",
-        WorkItemStatus.AwaitingExternalEvent => Resources.WorkItemResources.AwaitingExternalEvent,
         WorkItemStatus.NeedsAttention => "Needs attention",
         WorkItemStatus.OutcomeUnknown => "Outcome unknown",
         _ => status.ToString()

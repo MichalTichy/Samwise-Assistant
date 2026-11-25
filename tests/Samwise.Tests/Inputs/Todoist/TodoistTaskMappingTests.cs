@@ -93,6 +93,21 @@ public sealed class TodoistTaskMappingTests
         Assert.Equal("Europe/Prague", TodoistRestTaskReader.ReadTimeZone(document.RootElement));
     }
 
+    [Theory]
+    [InlineData("null", null)]
+    [InlineData("3", 3)]
+    public void ReaderAcceptsNullableCompletionCount(string count, int? expected)
+    {
+        using var document = JsonDocument.Parse($$"""
+            { "id": "1", "content": "Check invoice", "due": { "date": "2026-11-25" }, "completed_count": {{count}} }
+            """);
+
+        var task = TodoistRestTaskReader.MapTask(document.RootElement, new Dictionary<string, string>());
+
+        Assert.NotNull(task);
+        Assert.Equal(expected, task.CompletedCount);
+    }
+
     [Fact]
     public void InboundEventRoundTripsThroughDocumentSerialization()
     {

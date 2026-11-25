@@ -4,6 +4,8 @@ using Samwise.TaskSources.Todoist.Configuration;
 using Samwise.TaskSources.Todoist.Discovery;
 using Samwise.TaskSources.Todoist.Synchronization;
 using Samwise.TaskSources.Todoist.Usecases.Configuration;
+using Samwise.TaskSources.Todoist.Usecases.Dismissal;
+using Samwise.Web.Resources;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Web.Pages.Tasks.Sources.Todoist;
@@ -19,6 +21,7 @@ public partial class TodoistSource : AppComponentBase
     private string intakeGuidance = string.Empty;
     private List<TodoistSourceSelection> ignoredProjects = [];
     private List<TodoistSourceSelection> ignoredLabels = [];
+    private List<TodoistDismissedTask> dismissedTasks = [];
     private TodoistSourceCatalog? catalog;
     private DateTimeOffset? lastSuccessfulCheckAt;
     private string? lastError;
@@ -71,6 +74,7 @@ public partial class TodoistSource : AppComponentBase
             intakeGuidance = configuration.IntakeGuidance;
             ignoredProjects = configuration.IgnoredProjects.ToList();
             ignoredLabels = configuration.IgnoredLabels.ToList();
+            dismissedTasks = OrderDismissed(configuration.DismissedTasks ?? []);
             lastSuccessfulCheckAt = configuration.LastSuccessfulCheckAt;
             lastError = configuration.LastError;
             loadingCatalog = hasApiToken;
@@ -173,6 +177,31 @@ public partial class TodoistSource : AppComponentBase
             processing = false;
         }
     });
+
+    private Task RestoreAsync(TodoistDismissedTask task) => ExecuteActionAsync(async () =>
+    {
+        pageMessage = null;
+        pageMessageIsSuccess = false;
+        var result = await SendAsync(new RestoreTodoistTaskUsecase(task.TaskId));
+        pageMessage = result.Succeeded
+            ? string.Format(TodoistResources.Restored, task.Title)
+            : result.Error;
+        pageMessageIsSuccess = result.Succeeded;
+        // Refresh only the removal list so unsaved settings edits on this page are kept.
+        var configuration = await ConfigurationRepository.GetRequiredByIdAsync(
+            TodoistTaskSourceConfiguration.DocumentId, ComponentToken);
+        dismissedTasks = OrderDismissed(configuration.DismissedTasks ?? []);
+    });
+
+    private static List<TodoistDismissedTask> OrderDismissed(IEnumerable<TodoistDismissedTask> tasks) => tasks
+        .OrderByDescending(task => task.DismissedAt)
+        .ThenBy(task => task.Title, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private static string HistoryUrl(string agentTaskId) => $"/tasks?TaskId={Uri.EscapeDataString(agentTaskId)}";
+
+    private static string FormatDismissedAt(DateTimeOffset value) =>
+        string.Format(TodoistResources.DismissedAt, value.ToLocalTime().ToString("g"));
 
     private static bool IsSelected(IEnumerable<TodoistSourceSelection> selected, string id) =>
         selected.Any(source => string.Equals(source.Id, id, StringComparison.Ordinal));

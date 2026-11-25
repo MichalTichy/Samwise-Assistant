@@ -1,1 +1,14 @@
 .email-live-indicator.is-disconnected i { background: #a5a59b; }
+
+.todoist-dismissed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .25rem; }
+.todoist-dismissed-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-bottom: 1px solid #ece5d7; }
+.todoist-dismissed-list li:last-child { border-bottom: 0; }
+.todoist-dismissed-text { display: grid; gap: .15rem; min-width: 0; }
+.todoist-dismissed-text strong { overflow-wrap: anywhere; }
+.todoist-dismissed-text small { color: #848674; }
+.todoist-dismissed-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .75rem; font-size: .85rem; }
+
+@media (max-width: 720px) {
+    .todoist-dismissed-list li { flex-direction: column; align-items: stretch; }
+    .todoist-dismissed-actions { justify-content: flex-start; }
+}

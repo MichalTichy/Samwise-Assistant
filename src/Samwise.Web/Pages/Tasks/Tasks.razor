@@ -91,7 +91,15 @@
                 }
                 @if (externalSource is not null)
                 {
-                    <div class="occurrence-switch"><div><strong>Todoist · @externalSource.State</strong><p class="task-muted">@TaskResources.SourceOwned</p><small>@TaskResources.SourceDue: @SourceDueDisplay</small></div><a href="@externalSource.Url" target="_blank" rel="noopener">Todoist ↗</a></div>
+                    <div class="occurrence-switch"><div><strong>Todoist · @externalSource.State</strong><p class="task-muted">@TaskResources.SourceOwned</p><small>@TaskResources.SourceDue: @SourceDueDisplay</small></div><div class="source-actions"><a href="@externalSource.Url" target="_blank" rel="noopener">Todoist ↗</a>@if (CanRemoveFromSamwise && !confirmingRemoval) { <button class="task-text-button task-danger-text" @onclick="() => confirmingRemoval = true" disabled="@busy">@TaskResources.RemoveFromSamwise</button> }</div></div>
+                    @if (confirmingRemoval)
+                    {
+                        <div class="source-removal-confirm" role="group" aria-labelledby="source-removal-title">
+                            <strong id="source-removal-title">@TaskResources.RemoveFromSamwiseTitle</strong>
+                            <p>@TaskResources.RemoveFromSamwiseConfirm</p>
+                            <div class="source-removal-actions"><button class="task-secondary" @onclick="() => confirmingRemoval = false" disabled="@busy">@TaskResources.KeepInSamwise</button><button class="task-danger" @onclick="RemoveFromSamwiseAsync" disabled="@busy">@TaskResources.RemoveFromSamwise</button></div>
+                        </div>
+                    }
                 }
                 @if (error is not null) { <div class="inline-alert" role="alert">@error</div> }
                 <fieldset disabled="@(busy || externalSource is { IsActive: false })" class="task-form">

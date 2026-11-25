@@ -16,7 +16,9 @@ public sealed class TaskSummariesSpecification(bool includeCompleted, DateTimeOf
                 (task.LastRunAt >= start && task.LastRunAt < end) ||
                 (task.OccurrenceAt >= start && task.OccurrenceAt < end) ||
                 (task.ExternalSource != null && task.ExternalSource.DueAt >= start && task.ExternalSource.DueAt < end));
+        // A Todoist task the owner removed leaves the calendar; its history stays reachable by ID.
         return await queryable.Where(task => includeCompleted || task.CompletedAt == null)
+        .Where(task => task.ExternalSource == null || task.ExternalSource.State != "dismissed")
         .OrderByDescending(task => task.UpdatedAt)
         .Select(task => new TaskSummary(task.Id, task.Title, task.NextRunAt, task.CompletedAt,
             task.Checklist.Count, task.Checklist.Count(item => item.IsCompleted), task.LastRunAt,

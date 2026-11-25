@@ -19,8 +19,9 @@ Mutation tools send externally triggered application use cases through MediatR:
 - `save_playbook` creates or updates a Playbook, including its enabled state. Automatic-approval eligibility can only be changed in the authenticated web UI; MCP updates preserve it, and new MCP-created Playbooks are ineligible.
 - `replan_work_item` invalidates an unexecuted current plan or pending planning question and immediately generates its replacement while retaining plan and agent-activity history.
 - `restore_work_item` restores a discarded Work Item into a new planning revision while retaining its prior plans and discard metadata.
+- `dismiss_todoist_task` removes the Todoist task behind an imported Samwise task, with all future occurrences, from Samwise (owner request only; Todoist is not changed). `restore_todoist_task` lifts that removal by Todoist task ID so the next sync imports it again.
 
-The adapter does not expose endpoint credentials, owner identity data, email-account passwords, direct repository mutation, Work Item approval, or Work Item execution. Replanning and explicit restoration are the only Work Item lifecycle mutations it exposes.
+The adapter does not expose endpoint credentials, owner identity data, email-account passwords, direct repository mutation, Work Item approval, or Work Item execution. Replanning and explicit restoration are the only Work Item lifecycle mutations it exposes. Removing a Todoist task withdraws that task's unstarted Work Item as a consequence of retiring the task, under the same rules as synchronization.
 
 ## Structure
 

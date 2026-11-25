@@ -76,7 +76,9 @@ internal sealed class TodoistTaskSyncService(IRepository<TodoistTaskSourceConfig
         var due = snapshot?.Due.ResolveDueAt(state.AccountTimeZone);
         var selected = snapshot is not null && config.IsSelected(snapshot.ProjectId, snapshot.Labels) &&
             (snapshot.ResponsibleUserId is null || snapshot.ResponsibleUserId == state.AccountUserId);
-        var sourceState = state.State != "active" ? state.State : !selected ? "out_of_scope" : due is null ? "undated" : "active";
+        // An owner removal outranks every source state, so no occurrence or generation is imported again.
+        var sourceState = config.IsTaskDismissed(id) ? TodoistTaskRetirement.DismissedState
+            : state.State != "active" ? state.State : !selected ? "out_of_scope" : due is null ? "undated" : "active";
         if (sourceState != "active")
         {
             if (existing is not null && existing.ExternalSource!.IsActive)
@@ -135,14 +137,14 @@ internal sealed class TodoistTaskSyncService(IRepository<TodoistTaskSourceConfig
                     latest.Priority != snapshot.Priority || latest.Due.IsRecurring != snapshot.Due.IsRecurring ||
                     ContentFingerprint(latest.Content, latest.Description, latest.SourceGuidance,
                         latest.Comments.Select(item => new TodoistCommentSnapshot(item.CommentId, item.PostedAt, item.Content))) != contentFingerprint)
-                    Invalidate(pending, "Todoist source changed during migration.", now);
+                    TodoistTaskRetirement.InvalidatePendingWork(pending, "Todoist source changed during migration.", now);
             }
         }
         else if (!isNew && task.WorkItemIds.LastOrDefault() is { } last)
         {
             pending = await workItems.GetRequiredByIdAsync(last, ct);
             if (sourceChanged && pending.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded))
-                Invalidate(pending, "Todoist title, instructions, comments or due date changed.", now);
+                TodoistTaskRetirement.InvalidatePendingWork(pending, "Todoist title, instructions, comments or due date changed.", now);
         }
         var liveRun = pending is not null && pending.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded);
         var checklist = isNew ? new List<TaskChecklistItem> { new() { Text = Limit(snapshot.Content, 2_000) } }
@@ -166,34 +168,11 @@ internal sealed class TodoistTaskSyncService(IRepository<TodoistTaskSourceConfig
 
     private async Task RetireAsync(AgentTask task, string state, DateTimeOffset now, CancellationToken ct)
     {
-        WorkItem? pending = null;
-        if (task.WorkItemIds.LastOrDefault() is { } id)
-        {
-            pending = await workItems.GetRequiredByIdAsync(id, ct);
-            Invalidate(pending, $"Todoist source is {state}; no further automatic work is delegated.", now,
-                needsAttention: state == "unavailable");
-        }
-        task.ExternalSource!.IsActive = false;
-        task.ExternalSource.State = state;
-        task.ExternalSource.VerifiedAt = now;
-        task.NextRunAt = null;
-        task.UpdatedAt = now;
+        var pending = task.WorkItemIds.LastOrDefault() is { } id ? await workItems.GetRequiredByIdAsync(id, ct) : null;
+        TodoistTaskRetirement.Retire(task, pending, state, now);
         await PersistAsync(task, false, pending, ct);
         if (pending is not null) await events.PublishAsync(pending);
         await publisher.Publish(new AgentTaskChanged(task.Id), ct);
-    }
-
-    private static void Invalidate(WorkItem item, string reason, DateTimeOffset now, bool needsAttention = false)
-    {
-        if (item.Status is WorkItemStatus.Completed or WorkItemStatus.Discarded) return;
-        if (item.Status is WorkItemStatus.Executing or WorkItemStatus.OutcomeUnknown) return;
-        if (needsAttention)
-        {
-            item.AddContext(reason, now, CommentAuthorKind.System);
-            item.MarkPlanningFailed(now, reason);
-            item.AddExecutionUpdate(reason, now);
-        }
-        else item.Discard(now, "Todoist source", reason);
     }
 
     private async Task PersistAsync(AgentTask task, bool isNew, WorkItem? pending, CancellationToken ct)

@@ -21,6 +21,8 @@ public sealed class TodoistTaskSourceConfiguration : IItemWithId
     public List<TodoistSourceSelection> IgnoredLabels { get; set; } = [];
     public List<TodoistSourceSelection> IncludedProjects { get; set; } = [];
     public List<TodoistSourceSelection> IncludedLabels { get; set; } = [];
+    // Absent in documents saved before task removal existed; deserialization then keeps this empty default.
+    public List<TodoistDismissedTask> DismissedTasks { get; set; } = [];
     public DateTimeOffset? LastSuccessfulCheckAt { get; set; }
     public string? LastError { get; set; }
 
@@ -76,6 +78,32 @@ public sealed class TodoistTaskSourceConfiguration : IItemWithId
     public bool IsProjectIgnored(string? projectId) => Contains(IgnoredProjects, projectId);
 
     public bool IsLabelIgnored(string? label) => Contains(IgnoredLabels, label);
+
+    public bool IsTaskDismissed(string? taskId) =>
+        !string.IsNullOrWhiteSpace(taskId) && (DismissedTasks ?? []).Any(task =>
+            string.Equals(task.TaskId, taskId.Trim(), StringComparison.Ordinal));
+
+    /// <summary>Excludes the Todoist task and all its future occurrences; repeating it keeps the original removal time.</summary>
+    public void DismissTask(string taskId, string title, string url, string? agentTaskId, DateTimeOffset dismissedAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        DismissedTasks ??= [];
+        var id = taskId.Trim();
+        var existing = DismissedTasks.FirstOrDefault(task => string.Equals(task.TaskId, id, StringComparison.Ordinal));
+        if (existing is null)
+        {
+            existing = new TodoistDismissedTask { TaskId = id, DismissedAt = dismissedAt };
+            DismissedTasks.Add(existing);
+        }
+
+        existing.Title = string.IsNullOrWhiteSpace(title) ? id : title.Trim();
+        existing.Url = url?.Trim() ?? string.Empty;
+        existing.AgentTaskId = agentTaskId;
+    }
+
+    public bool RestoreTask(string taskId) =>
+        !string.IsNullOrWhiteSpace(taskId) && (DismissedTasks ?? []).RemoveAll(task =>
+            string.Equals(task.TaskId, taskId.Trim(), StringComparison.Ordinal)) > 0;
 
     public bool IsWithinWindow(DateTimeOffset dueAt, DateTimeOffset now) =>
         dueAt <= now.AddHours(LeadHours) && dueAt >= now.AddDays(-OverdueDays);

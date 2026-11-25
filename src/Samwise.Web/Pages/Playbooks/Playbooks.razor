@@ -1,0 +1,130 @@
+@inherits AppComponentBase
+@page "/playbooks"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Playbooks · Samwise</PageTitle>
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Configuration</span>
+        <h1>Playbooks</h1>
+        <p>Give intake and planning reusable guidance for recurring kinds of work.</p>
+    </div>
+    <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="NewPlaybook" Disabled="@saving">New playbook</LumexButton>
+</div>
+
+<div class="prompt-layout">
+    <aside class="prompt-tabs">
+        @if (IsLoading && playbooks.Count == 0)
+        {
+            <LoadingSkeleton Label="Loading playbooks" Rows="4" />
+        }
+        else if (playbooks.Count == 0)
+        {
+            <div class="empty-inline">No playbooks yet.</div>
+        }
+        @foreach (var playbook in playbooks)
+        {
+            <LumexButton FullWidth="true"
+                         Variant="@Variant.Light"
+                         Color="@ThemeColor.Primary"
+                         Disabled="@saving"
+                         Class="@($"prompt-tab {(playbook.Id == selectedId ? "active" : null)}")"
+                         OnClick="() => Select(playbook)">
+                <strong>@playbook.Name</strong>
+                <span>@(playbook.IsEnabled ? "Available to intake and planning" : "Disabled")@(playbook.SuitableForAutomaticApproval ? " · Auto-approval eligible" : "")</span>
+            </LumexButton>
+        }
+    </aside>
+
+    <LumexCard Class="prompt-editor-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+        <LumexCardBody Class="prompt-editor-body">
+            <div class="prompt-editor-heading">
+                <div>
+                    <h2>@(selectedId is null ? "New playbook" : "Edit playbook")</h2>
+                    <p>Applicability helps intake recognize the scenario. Guidance tells planning how to handle it.</p>
+                </div>
+                <span class="save-state">@saveMessage</span>
+            </div>
+
+            <div class="playbook-form">
+                <label>
+                    <span>Name</span>
+                    <input class="configuration-input"
+                           @bind="name"
+                           @bind:event="oninput"
+                           placeholder="Invoice processing" />
+                </label>
+
+                <label>
+                    <span>Applicability</span>
+                    <LumexTextarea Class="prompt-textarea"
+                                   MinRows="4"
+                                   MaxRows="8"
+                                   Behavior="@InputBehavior.OnInput"
+                                   Variant="@InputVariant.Outlined"
+                                   Placeholder="Describe when this playbook applies and what makes the input actionable…"
+                                   @bind-Value="applicability" />
+                </label>
+
+                <label>
+                    <span>Planning guidance</span>
+                    <LumexTextarea Class="prompt-textarea"
+                                   MinRows="12"
+                                   MaxRows="24"
+                                   Behavior="@InputBehavior.OnInput"
+                                   Variant="@InputVariant.Outlined"
+                                   Placeholder="Describe how Samwise should investigate, plan, and verify the work…"
+                                   @bind-Value="description" />
+                </label>
+
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="isEnabled" />
+                    <span>
+                        <strong>Enabled</strong>
+                        <small>Include this playbook in future intake and planning prompts.</small>
+                    </span>
+                </label>
+
+                <label class="configuration-toggle">
+                    <input type="checkbox" @bind="suitableForAutomaticApproval" />
+                    <span>
+                        <strong>Suitable for automatic approval</strong>
+                        <small>New plans using this playbook may be reviewed by the automatic approval agent and run with its restricted execution tools.</small>
+                    </span>
+                </label>
+            </div>
+
+            @if (errors.Count > 0)
+            {
+                <div class="inline-alert">
+                    @foreach (var error in errors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="prompt-actions">
+                <span>Existing plans keep their saved playbook snapshot.</span>
+                @if (selectedId is not null)
+                {
+                    @if (confirmingDelete)
+                    {
+                        <span role="alert">Permanently delete this playbook?</span>
+                        <LumexButton Color="@ThemeColor.Danger" OnClick="DeleteAsync" Disabled="@saving">Delete permanently</LumexButton>
+                        <LumexButton OnClick="() => confirmingDelete = false" Disabled="@saving">Cancel</LumexButton>
+                    }
+                    else
+                    {
+                        <LumexButton Color="@ThemeColor.Danger" Variant="@Variant.Light" OnClick="() => confirmingDelete = true" Disabled="@saving">Delete playbook</LumexButton>
+                    }
+                }
+                <LumexButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@saving">
+                    @(saving ? "Saving…" : "Save playbook")
+                </LumexButton>
+            </div>
+        </LumexCardBody>
+    </LumexCard>
+</div>

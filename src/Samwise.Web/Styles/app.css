@@ -2,6 +2,7 @@
 @import "../bin/lumexui/theme";
 @source "../bin/lumexui/*.cs";
 @source "../Components/**/*.razor";
+@source "../Pages/**/*.razor";
 
 /* Samwise's warm Shire palette. Component tokens stay in one place so the
    application can evolve without coupling product markup to individual hues. */

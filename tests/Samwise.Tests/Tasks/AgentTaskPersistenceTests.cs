@@ -13,7 +13,7 @@ using Samwise.Infrastructure.Persistence.Marten.Migrations;
 using Samwise.Logic.Inbox.Services;
 using Samwise.Logic.Tasks.Usecases;
 using Samwise.Logic.WorkItems.Services;
-using Samwise.Web.Components.Pages.Tasks;
+using Samwise.Web.Pages.Tasks;
 using Shared.Infrastructure.CurrentTenancyProvider;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Marten.Repository.Document;

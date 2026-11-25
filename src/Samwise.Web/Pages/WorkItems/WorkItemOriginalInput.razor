@@ -1,0 +1,49 @@
+@inherits AppComponentBase
+<section class="detail-card input-card">
+    <div class="detail-card-heading">
+        <div>
+            <span class="page-kicker">Input</span>
+            <h2>Original input</h2>
+        </div>
+        <time>@WorkItem.CreatedAt.ToLocalTime().ToString("g")</time>
+    </div>
+    @if (WorkItem.Sources.Count > 0 && IsLoading)
+    {
+        <LoadingSkeleton Label="Loading original input" Rows="3" />
+    }
+    else if (LoadError is not null)
+    {
+        <div class="inline-alert">Original input could not be loaded: @LoadError</div>
+    }
+    else if (sourceEvents.Count > 0)
+    {
+        <div class="source-event-list">
+            @foreach (var sourceEvent in sourceEvents)
+            {
+                <WorkItemSourceEvent Event="sourceEvent" />
+            }
+        </div>
+        <details class="work-item-interpretation">
+            <summary>What Samwise took from the input</summary>
+            <div class="readable-copy">
+                @foreach (var paragraph in WorkItemDetails.ReadableParagraphs(WorkItem.Description))
+                {
+                    <p>@paragraph</p>
+                }
+            </div>
+        </details>
+    }
+    else
+    {
+        <div class="readable-copy input-copy">
+            @foreach (var paragraph in WorkItemDetails.ReadableParagraphs(WorkItem.Description))
+            {
+                <p>@paragraph</p>
+            }
+        </div>
+        @if (WorkItem.Sources.Count > 0)
+        {
+            <p class="source-event-unavailable">The original input event is no longer available.</p>
+        }
+    }
+</section>

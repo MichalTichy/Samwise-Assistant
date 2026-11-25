@@ -221,8 +221,8 @@ public partial class Tasks : IAsyncDisposable
         var enabledRoutines = routines.Where(routine => routine.IsEnabled).Select(routine => routine.Id).ToHashSet(StringComparer.Ordinal);
         calendarEntries = tasks.Where(task => task.RoutineId is null || enabledRoutines.Contains(task.RoutineId) ||
                 task.LastRunAt is not null || task.CompletedAt is not null)
-            .Where(task => task.NextRunAt is not null || task.LastRunAt is not null || task.OccurrenceAt is not null)
-            .Select(task => new TaskCalendarEntry(task.Id, task.Title, task.NextRunAt ?? task.LastRunAt ?? task.OccurrenceAt!.Value,
+            .Where(task => task.SourceDueAt is not null || task.NextRunAt is not null || task.LastRunAt is not null || task.OccurrenceAt is not null)
+            .Select(task => new TaskCalendarEntry(task.Id, task.Title, task.SourceDueAt ?? task.NextRunAt ?? task.LastRunAt ?? task.OccurrenceAt!.Value,
                 task.RoutineId, false, task.CompletedAt is not null, task.CompletedCount, task.ItemCount, task.SourceState)).ToList();
         var existing = tasks.Where(task => task.RoutineId is not null && task.OccurrenceAt is not null)
             .Select(task => $"{task.RoutineId}:{task.OccurrenceAt!.Value.UtcTicks}").ToHashSet(StringComparer.Ordinal);

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.DataProtection;
-using Samwise.Inputs.Todoist.Authentication;
+using Samwise.TaskSources.Todoist.Authentication;
 
 namespace Samwise.Infrastructure.Todoist.Authentication;
 

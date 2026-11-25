@@ -14,11 +14,13 @@ public sealed class TaskSummariesSpecification(bool includeCompleted, DateTimeOf
             queryable = queryable.Where(task =>
                 (task.NextRunAt >= start && task.NextRunAt < end) ||
                 (task.LastRunAt >= start && task.LastRunAt < end) ||
-                (task.OccurrenceAt >= start && task.OccurrenceAt < end));
+                (task.OccurrenceAt >= start && task.OccurrenceAt < end) ||
+                (task.ExternalSource != null && task.ExternalSource.DueAt >= start && task.ExternalSource.DueAt < end));
         return await queryable.Where(task => includeCompleted || task.CompletedAt == null)
         .OrderByDescending(task => task.UpdatedAt)
         .Select(task => new TaskSummary(task.Id, task.Title, task.NextRunAt, task.CompletedAt,
             task.Checklist.Count, task.Checklist.Count(item => item.IsCompleted), task.LastRunAt,
-            task.RoutineId, task.OccurrenceAt, task.ExternalSource == null ? null : task.ExternalSource.State)).ToListAsync(cancellationToken);
+            task.RoutineId, task.OccurrenceAt, task.ExternalSource == null ? null : task.ExternalSource.State,
+            task.ExternalSource == null ? null : task.ExternalSource.DueAt)).ToListAsync(cancellationToken);
     }
 }

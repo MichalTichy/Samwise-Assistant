@@ -11,8 +11,8 @@ using Samwise.Inputs.Email.Events;
 using Samwise.Inputs.Teams.Configuration;
 using Samwise.Inputs.Teams.InboundEvents.Conversations;
 using Samwise.Inputs.Teams.InboundEvents.Transcripts;
-using Samwise.Inputs.Todoist.Configuration;
-using Samwise.Inputs.Todoist.InboundEvents;
+using Samwise.TaskSources.Todoist.Configuration;
+using Samwise.TaskSources.Todoist.Legacy;
 using Samwise.Logic.Notifications;
 using Shared.Infrastructure.Persistence.Marten.StorageConfiguration;
 using DomainWorkItem = Samwise.Domain.WorkItems.WorkItem;
@@ -43,7 +43,8 @@ internal sealed class SamwiseStorageConfiguration : IStorageConfiguration
         options.Schema.For<EmailInputConfiguration>();
         options.Schema.For<EmailAccount>().Index(account => account.IsEnabled);
         options.Schema.For<TeamsInputConfiguration>();
-        options.Schema.For<TodoistInputConfiguration>();
+        // Preserve the existing table while the CLR type/module moves to TaskSources.
+        options.Schema.For<TodoistTaskSourceConfiguration>().DocumentAlias("todoistinputconfiguration");
         options.Schema.For<AgentConfiguration>();
         options.Schema.For<Playbook>().Index(playbook => playbook.IsEnabled);
         options.Schema.For<NotificationSettings>();

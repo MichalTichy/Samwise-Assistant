@@ -10,7 +10,7 @@
     <ProjectReference Include="..\Samwise.Inputs.Email\Samwise.Inputs.Email.csproj" />
     <ProjectReference Include="..\Samwise.Inputs.Manual\Samwise.Inputs.Manual.csproj" />
     <ProjectReference Include="..\Samwise.Inputs.Teams\Samwise.Inputs.Teams.csproj" />
-    <ProjectReference Include="..\Samwise.Inputs.Todoist\Samwise.Inputs.Todoist.csproj" />
+    <ProjectReference Include="..\Samwise.TaskSources.Todoist\Samwise.TaskSources.Todoist.csproj" />
     <ProjectReference Include="..\Samwise.Logic\Samwise.Logic.csproj" />
     <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Initializer\Shared.Infrastructure.Initializer.csproj" />
     <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.IoC\Shared.Infrastructure.IoC.csproj" />

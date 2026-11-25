@@ -1,18 +1,19 @@
+using Samwise.TaskSources.Todoist.Models;
 using System.Globalization;
 using System.Text.Json;
 using Samwise.Infrastructure.Todoist.Api;
-using Samwise.Inputs.Todoist.Authentication;
-using Samwise.Inputs.Todoist.Configuration;
-using Samwise.Inputs.Todoist.Discovery;
-using Samwise.Inputs.Todoist.InboundEvents;
-using Samwise.Inputs.Todoist.Ingestion;
+using Samwise.TaskSources.Todoist.Authentication;
+using Samwise.TaskSources.Todoist.Configuration;
+using Samwise.TaskSources.Todoist.Discovery;
+using Samwise.TaskSources.Todoist.Legacy;
+using Samwise.TaskSources.Todoist.Synchronization;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Infrastructure.Todoist.Readers;
 
 internal sealed class TodoistRestTaskReader(
     TodoistApiClient client,
-    IReadOnlyRepository<TodoistInputConfiguration> configurationRepository,
+    IReadOnlyRepository<TodoistTaskSourceConfiguration> configurationRepository,
     ITodoistCredentialProtector credentialProtector) : ITodoistTaskReader
 {
     public async Task<TodoistTaskReadResult> ReadDueTasksAsync(CancellationToken cancellationToken = default)
@@ -64,26 +65,26 @@ internal sealed class TodoistRestTaskReader(
             .ToList();
     }
 
-    public async Task<TodoistInputCatalog> GetCatalogAsync(CancellationToken cancellationToken = default)
+    public async Task<TodoistSourceCatalog> GetCatalogAsync(CancellationToken cancellationToken = default)
     {
         var token = await GetTokenAsync(cancellationToken);
         var user = await client.GetAsync("user", token, cancellationToken);
         var projects = await client.GetCollectionAsync("projects", token, cancellationToken);
         var labels = await client.GetCollectionAsync("labels", token, cancellationToken);
-        return new TodoistInputCatalog(
+        return new TodoistSourceCatalog(
             GetString(user, "full_name") ?? GetString(user, "email"),
             projects
                 .Where(project => !GetBoolean(project, "is_archived") && !GetBoolean(project, "is_deleted"))
                 .Select(project => (Id: GetString(project, "id"), Name: GetString(project, "name")))
                 .Where(project => project.Id is not null)
-                .Select(project => new TodoistInputSourceOption(project.Id!, project.Name ?? project.Id!))
+                .Select(project => new TodoistSourceOption(project.Id!, project.Name ?? project.Id!))
                 .OrderBy(option => option.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
             labels
                 .Select(label => GetString(label, "name"))
                 .OfType<string>()
                 .Distinct(StringComparer.Ordinal)
-                .Select(name => new TodoistInputSourceOption(name, name))
+                .Select(name => new TodoistSourceOption(name, name))
                 .OrderBy(option => option.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .ToList());
     }
@@ -167,7 +168,7 @@ internal sealed class TodoistRestTaskReader(
     private async Task<string> GetTokenAsync(CancellationToken cancellationToken)
     {
         var configuration = await configurationRepository.GetRequiredByIdAsync(
-            TodoistInputConfiguration.DocumentId,
+            TodoistTaskSourceConfiguration.DocumentId,
             cancellationToken);
         if (string.IsNullOrWhiteSpace(configuration.ProtectedApiToken))
         {

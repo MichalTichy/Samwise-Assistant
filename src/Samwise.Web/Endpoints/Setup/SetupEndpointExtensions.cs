@@ -12,8 +12,8 @@ using Samwise.Inputs.Teams.Configuration;
 using Samwise.Inputs.Teams.Usecases.Configuration;
 using Samwise.Inputs.Teams.Usecases.Authorization;
 using Samwise.Inputs.Teams.Authentication;
-using Samwise.Inputs.Todoist.Configuration;
-using Samwise.Inputs.Todoist.Usecases.Configuration;
+using Samwise.TaskSources.Todoist.Configuration;
+using Samwise.TaskSources.Todoist.Usecases.Configuration;
 using Samwise.Logic.Agents;
 using Samwise.Logic.Inbox.Specifications;
 using Samwise.Logic.WorkItems.Specifications;
@@ -42,11 +42,10 @@ public static class SetupEndpointExtensions
         group.MapPost("/playbooks", async (SavePlaybookUsecase request, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(request, ct)));
         group.MapGet("/inputs", GetInputsAsync);
-        group.MapPut("/inputs/todoist", async (
-            SaveTodoistInputConfigurationUsecase request, ISender sender, CancellationToken ct) =>
-            request.IgnoredProjects is null || request.IgnoredLabels is null
-                ? Results.BadRequest(new { error = "ignoredProjects and ignoredLabels arrays are required." }) as IResult
-                : Results.Ok(await sender.Send(request, ct)));
+        group.MapGet("/task-sources", GetTaskSourcesAsync);
+        group.MapPut("/task-sources/todoist", SaveTodoistSourceAsync);
+        // Compatibility alias for existing setup clients.
+        group.MapPut("/inputs/todoist", SaveTodoistSourceAsync);
         group.MapPut("/inputs/teams", async (
             SaveTeamsInputConfigurationUsecase request, ISender sender, CancellationToken ct) =>
             request.IgnoredPeople is null || request.IgnoredChats is null || request.IgnoredChannels is null
@@ -152,15 +151,36 @@ public static class SetupEndpointExtensions
         return Results.Ok(result);
     }
 
+    private static async Task<IResult> SaveTodoistSourceAsync(
+        SaveTodoistTaskSourceConfigurationUsecase request, ISender sender, CancellationToken ct) =>
+        request.IgnoredProjects is null || request.IgnoredLabels is null
+            ? Results.BadRequest(new { error = "ignoredProjects and ignoredLabels arrays are required." })
+            : Results.Ok(await sender.Send(request, ct));
+
+    private static async Task<IResult> GetTaskSourcesAsync(
+        IReadOnlyRepository<TodoistTaskSourceConfiguration> todoist, CancellationToken ct)
+    {
+        var configuration = await todoist.GetByIdAsync(TodoistTaskSourceConfiguration.DocumentId, ct);
+        return Results.Ok(new
+        {
+            todoist = new
+            {
+                configuration?.IsConfigured, configuration?.PollingIntervalMinutes,
+                configuration?.IntakeGuidance, configuration?.IgnoredProjects, configuration?.IgnoredLabels,
+                configuration?.LastSuccessfulCheckAt, configuration?.LastError
+            }
+        });
+    }
+
     private static async Task<IResult> GetInputsAsync(
         IReadOnlyRepository<EmailAccount> accounts,
         IReadOnlyRepository<EmailInputConfiguration> email,
-        IReadOnlyRepository<TodoistInputConfiguration> todoist,
+        IReadOnlyRepository<TodoistTaskSourceConfiguration> todoist,
         IReadOnlyRepository<TeamsInputConfiguration> teams,
         CancellationToken ct)
     {
         var emailConfiguration = await email.GetByIdAsync(EmailInputConfiguration.DocumentId, ct);
-        var todoistConfiguration = await todoist.GetByIdAsync(TodoistInputConfiguration.DocumentId, ct);
+        var todoistConfiguration = await todoist.GetByIdAsync(TodoistTaskSourceConfiguration.DocumentId, ct);
         var teamsConfiguration = await teams.GetByIdAsync(TeamsInputConfiguration.DocumentId, ct);
         var emailAccounts = await accounts.ListAsync(new EmailAccountsSpecification(), ct);
         return Results.Ok(new

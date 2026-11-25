@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Samwise.Domain.Agents;
 using Samwise.Domain.Playbooks;
+using Samwise.Domain.Tasks;
+using Shared.Infrastructure.Persistence;
 using Samwise.Domain.WorkItems;
 using Samwise.Domain.WorkItems.Events;
 using Samwise.Logic.Agents;
@@ -149,11 +151,40 @@ public sealed class WorkItemPlanningServiceTests
         Assert.Equal("How should the conflict be handled?", asked.Prompt);
     }
 
+    [Theory]
+    [InlineData("Todoist", PlanningDisposition.NoLongerRelevant, WorkItemStatus.Discarded)]
+    [InlineData("Todoist", PlanningDisposition.AlreadyResolved, WorkItemStatus.NeedsAttention)]
+    [InlineData(null, PlanningDisposition.NoLongerRelevant, WorkItemStatus.NeedsAttention)]
+    [InlineData(null, PlanningDisposition.AlreadyResolved, WorkItemStatus.NeedsAttention)]
+    public async Task HumanTodoistAssessmentCanEndWithoutCompletingTheTaskButInternalWorkNeedsProgress(
+        string? provider, PlanningDisposition disposition, WorkItemStatus expected)
+    {
+        var task = new AgentTask { Title = "Collect parcel", Instructions = "Collect parcel 123",
+            Checklist = [new() { Text = "Parcel collected" }], OccurrenceAt = Now,
+            ExternalSource = provider is null ? null : new() { Provider = provider, TaskId = "123", DueAt = Now } };
+        var workItem = DomainWorkItem.CreateFromInbound(task.Instructions, task.Title, Now);
+        workItem.AgentTaskId = task.Id;
+        task.WorkItemIds.Add(workItem.Id);
+        var service = CreateService(workItem, new PlannerResult(disposition,
+            "Human collection remains open; there is no useful current action or justified follow-up check.",
+            EmptyPlan(), null, Receipt()), new StubInvocationService(), tasks: new ReadOnlyRepository<AgentTask>([task]));
+
+        await service.PlanAsync(workItem.Id, CancellationToken.None);
+
+        Assert.Equal(expected, workItem.Status);
+        Assert.Null(task.CompletedAt);
+        Assert.Null(task.NextRunAt);
+        Assert.False(Assert.Single(task.Checklist).IsCompleted);
+        Assert.Empty(workItem.Plans);
+        if (provider is not null) Assert.True(task.ExternalSource!.IsActive);
+    }
+
     private static WorkItemPlanningService CreateService(
         DomainWorkItem workItem,
         PlannerResult result,
         StubInvocationService invocationService,
-        RecordingEventPublisher? events = null) => new(
+        RecordingEventPublisher? events = null,
+        IReadOnlyRepository<AgentTask>? tasks = null) => new(
             new WorkItemRepository(workItem),
             new StubAgentRuntime(result),
             new StubPromptBuilder(),
@@ -161,7 +192,7 @@ public sealed class WorkItemPlanningServiceTests
             events ?? new RecordingEventPublisher(),
             new StubAutomaticApprovalService(),
             new FixedTimeProvider(Now.AddMinutes(1)),
-            NullLogger<WorkItemPlanningService>.Instance);
+            NullLogger<WorkItemPlanningService>.Instance, tasks);
 
     private static PlanDraft EmptyPlan() => new(null, string.Empty, [], [], []);
 
@@ -354,5 +385,54 @@ public sealed class WorkItemPlanningServiceTests
             Published.AddRange(workItem.DequeueEvents());
             return Task.CompletedTask;
         }
+    }
+    private sealed class ReadOnlyRepository<T>(IReadOnlyList<T> items) : IReadOnlyRepository<T>
+        where T : IItemWithId
+    {
+        public Task<T?> GetByIdAsync(
+            string id,
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            Task.FromResult(items.SingleOrDefault(item => item.Id == id));
+
+        public Task<IReadOnlyList<T>> GetByIdsAsync(
+            IReadOnlyList<string> ids,
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            Task.FromResult<IReadOnlyList<T>>(items.Where(item => ids.Contains(item.Id)).ToList());
+
+        public Task<T?> GetBySpecAsync(
+            ISpecification<T> specification,
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            throw new NotSupportedException();
+
+        public Task<TResult?> GetBySpecAsync<TResult>(
+            ISpecification<T, TResult> specification,
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<T>> ListAsync(
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            Task.FromResult(items);
+
+        public Task<IReadOnlyList<T>> ListAsync(
+            IListSpecification<T> specification,
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            Task.FromResult(items);
+
+        public Task<IReadOnlyList<TResult>> ListAsync<TResult>(
+            IListSpecification<T, TResult> specification,
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            throw new NotSupportedException();
+
+        public Task<int> CountAsync(
+            CancellationToken cancellationToken = default,
+            string? tenantId = null) =>
+            Task.FromResult(items.Count);
     }
 }

@@ -43,6 +43,7 @@ internal sealed class AgentPromptBuilder(
         - A work item represents the current achievable Samwise intervention. A verified task/reminder, draft or manual handoff completes that intervention without claiming physical collection, payment or sending.
         - For useful future checks, plan an internal agent task or an update of the linked task with an explicit next_run_at and preserved context using available save_agent_task_progress tools. Mutations remain approved execution operations. Never use a human Todoist task as an internal timer, or promise an unscheduled retry. Recurrence needs explicit owner delegation.
         - When an adequate manual handoff already exists and no useful operation remains, use no_longer_relevant without claiming the underlying work is done. Keep task checklists separate from the current plan; do not repeat verified checklist effects.
+        - An imported Todoist task is an assessment request, not proof that Samwise can perform its real-world action. For an active Todoist source with adequate human tracking and no useful action or justified future check, use no_longer_relevant: only this intervention ends; the task and its unfinished checklist stay open in the calendar and Todoist. Never complete a task merely because it is unsuitable for automation. Source completion needs current evidence for the exact task and recurring occurrence and an approved completion operation.
         These lifecycle requirements take precedence over obsolete disposition instructions in the configurable prompt.
         """;
 
@@ -327,7 +328,9 @@ internal sealed class AgentPromptBuilder(
             }, JsonOptions) +
             "\nContinue the first unfulfilled checklist outcome. Completed effects must not be repeated. " +
             "Include approved task progress/evidence and next-check updates in the plan when useful. " +
-            "An unfinished internal checklist requires a next check; an already-fulfilled external result may still need an approved save_agent_task_progress step to record its evidence. " +
+            (task.ExternalSource is { Provider: "Todoist", IsActive: true }
+                ? "Assess the actual Todoist outcome using the most specific playbook. Project and label membership are not required. If no useful Samwise action or justified later check remains, use no_longer_relevant without completing the source or checklist; both remain open. Do not schedule repeated checks without a useful evidence source and timing reason. Otherwise plan approved progress and next-check updates as needed. "
+                : "An unfinished internal checklist requires a next check; an already-fulfilled external result may still need an approved save_agent_task_progress step to record its evidence. ") +
             "If a required task tool is unavailable, report the capability gap; do not pretend a check is scheduled.\n";
     }
 

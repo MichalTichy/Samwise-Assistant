@@ -121,13 +121,13 @@ The authenticated Configuration → Inputs → Emails page owns the polling inte
 
 Received-email events snapshot read and answered state. For answered messages, the adapter opens the server-designated Sent folder read-only and finds up to five replies using `Message-ID`, `In-Reply-To`, and `References`; their normalized bodies are included in intake context. Sent-email events independently capture newly sent message bodies and attachment metadata for intake. Failure to discover Sent disables sent tracking without blocking INBOX capture. Attachment metadata is recorded without downloading attachment bodies. Exact ignored senders apply only to received mail and are recorded without an AI call, body download, or sent-reply lookup. Sending, full thread synchronization, and IMAP IDLE are outside V1.
 
-## Todoist input
+## Todoist task source
 
-The authenticated Configuration → Inputs → Todoist page owns the API token, polling interval, lead time, overdue range, intake guidance, and ignored projects and labels. `TodoistInputConfiguration` is a singleton Marten document. Its token is protected with ASP.NET Data Protection and never returned to the UI.
+`Samwise.TaskSources.Todoist` owns source configuration, discovery contracts, synchronization use cases and the external-task run gate. `Samwise.Infrastructure.Todoist` owns the read-only API adapter, credential protection and polling host. The page lives under Tasks at `/tasks/sources/todoist`, not Inputs. Setup uses `/api/setup/task-sources`; previous configuration routes remain compatibility aliases.
 
-`Samwise.Infrastructure.Todoist` lists active tasks through the Todoist API v1 and only reads. Every task whose due instant falls between `now − OverdueDays` and `now + LeadHours` becomes one `TodoistTaskInboundEvent`. All-day tasks are due at the start of their day. Floating times use the task timezone, then the Todoist account timezone. The external identity is the task ID plus its due value, so a reschedule or the next occurrence of a recurring task is a new input. Earlier occurrences of the same task (`ContextKey = todoist:task:<id>`) are supplied as linked context, so intake can append to their active work item. Tasks in ignored projects or carrying an ignored label are recorded without an AI call. The planning lead time means a plan can be waiting for approval before the task is due. Execution still runs at approval; there is no scheduled-execution state.
+All dated owner/unassigned tasks synchronize directly into `AgentTask`, subject to explicit exclusions. They do not create Intake events. Todoist owns task details and due dates; Samwise owns checklist evidence and justified next checks. Source due dates remain visible in the calendar. Due tasks enter normal Planning to assess useful work; an unnecessary intervention can end without completing human work. Exact source refresh gates dispatch and execution. Writes to Todoist remain separately approved MCP operations.
 
-Samwise does not write to Todoist from the connector. Completing, commenting on, or creating tasks are ordinary plan steps that run through the Gateway Todoist MCP tools after approval. The Todoist task ID reaches planning and execution through the work item's source reference. This also allows **deferred actions**: an approved plan can create a Todoist task with a future due date, and when that task enters the lead window it returns as normal input. Samwise-created tasks get no special treatment, so a deferred task should be due later than the lead window if it is not meant to come back immediately.
+Historical input types live only in the module's `Legacy` namespace for reading existing records and adopting previous work without duplication. The configuration document ID, table alias and Data Protection purpose stay unchanged. Startup migration `MigrateTodoistTaskSourceTypeOwnership` rewrites old CLR type metadata, including nested source selections, due values and comments, before initializers read saved settings. See [agent tasks](agent-tasks.md) for source occurrence and progress rules.
 
 ## Work item events
 
@@ -176,7 +176,7 @@ Work item comments are first-class owned values inside the work item aggregate. 
 
 ## Future Todoist UI adapter
 
-Todoist is already an input source (see *Todoist input*). The following two-way board mirror remains future work.
+Todoist is an external task source (see *Todoist task source*). The following two-way board mirror remains future work.
 
 Samwise remains authoritative. A future adapter can mirror one Samwise work item into a dedicated Todoist board and store an `ExternalWorkItemLink` mapping. Plan snapshots can be posted as comments. Approval commands should be strict, revision-bound comment commands such as `/samwise approve <one-time-code>`, deduplicated by Todoist comment ID and routed into the same approve/reject/discard application commands as Blazor.
 

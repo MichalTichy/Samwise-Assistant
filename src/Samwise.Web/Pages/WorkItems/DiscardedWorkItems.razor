@@ -1,0 +1,82 @@
+@inherits AppComponentBase
+@page "/work-items/discarded"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Discarded Work Items · Samwise</PageTitle>
+
+<div class="discarded-page">
+    <div class="page-heading-row">
+        <div>
+            <span class="page-kicker">Work items</span>
+            <h1>Discarded</h1>
+            <p>Work Items kept outside the active Board. Restore one to start a fresh planning revision.</p>
+        </div>
+        <div class="heading-actions">
+            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@IsLoading">Refresh</LumexButton>
+            <a class="button-link button-link-secondary" href="/board">Back to Board</a>
+        </div>
+    </div>
+
+    @if (error is not null)
+    {
+        <div class="inline-alert" role="alert">@error</div>
+    }
+
+    @if (IsLoading && workItems.Count == 0)
+    {
+        <LoadingSkeleton Label="Loading discarded work items" Rows="4" />
+    }
+    else if (workItems.Count == 0)
+    {
+        <div class="empty-state">
+            <h2>No discarded Work Items</h2>
+            <p>Anything you discard will remain available here for recovery.</p>
+            <a class="button-link button-link-secondary" href="/board">Return to Board</a>
+        </div>
+    }
+    else
+    {
+        <div class="discarded-work-items">
+            @foreach (var workItem in workItems)
+            {
+                <LumexCard Class="discarded-work-item" Shadow="@Shadow.Small" Radius="@Radius.Large">
+                    <LumexCardBody Class="discarded-work-item-body">
+                        <div class="discarded-work-item-heading">
+                            <div>
+                                <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="status-chip status-discarded">Discarded</LumexChip>
+                                <h2><a href="@WorkItemRoutes.Detail(workItem.Id)">@workItem.Title</a></h2>
+                            </div>
+                            @if (workItem.DiscardedAt is { } discardedAt)
+                            {
+                                <time datetime="@discardedAt.ToString("O")">@discardedAt.ToLocalTime().ToString("d MMM yyyy, HH:mm")</time>
+                            }
+                        </div>
+
+                        <p class="discarded-work-item-description">@workItem.Description</p>
+
+                        @if (!string.IsNullOrWhiteSpace(workItem.DiscardReason))
+                        {
+                            <div class="discarded-reason">
+                                <strong>Why it was discarded</strong>
+                                <p>@workItem.DiscardReason</p>
+                            </div>
+                        }
+
+                        <footer>
+                            <span>Discarded by @(workItem.DiscardedFrom ?? "Samwise")</span>
+                            <div class="discarded-work-item-actions">
+                                <a class="button-link button-link-secondary" href="@WorkItemRoutes.Detail(workItem.Id)">View details</a>
+                                <LumexButton Color="@ThemeColor.Primary"
+                                             OnClick="@(() => RestoreAsync(workItem.Id))"
+                                             Disabled="@(restoringWorkItemId is not null)">
+                                    @(restoringWorkItemId == workItem.Id ? "Restoring…" : "Restore & replan")
+                                </LumexButton>
+                            </div>
+                        </footer>
+                    </LumexCardBody>
+                </LumexCard>
+            }
+        </div>
+    }
+</div>

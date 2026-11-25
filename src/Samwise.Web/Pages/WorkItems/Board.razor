@@ -1,0 +1,136 @@
+@inherits AppComponentBase
+@page "/board"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using WorkItemStatus = Samwise.Domain.WorkItems.WorkItemStatus
+@using Samwise.Web.Resources
+
+<PageTitle>Board · Samwise</PageTitle>
+
+<div class="board-page">
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Work items</span>
+        <h1>Board</h1>
+        <p>Every card represents an actionable work item and its current approval state.</p>
+    </div>
+    <div class="heading-actions">
+        <button type="button" class="button-link button-link-secondary board-action" @onclick="LoadAsync" disabled="@(IsLoading || discarding)" title="The board also refreshes automatically every 10 seconds">Refresh</button>
+        <a class="button-link button-link-secondary board-action" href="/work-items/discarded">Discarded</a>
+        <a class="button-link button-link-secondary board-action" href="/work-items/auto-executions">Auto report</a>
+        <a class="button-link button-link-primary board-new-input" href="/">New input</a>
+    </div>
+</div>
+
+@if (IsLoading && workItems.Count == 0)
+{
+    <LoadingSkeleton Label="Loading work items" Rows="5" />
+}
+
+else
+{
+    var activeColumn = ActiveColumnKey;
+    <div class="board-tabs" role="tablist" aria-label="Board columns">
+        @foreach (var column in MobileColumns)
+        {
+            var isActive = column.Key == activeColumn;
+            <button type="button"
+                    role="tab"
+                    class="board-tab @(isActive ? "is-active" : null)"
+                    aria-selected="@isActive"
+                    @onclick="() => SelectColumn(column.Key)">
+                <span class="column-dot @column.CssClass"></span>
+                <span>@column.Name</span>
+                <span class="column-count">@CardsFor(column).Count</span>
+            </button>
+        }
+    </div>
+
+    <div class="work-item-board">
+        @foreach (var column in Columns)
+        {
+            var cards = CardsFor(column);
+            <section class="board-column" data-active="@(column.Key == activeColumn ? "true" : "false")">
+                <header>
+                    <span class="column-dot @column.CssClass"></span>
+                    <h2>@column.Name</h2>
+                    <span class="column-count">@cards.Count</span>
+                </header>
+
+                <div class="column-cards">
+                    @foreach (var workItem in cards)
+                    {
+                        <LumexCard Class="work-item-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+                            <LumexCardBody Class="work-item-card-body">
+                            <a class="work-item-card-link" href="@WorkItemRoutes.Detail(workItem.Id)">
+                            <div class="work-item-card-topline">
+                                <div class="work-item-card-badges">
+                                    <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip status-{workItem.Status.ToString().ToLowerInvariant()}")">@FormatStatus(workItem.Status)</LumexChip>
+                                    @if (workItem.AutomaticallyExecuted)
+                                    {
+                                        <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Success" Class="auto-execution-chip">Auto-approved</LumexChip>
+                                    }
+                                </div>
+                                <span class="revision-label">r@(workItem.Revision)</span>
+                            </div>
+                            <h3>@workItem.Title</h3>
+                            <p>@(workItem.Status == WorkItemStatus.AwaitingUserInput && workItem.UserQuestion is not null
+                                ? workItem.UserQuestion
+                                : workItem.Description)</p>
+                            <footer>
+                                <span>@(workItem.Status == WorkItemStatus.AwaitingUserInput
+                                    ? "Answer needed"
+                                    : workItem.PlanNumber is null ? "Plan pending" : $"Plan {workItem.PlanNumber}")</span>
+                                <time>@workItem.UpdatedAt.ToLocalTime().ToString("d MMM, HH:mm")</time>
+                            </footer>
+                            </a>
+                            @if (workItem.Status is not (WorkItemStatus.Completed or WorkItemStatus.Discarded or WorkItemStatus.Executing))
+                            {
+                                <div class="work-item-card-actions">
+                                    <LumexButton Size="@Size.Small" Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="() => OpenDiscardDialog(workItem)" Disabled="@discarding">@WorkItemResources.Discard</LumexButton>
+                                </div>
+                            }
+                            </LumexCardBody>
+                        </LumexCard>
+                    }
+
+                    @if (cards.Count == 0)
+                    {
+                        <div class="empty-column">No work items here</div>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}
+
+</div>
+
+<LumexModal Open="@(workItemToDiscard is not null)"
+            OpenChanged="HandleDiscardDialogOpenChangedAsync"
+            Size="@ModalSize.Small">
+    <LumexModalContent>
+        <LumexModalHeader>
+            <h2>@WorkItemResources.DiscardConfirmation</h2>
+        </LumexModalHeader>
+        <LumexModalBody>
+            <strong>@workItemToDiscard?.Title</strong>
+            <p class="discard-dialog-copy">@WorkItemResources.DiscardReasonHelp</p>
+            @if (!string.IsNullOrWhiteSpace(discardError))
+            {
+                <div class="inline-alert detail-alert" role="alert">@discardError</div>
+            }
+            <LumexTextarea MinRows="3"
+                           MaxRows="7"
+                           Behavior="@InputBehavior.OnInput"
+                           Variant="@InputVariant.Outlined"
+                           Placeholder="@WorkItemResources.DiscardReasonPlaceholder"
+                           Disabled="@discarding"
+                           @bind-Value="discardReason" />
+        </LumexModalBody>
+        <LumexModalFooter>
+            <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="CloseDiscardDialog" Disabled="@discarding">@WorkItemResources.Cancel</LumexButton>
+            <LumexButton Variant="@Variant.Light" Color="@ThemeColor.Danger" OnClick="DiscardAsync" Disabled="@discarding">@(discarding ? WorkItemResources.Discarding : WorkItemResources.DiscardWorkItem)</LumexButton>
+        </LumexModalFooter>
+    </LumexModalContent>
+</LumexModal>

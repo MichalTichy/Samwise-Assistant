@@ -1,0 +1,42 @@
+@inherits AppComponentBase
+<section class="detail-card activity-card">
+    <div class="detail-card-heading"><h2>Agent activity</h2><span class="column-count">@(IsLoading ? "…" : invocations.Count.ToString())</span></div>
+    <div class="activity-list">
+        @if (IsLoading)
+        {
+            <LoadingSkeleton Label="Loading agent activity" Rows="3" />
+        }
+        else if (LoadError is not null)
+        {
+            <div class="inline-alert">Agent activity could not be loaded: @LoadError</div>
+        }
+        @foreach (var invocation in invocations)
+        {
+            <button type="button"
+                    class="activity-list-item"
+                    aria-haspopup="dialog"
+                    aria-label="View complete @invocation.Profile agent activity"
+                    @onclick="() => ShowInvocation(invocation)">
+                <span class="activity-dot activity-@invocation.Status.ToString().ToLowerInvariant()"></span>
+                <div>
+                    <strong>@invocation.Profile</strong>
+                    <span>@invocation.Status · @invocation.StartedAt.ToLocalTime().ToString("g")</span>
+                    @if (!string.IsNullOrWhiteSpace(invocation.Model))
+                    {
+                        <span>@invocation.Model · @FormatEffort(invocation.ReasoningEffort)</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(invocation.Error))
+                    {
+                        <small>@invocation.Error</small>
+                    }
+                </div>
+                <span class="activity-open-indicator" aria-hidden="true">›</span>
+            </button>
+        }
+        @if (!IsLoading && LoadError is null && invocations.Count == 0)
+        {
+            <div class="empty-inline">No agent runs yet.</div>
+        }
+    </div>
+</section>
+<AgentInvocationDetails Invocation="selectedInvocation" @bind-Open="activityDetailsOpen" />

@@ -17,6 +17,8 @@ public sealed class TodoistInputConfiguration : IItemWithId
     public string IntakeGuidance { get; set; } = string.Empty;
     public List<TodoistInputSource> IgnoredProjects { get; set; } = [];
     public List<TodoistInputSource> IgnoredLabels { get; set; } = [];
+    public List<TodoistInputSource> IncludedProjects { get; set; } = [];
+    public List<TodoistInputSource> IncludedLabels { get; set; } = [];
     public DateTimeOffset? LastSuccessfulCheckAt { get; set; }
     public string? LastError { get; set; }
 
@@ -29,7 +31,9 @@ public sealed class TodoistInputConfiguration : IItemWithId
         int overdueDays,
         string? intakeGuidance,
         IEnumerable<TodoistInputSource> ignoredProjects,
-        IEnumerable<TodoistInputSource> ignoredLabels)
+        IEnumerable<TodoistInputSource> ignoredLabels,
+        IEnumerable<TodoistInputSource>? includedProjects = null,
+        IEnumerable<TodoistInputSource>? includedLabels = null)
     {
         if (pollingIntervalMinutes is < 1 or > 1_440)
         {
@@ -59,7 +63,13 @@ public sealed class TodoistInputConfiguration : IItemWithId
         IntakeGuidance = intakeGuidance?.Trim() ?? string.Empty;
         IgnoredProjects = Normalize(ignoredProjects);
         IgnoredLabels = Normalize(ignoredLabels);
+        if (includedProjects is not null) IncludedProjects = Normalize(includedProjects);
+        if (includedLabels is not null) IncludedLabels = Normalize(includedLabels);
     }
+
+    public bool IsSelected(string projectId, IReadOnlyList<string> labels) =>
+        !IsProjectIgnored(projectId) && !labels.Any(IsLabelIgnored) &&
+        (Contains(IncludedProjects, projectId) || labels.Any(label => Contains(IncludedLabels, label)));
 
     public bool IsProjectIgnored(string? projectId) => Contains(IgnoredProjects, projectId);
 

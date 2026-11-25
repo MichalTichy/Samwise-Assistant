@@ -4,7 +4,7 @@ using Samwise.Inputs.Todoist.Configuration;
 using Samwise.Inputs.Todoist.Discovery;
 using Samwise.Inputs.Todoist.Ingestion;
 using Samwise.Inputs.Todoist.Usecases.Configuration;
-using Samwise.Inputs.Todoist.Usecases.Processing;
+using Samwise.Inputs.Todoist.Tasks;
 using Shared.Infrastructure.Persistence.Repositories;
 
 namespace Samwise.Web.Pages.Inputs;
@@ -20,6 +20,8 @@ public partial class TodoistInputs : AppComponentBase
     private string intakeGuidance = string.Empty;
     private List<TodoistInputSource> ignoredProjects = [];
     private List<TodoistInputSource> ignoredLabels = [];
+    private List<TodoistInputSource> includedProjects = [];
+    private List<TodoistInputSource> includedLabels = [];
     private TodoistInputCatalog? catalog;
     private DateTimeOffset? lastSuccessfulCheckAt;
     private string? lastError;
@@ -37,10 +39,10 @@ public partial class TodoistInputs : AppComponentBase
 
     // Saved selections stay visible even when the catalogue is unavailable or no longer contains them.
     private IReadOnlyList<TodoistInputSource> ProjectOptions =>
-        MergeOptions(catalog?.Projects ?? [], ignoredProjects);
+        MergeOptions(catalog?.Projects ?? [], includedProjects.Concat(ignoredProjects));
 
     private IReadOnlyList<TodoistInputSource> LabelOptions =>
-        MergeOptions(catalog?.Labels ?? [], ignoredLabels);
+        MergeOptions(catalog?.Labels ?? [], includedLabels.Concat(ignoredLabels));
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -72,6 +74,8 @@ public partial class TodoistInputs : AppComponentBase
             intakeGuidance = configuration.IntakeGuidance;
             ignoredProjects = configuration.IgnoredProjects.ToList();
             ignoredLabels = configuration.IgnoredLabels.ToList();
+            includedProjects = configuration.IncludedProjects.ToList();
+            includedLabels = configuration.IncludedLabels.ToList();
             lastSuccessfulCheckAt = configuration.LastSuccessfulCheckAt;
             lastError = configuration.LastError;
             loadingCatalog = hasApiToken;
@@ -121,8 +125,8 @@ public partial class TodoistInputs : AppComponentBase
                 overdueDays,
                 intakeGuidance,
                 ignoredProjects,
-                ignoredLabels));
-            pageMessage = result.Succeeded ? "Todoist input settings saved." : string.Join(" ", result.Errors);
+                ignoredLabels, includedProjects, includedLabels));
+            pageMessage = result.Succeeded ? "Todoist task source saved." : string.Join(" ", result.Errors);
             pageMessageIsSuccess = result.Succeeded;
             if (!result.Succeeded)
             {
@@ -141,7 +145,7 @@ public partial class TodoistInputs : AppComponentBase
                 await LoadCatalogAsync();
                 if (catalog is not null)
                 {
-                    pageMessage = "Todoist input settings saved and the connection works.";
+                    pageMessage = "Todoist task source saved and the connection works.";
                     pageMessageIsSuccess = true;
                 }
             }
@@ -159,9 +163,9 @@ public partial class TodoistInputs : AppComponentBase
         pageMessageIsSuccess = false;
         try
         {
-            var result = await SendAsync(new ProcessTodoistInputsUsecase());
+            var result = await SendAsync(new SyncTodoistTasksUsecase());
             pageMessage = $"Todoist: {result.Imported} imported, {result.Ignored} ignored, "
-                + $"{result.AlreadyProcessed} already processed."
+                + $"{result.AlreadyProcessed} synchronized."
                 + (result.Errors.Count == 0 ? string.Empty : $" {string.Join(" ", result.Errors)}");
             pageMessageIsSuccess = result.Errors.Count == 0;
             var configuration = await ConfigurationRepository.GetRequiredByIdAsync(

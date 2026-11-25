@@ -1,10 +1,11 @@
 @inherits AppComponentBase
+@page "/tasks/sources/todoist"
 @page "/configuration/inputs/todoist"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @using Samwise.Inputs.Todoist.Configuration
 
-<PageTitle>Todoist inputs · Samwise</PageTitle>
+<PageTitle>Todoist task source · Samwise</PageTitle>
 
 @if (ActionError is not null)
 {
@@ -13,14 +14,14 @@
 
 <div class="page-heading-row">
     <div>
-        <span class="page-kicker">Configuration · Inputs</span>
+        <span class="page-kicker">Tasks · External sources</span>
         <h1>Todoist</h1>
-        <p>Tasks due soon become input for Samwise, so a plan is ready for approval before the deadline.</p>
+        <p>Choose which dated tasks Samwise should handle. Progress and follow-up checks live in Samwise; task details stay in Todoist.</p>
     </div>
     <div class="heading-actions">
         <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadCatalogAsync" Disabled="@(IsActionRunning || loadingCatalog || !hasApiToken)">Test connection</ActionButton>
         <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ProcessNowAsync" Disabled="@(IsActionRunning || processing || !hasApiToken)">
-            @(processing ? "Processing…" : "Process now")
+            @(processing ? "Syncing…" : "Sync now")
         </ActionButton>
         <ActionButton Color="@ThemeColor.Primary" Variant="@Variant.Shadow" OnClick="SaveAsync" Disabled="@(IsActionRunning || saving || IsLoading)">
             @(saving ? "Saving…" : "Save Todoist settings")
@@ -54,7 +55,7 @@ else
                         <p>Active tasks are checked continuously while Samwise is running and a token is saved.</p>
                     </div>
                 </div>
-                <span class="email-live-indicator"><i></i> Always on</span>
+                <span class="email-live-indicator @(hasApiToken ? null : "is-disconnected")"><i></i> @(hasApiToken ? "Connected" : "Not connected")</span>
             </div>
 
             <label class="email-field compact-field">
@@ -66,31 +67,22 @@ else
             </label>
 
             <label class="email-field compact-field">
-                <span>Lead time</span>
-                <div class="email-input-with-suffix">
-                    <input class="configuration-input" type="number" min="0" max="720" @bind="leadHours" />
-                    <span>hours</span>
-                </div>
-                <small>A task becomes input this long before it is due. All-day tasks are due at the start of their day.</small>
-            </label>
-
-            <label class="email-field compact-field">
                 <span>Include overdue tasks</span>
                 <div class="email-input-with-suffix">
                     <input class="configuration-input" type="number" min="0" max="365" @bind="overdueDays" />
                     <span>days back</span>
                 </div>
-                <small>Older overdue tasks are left alone, so connecting a long-neglected list does not flood the inbox.</small>
+                <small>Applies to the first import. Linked tasks keep syncing even when overdue.</small>
             </label>
 
             <label class="email-field">
-                <span>Intake guidance</span>
+                <span>Task guidance</span>
                 <textarea class="configuration-input email-guidance-input"
                           rows="5"
                           placeholder="Describe how Todoist tasks should be interpreted, e.g. which tasks Samwise should prepare or complete."
                           @bind="intakeGuidance"
                           @bind:event="oninput"></textarea>
-                <small>This trusted guidance is captured with every new Todoist input.</small>
+                <small>Instructions added to every imported task.</small>
             </label>
         </LumexCardBody>
     </LumexCard>
@@ -163,25 +155,30 @@ else
 <section class="teams-ignore-section">
     <div class="email-accounts-heading">
         <div>
-            <h2>Ignored Todoist tasks</h2>
-            <p>Tasks in ignored projects or with an ignored label are recorded, but are not sent to AI.</p>
+            <h2>Delegate to Samwise</h2>
+            <p>Select a project OR a label. Nothing is imported until you select a source and save. Undated tasks and tasks assigned to someone else are excluded.</p>
         </div>
     </div>
 
     <div class="todoist-ignore-grid">
         <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
             <LumexCardBody Class="email-card-body">
-                <div class="teams-ignore-heading"><span>01</span><div><h3>Projects</h3><p>Ignore every task in selected projects.</p></div></div>
-                @RenderToggleList(ProjectOptions, ignoredProjects, "No projects loaded yet.")
+                <div class="teams-ignore-heading"><span>01</span><div><h3>Projects</h3><p>Import dated tasks in selected projects.</p></div></div>
+                @RenderToggleList(ProjectOptions, includedProjects, "No projects loaded yet.")
             </LumexCardBody>
         </LumexCard>
         <LumexCard Class="email-settings-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
             <LumexCardBody Class="email-card-body">
-                <div class="teams-ignore-heading"><span>02</span><div><h3>Labels</h3><p>Ignore tasks carrying any selected label.</p></div></div>
-                @RenderToggleList(LabelOptions, ignoredLabels, "No labels loaded yet.")
+                <div class="teams-ignore-heading"><span>02</span><div><h3>Labels</h3><p>Import dated tasks carrying any selected label.</p></div></div>
+                @RenderToggleList(LabelOptions, includedLabels, "No labels loaded yet.")
             </LumexCardBody>
         </LumexCard>
     </div>
+    <details class="teams-ignore-section"><summary>Exclusions</summary>
+        <p>These override the selected projects and labels.</p>
+        <h3>Projects</h3>@RenderToggleList(ProjectOptions, ignoredProjects, "No projects loaded yet.")
+        <h3>Labels</h3>@RenderToggleList(LabelOptions, ignoredLabels, "No labels loaded yet.")
+    </details>
 </section>
 }
 

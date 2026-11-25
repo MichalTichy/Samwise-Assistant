@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="PageTitle" xml:space="preserve"><value>Create owner account</value></data>
+  <data name="Title" xml:space="preserve"><value>Create your account</value></data>
+  <data name="Introduction" xml:space="preserve"><value>This is your private Samwise account. Connecting email and other services comes next.</value></data>
+  <data name="Email" xml:space="preserve"><value>Email address</value></data>
+  <data name="Password" xml:space="preserve"><value>Password</value></data>
+  <data name="ConfirmPassword" xml:space="preserve"><value>Confirm password</value></data>
+  <data name="PasswordHint" xml:space="preserve"><value>Use at least 10 characters. This password is only for Samwise.</value></data>
+  <data name="CreateAccount" xml:space="preserve"><value>Create account</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>This installation link is unavailable. If your account already exists, sign in. Otherwise ask your setup assistant for the installation link.</value></data>
+  <data name="SignIn" xml:space="preserve"><value>Sign in</value></data>
+  <data name="InvalidInput" xml:space="preserve"><value>Check the email address and use a password with 10 to 128 characters.</value></data>
+  <data name="EmailRequired" xml:space="preserve"><value>Enter an email address.</value></data>
+  <data name="EmailInvalid" xml:space="preserve"><value>Enter a valid email address.</value></data>
+  <data name="PasswordRequired" xml:space="preserve"><value>Enter a password.</value></data>
+  <data name="PasswordLength" xml:space="preserve"><value>Use 10 to 128 characters.</value></data>
+  <data name="PasswordsMustMatch" xml:space="preserve"><value>The passwords must match.</value></data>
+</root>

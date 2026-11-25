@@ -1,3 +1,4 @@
+using Samwise.Logic.WorkItems;
 using MediatR;
 using Samwise.Domain.Notifications;
 using Samwise.Domain.WorkItems.Events;
@@ -68,7 +69,7 @@ internal sealed class WorkItemPushNotificationHandler(
         return new PushNotification(
             title,
             body,
-            $"/work-items/{Uri.EscapeDataString(workItemEvent.WorkItemId)}",
+            WorkItemRoutes.Detail(workItemEvent.WorkItemId),
             // One notification per work item: a newer state replaces the older banner.
             $"workitem-{workItemEvent.WorkItemId}",
             urgent);

@@ -1,0 +1,50 @@
+@inherits AppComponentBase
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>New input · Samwise</PageTitle>
+
+<div class="capture-page">
+    <section class="capture-intro">
+        <span class="page-kicker">Manual input</span>
+        <h1>What can I carry<br />for you?</h1>
+        <p>Share a request, note, or message. Samwise will sort what matters, connect it to the right work item, and prepare the next steps.</p>
+    </section>
+
+    <LumexCard Class="capture-card" Shadow="@Shadow.Medium" Radius="@Radius.Large">
+        <LumexCardBody Class="capture-card-body">
+        <EditForm Model="input" OnValidSubmit="SubmitAsync" FormName="manual-work-item">
+            <DataAnnotationsValidator />
+            <LumexTextarea Id="work-item-text"
+                           Class="work-item-textarea"
+                           Label="New input"
+                           LabelPlacement="@LabelPlacement.Outside"
+                           Placeholder="For example: Review the latest proposal, check the numbers, and prepare a concise reply…"
+                           MinRows="7"
+                           MaxRows="14"
+                           Behavior="@InputBehavior.OnInput"
+                           Variant="@InputVariant.Flat"
+                           @bind-Value="input.Text" />
+            <ValidationMessage For="() => input.Text" />
+
+            @if (ActionError is not null)
+            {
+                <div class="inline-alert" role="alert">@ActionError</div>
+            }
+
+            <div class="capture-footer">
+                <span><b>One path for every source.</b> This follows the same intake flow future email and Teams messages will use.</span>
+                <ActionButton Type="@ButtonType.Submit" Color="@ThemeColor.Primary" Variant="@Variant.Shadow" Pending="@IsActionRunning" Class="capture-submit">Submit input</ActionButton>
+            </div>
+        </EditForm>
+        </LumexCardBody>
+    </LumexCard>
+
+    <div class="capture-flow" aria-label="What happens next">
+        <div><b>01</b><span><strong>Capture</strong>Your text is kept as an input event.</span></div>
+        <div><b>02</b><span><strong>Triage</strong>Create, update, or quietly ignore.</span></div>
+        <div><b>03</b><span><strong>Plan</strong>Actionable work gets clear steps.</span></div>
+        <div><b>04</b><span><strong>Approve</strong>You remain in control of execution.</span></div>
+    </div>
+</div>

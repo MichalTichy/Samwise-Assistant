@@ -7,6 +7,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
+# Visual Studio local caches and settings
+.vs/
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -45,6 +48,7 @@ ScaffoldingReadMe.txt
 CodeCoverage/
 .data/
 node_modules/
+__pycache__/
 
 # MSBuild Binary and Structured Log
 *.binlog

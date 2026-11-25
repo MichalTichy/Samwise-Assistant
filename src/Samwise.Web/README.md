@@ -9,8 +9,9 @@ This is the single deployable Samwise process and the Blazor Interactive Server 
 - `Components/App.razor` defines the HTML document, generated stylesheets, LumexUI script, and Blazor boot script.
 - `Components/Routes.razor` applies authorization and redirects anonymous users to login.
 - `Components/Layout/` contains the authenticated application shell, navigation, reconnect UI, and the shell-free authentication layout.
-- `Components/Pages/` contains each product page as a `.razor` markup file plus `.razor.cs` behavior file.
-- `Components/Pages/Login` and `Components/Pages/ChangePassword` are the deliberately small custom account UI.
+- `Pages/` groups routed views and their feature-specific components and read specifications. Keep markup and code-behind together.
+- Interactive writes use `AppComponentBase.ExecuteActionAsync` and `SendAsync`. Use `ActionButton` for slow click actions. For submit buttons, bind `Pending` to the form’s operation so mouse and keyboard submits show the same progress.
+- `Pages/Login` and `Pages/Settings/ChangePassword` are the deliberately small custom account UI.
 - `Components/Shared/` contains presentation-only helpers such as login redirection.
 - `Endpoints/OwnerAccountEndpoints` contains the antiforgery-protected logout endpoint.
 - `Styles/app.css` is the Tailwind/LumexUI source; `wwwroot/app.css` is the generated asset.
@@ -57,7 +58,7 @@ The Web-hosted `InboundEventProcessingBackgroundService` handles the shared queu
 ## Work-item flow
 
 1. `Board` reads work items through `BoardWorkItemsSpecification` and maps them into UI cards, including a separate Needs your input column for planning questions and a badge for automatically executed completions. `DiscardedWorkItems` uses its own specification to keep discarded records out of the active Board. The Board also links to the auto-execution report.
-2. `WorkItemDetails` loads the aggregate first, then agent invocations through `WorkItemInvocationsSpecification`. While open, it checks for aggregate changes and reloads after background planning or execution changes the status.
+2. `WorkItemDetails` loads the aggregate first. Its original-input and agent-activity sections own their reads. `AppComponentBase` handles loading state, superseded reads and refresh lifetime. While open, it checks for aggregate changes and reloads after background planning or execution changes the status.
 3. Selecting an agent-activity row opens its full invocation record in a Lumex dialog, including the prompt, output, model metadata, error, and available-tool snapshot.
 4. Suggested tool arguments are rendered as labeled nested values, lists, booleans, and readable multiline content rather than requiring the user to decode JSON. Invalid historical argument payloads fall back to escaped plain text.
 5. When planning needs a material user preference, the detail presents two to six suggested choices plus Other. Submitting one stores the decision and immediately replans; the resulting plan displays the decisions it used.
@@ -71,7 +72,7 @@ The Web-hosted `InboundEventProcessingBackgroundService` handles the shared queu
 2. It loads the Gateway model and MCP tool catalogs separately for each stage. The selected stage shows its granted MCP servers and grouped tools without exposing the profile credential to the browser.
 3. It presents model and model-specific reasoning-effort dropdowns and selects the Gateway-reported default when the model changes.
 4. Saving sends `SaveAgentStageConfigurationUsecase`, which validates the model/effort pair and prompt before updating the selected nested stage in that document.
-5. `Playbooks` reads playbook documents directly through `PlaybooksSpecification`; save actions send `SavePlaybookUsecase`.
+5. `Playbooks` reads playbook documents directly through `PlaybooksSpecification`; save actions send `SavePlaybookUsecase`, and confirmed deletion sends `DeletePlaybookUsecase`. Existing plans retain their saved snapshots.
 6. Both pages reload the saved documents rather than treating browser state as authoritative.
 
 ## Email-input flow

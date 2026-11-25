@@ -22,5 +22,6 @@ public sealed class WebInstaller : IInstaller
             configuration.GetSection(ManualInputApiOptions.SectionName));
         services.AddHostedService<InboundEventProcessingBackgroundService>();
         services.AddHostedService<DailyAutoExecutionSummaryBackgroundService>();
+        services.AddHostedService<Samwise.Web.Tasks.ScheduledTasksBackgroundService>();
     }
 }

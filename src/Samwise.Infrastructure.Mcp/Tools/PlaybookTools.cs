@@ -43,6 +43,16 @@ public sealed class PlaybookTools(
         return SamwiseMcpJson.Serialize(new { found = true, playbook });
     }
 
+    [McpServerTool(Name = "delete_playbook")]
+    [Description("Permanently deletes one Samwise Playbook by its exact ID. Existing plans retain their saved playbook snapshots. Returns deleted=false if it no longer exists.")]
+    public async Task<string> DeletePlaybookAsync(
+        [Description("Exact Playbook ID from list_playbooks.")] string playbookId,
+        CancellationToken cancellationToken = default)
+    {
+        var deleted = await sender.Send(new DeletePlaybookUsecase(playbookId), cancellationToken);
+        return SamwiseMcpJson.Serialize(new { deleted, playbookId });
+    }
+
     [McpServerTool(Name = "save_playbook")]
     [Description("Creates or updates a Samwise Playbook. Supply an existing playbook_id to update it; omit the ID to create one.")]
     public async Task<string> SavePlaybookAsync(

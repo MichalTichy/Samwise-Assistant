@@ -50,13 +50,6 @@ internal sealed class WorkItemAutomaticApprovalService(
         try
         {
             var approvalTools = await toolCatalog.GetToolsAsync(AgentStage.AutomaticApproval, cancellationToken);
-            if (approvalTools.Tools.Any(tool => tool.CanInvoke))
-            {
-                await RecordAsync("The automatic approval Gateway profile has tools; remove its tool grants.",
-                    false, null, null);
-                return;
-            }
-
             var prompt = await promptBuilder.BuildAutomaticApprovalAsync(
                 workItemId, workItemRevision, planId, cancellationToken);
             catalogVersion = prompt.ExecutionTools.CatalogVersion;

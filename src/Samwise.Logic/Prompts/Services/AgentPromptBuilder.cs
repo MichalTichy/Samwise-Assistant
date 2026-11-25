@@ -19,7 +19,8 @@ internal sealed class AgentPromptBuilder(
     IAgentToolCatalog toolCatalog,
     IAgentPromptPlaceholderCatalog placeholderCatalog,
     IPromptRenderer renderer,
-    TimeProvider timeProvider) : IAgentPromptBuilder
+    TimeProvider timeProvider,
+    IReadOnlyRepository<Samwise.Domain.Tasks.AgentTask>? taskRepository = null) : IAgentPromptBuilder
 {
     private const string IntakeResponseContract = """
         Mandatory intake response contract:
@@ -30,7 +31,30 @@ internal sealed class AgentPromptBuilder(
         - A create item requires proposed_title and null existing_work_item_id.
         - An append item requires the exact existing_work_item_id of an active candidate and null proposed_title. Combine all context for the same target into one item.
         - For ignore or needs_review, return an empty work_items array.
+        - Match the requested Samwise intervention, not an entire real-world project. A completed reply or manual handoff does not become unfinished because the recipient or owner has later work. Material new requests can create a new stage.
         These structural requirements take precedence over any obsolete singular response instructions in the configurable prompt.
+        """;
+
+    private const string PlanningContinuationContract = """
+
+        Mandatory continuation contract:
+        - The four dispositions are plan_required, user_input_required, already_resolved and no_longer_relevant. There is no waiting disposition.
+        - Missing identities, decisions or information needed now require a concrete planning question after proportionate investigation, before a partial execution plan is approved.
+        - A work item represents the current achievable Samwise intervention. A verified task/reminder, draft or manual handoff completes that intervention without claiming physical collection, payment or sending.
+        - For useful future checks, plan an internal agent task or an update of the linked task with an explicit next_run_at and preserved context using available save_agent_task_progress tools. Mutations remain approved execution operations. Never use a human Todoist task as an internal timer, or promise an unscheduled retry. Recurrence needs explicit owner delegation.
+        - When an adequate manual handoff already exists and no useful operation remains, use no_longer_relevant without claiming the underlying work is done. Keep task checklists separate from the current plan; do not repeat verified checklist effects.
+        These lifecycle requirements take precedence over obsolete disposition instructions in the configurable prompt.
+        """;
+
+    private const string ExecutionContinuationContract = """
+
+        Mandatory execution completion contract:
+        - Return disposition=succeeded when every required approved operation and success criterion of this intervention is verified. Creating approved tracking or a draft can succeed while the physical/manual work remains elsewhere. Report that distinction honestly; do not claim payment, collection or sending.
+        - There is no waiting disposition. A rejected required operation, expired plan or missing required capability is failed. An unverified attempted external effect is outcome_unknown. Do not hide failures or uncertainty as future checks.
+        - Update an internal task checklist only through approved save_agent_task_progress operations, with concrete evidence for each completed item. Preserve successful effects and checklist IDs. Schedule the same task's next check only when the plan authorizes it; do not create another task for every step.
+        - For save_agent_task_progress during Execution, supply this exact work item ID as executingWorkItemId. An owner edit is a different operation and must not be used to change the running task.
+        - If more work falls outside approval, report it without expanding the plan or inventing a scheduled retry. Future runs always pass through normal planning and approval boundaries.
+        These lifecycle requirements take precedence over obsolete success instructions in the configurable prompt.
         """;
 
     private const string AutomaticApprovalContract = """
@@ -167,6 +191,8 @@ internal sealed class AgentPromptBuilder(
 
         text = AppendSourceReferences(text, workItem);
         text = AppendAttachmentGuidance(text, planningTools);
+        text = string.Concat(text.TrimEnd(), PlanningContinuationContract);
+        text = await AppendAgentTaskAsync(text, workItem, cancellationToken);
 
         return new PlanningAgentPrompt(
             text,
@@ -277,11 +303,32 @@ internal sealed class AgentPromptBuilder(
 
         text = AppendSourceReferences(text, workItem);
         text = AppendAttachmentGuidance(text, executionTools);
+        text = string.Concat(text.TrimEnd(), ExecutionContinuationContract);
+        text = await AppendAgentTaskAsync(text, workItem, cancellationToken);
 
         return new ExecutionAgentPrompt(
             text,
             CreateRunConfiguration(stageConfiguration),
             executionTools);
+    }
+
+    private async Task<string> AppendAgentTaskAsync(string text, DomainWorkItem workItem, CancellationToken cancellationToken)
+    {
+        if (workItem.AgentTaskId is not { } taskId || taskRepository is null) return text;
+        var task = await taskRepository.GetRequiredByIdAsync(taskId, cancellationToken);
+        var historyIds = task.WorkItemIds.TakeLast(5).ToList();
+        if (task.OriginWorkItemId is { } origin) historyIds.Add(origin);
+        var history = await workItemRepository.GetByIdsAsync(historyIds.Distinct(StringComparer.Ordinal).ToList(), cancellationToken);
+        return text + "\nInternal Samwise task (current stored context, not authorization for extra effects):\n" +
+            JsonSerializer.Serialize(new
+            {
+                task.Id, task.Version, task.OccurrenceAt, task.Checklist, task.NextRunAt, task.OriginWorkItemId, task.ExternalSource,
+                history = history.Select(item => new { item.Id, item.Status, item.Completion })
+            }, JsonOptions) +
+            "\nContinue the first unfulfilled checklist outcome. Completed effects must not be repeated. " +
+            "Include approved task progress/evidence and next-check updates in the plan when useful. " +
+            "An unfinished internal checklist requires a next check; an already-fulfilled external result may still need an approved save_agent_task_progress step to record its evidence. " +
+            "If a required task tool is unavailable, report the capability gap; do not pretend a check is scheduled.\n";
     }
 
     private async Task<ToolCatalogSnapshot?> TryGetAutomaticExecutionToolsAsync(CancellationToken cancellationToken)

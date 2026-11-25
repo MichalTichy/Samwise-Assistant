@@ -1,0 +1,72 @@
+@inherits AppComponentBase
+@page "/work-items/auto-executions"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Auto-execution report · Samwise</PageTitle>
+
+<div class="auto-execution-report-page">
+    <div class="page-heading-row">
+        <div>
+            <span class="page-kicker">Work items</span>
+            <h1>Handled automatically</h1>
+            <p>Completed Work Items whose plans Samwise approved and executed without your intervention.</p>
+        </div>
+        <div class="heading-actions">
+            <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsActionRunning || IsLoading)">Refresh</ActionButton>
+            <a class="button-link button-link-secondary" href="/board">Back to Board</a>
+        </div>
+    </div>
+
+    <div class="auto-execution-report-filter">
+        <label for="auto-execution-date">Show one day</label>
+        <input id="auto-execution-date" type="date" value="@dateInput" @onchange="OnDateChanged" />
+        <LumexButton Variant="@Variant.Flat" Color="@ThemeColor.Primary" OnClick="ApplyDate">Show day</LumexButton>
+        @if (Date is not null)
+        {
+            <a href="/work-items/auto-executions">Show recent 30 days</a>
+        }
+    </div>
+
+    @if (error is not null)
+    {
+        <div class="inline-alert" role="alert">@error</div>
+    }
+    else if (IsLoading)
+    {
+        <LoadingSkeleton Label="Loading automatic executions" Rows="4" />
+    }
+    else if (days.Count == 0)
+    {
+        <div class="empty-state">
+            <h2>No automatic executions in this period</h2>
+            <p>@(Date is null ? "The report shows the most recent 30 days." : "Try another date or view the recent 30 days.")</p>
+        </div>
+    }
+    else
+    {
+        <p class="auto-execution-report-count">@days.Sum(day => day.WorkItems.Count) Work Item(s) completed automatically</p>
+        @foreach (var day in days)
+        {
+            <section class="auto-execution-report-day">
+                <h2>@day.Date.ToString("D") <span class="column-count">@day.WorkItems.Count</span></h2>
+                <div class="auto-execution-report-list">
+                    @foreach (var workItem in day.WorkItems)
+                    {
+                        <LumexCard Class="auto-execution-report-card" Shadow="@Shadow.Small" Radius="@Radius.Large">
+                            <LumexCardBody Class="auto-execution-report-card-body">
+                                <div class="auto-execution-report-card-heading">
+                                    <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Success" Class="auto-execution-chip">Auto-approved</LumexChip>
+                                    <time datetime="@workItem.CompletedAt?.ToString("O")">@FormatCompletionTime(workItem)</time>
+                                </div>
+                                <h3><a href="@WorkItemRoutes.Detail(workItem.Id)">@workItem.Title</a></h3>
+                                <p>@workItem.Completion?.Summary</p>
+                                <a class="auto-execution-report-detail-link" href="@WorkItemRoutes.Detail(workItem.Id)">View Work Item →</a>
+                            </LumexCardBody>
+                        </LumexCard>
+                    }
+                </div>
+            </section>
+        }
+    }
+</div>

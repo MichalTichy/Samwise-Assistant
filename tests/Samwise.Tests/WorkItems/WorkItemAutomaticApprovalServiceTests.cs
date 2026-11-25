@@ -18,17 +18,21 @@ public sealed class WorkItemAutomaticApprovalServiceTests
     private const string Schema = "{\"type\":\"object\"}";
 
     [Theory]
-    [InlineData(true, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, true, true, true)]
+    [InlineData(true, false, true, false)]
+    [InlineData(false, true, true, false)]
     public async Task OnlyAnEligibleApprovedPlanWithRestrictedToolsStartsExecution(
-        bool eligible, bool agentApproves, bool expectExecution)
+        bool eligible, bool agentApproves, bool approvalHasTools, bool expectExecution)
     {
         var workItem = CreateWorkItem(eligible);
         var plan = workItem.FindCurrentPlan()!;
         var runtime = new StubRuntime(agentApproves);
         var executor = new RecordingExecutionService();
-        var service = CreateService(workItem, runtime, executor, includeRestrictedTool: true);
+        var service = CreateService(workItem, runtime, executor,
+            includeRestrictedTool: true, approvalHasTools: approvalHasTools);
 
         await service.AssessAsync(workItem.Id, plan.Id, workItem.Revision, CancellationToken.None);
 
@@ -48,14 +52,17 @@ public sealed class WorkItemAutomaticApprovalServiceTests
         }
     }
 
-    [Fact]
-    public async Task ToolMissingFromRestrictedProfileRequiresHumanApproval()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ToolMissingFromRestrictedProfileRequiresHumanApproval(bool approvalHasTools)
     {
         var workItem = CreateWorkItem(eligible: true);
         var plan = workItem.FindCurrentPlan()!;
         var runtime = new StubRuntime(approve: true);
         var executor = new RecordingExecutionService();
-        var service = CreateService(workItem, runtime, executor, includeRestrictedTool: false);
+        var service = CreateService(workItem, runtime, executor,
+            includeRestrictedTool: false, approvalHasTools: approvalHasTools);
 
         await service.AssessAsync(workItem.Id, plan.Id, workItem.Revision, CancellationToken.None);
 
@@ -97,20 +104,44 @@ public sealed class WorkItemAutomaticApprovalServiceTests
     }
 
     [Fact]
-    public async Task ApprovalProfileWithToolsCannotApprove()
+    public async Task ApprovalProfileToolsDoNotReplaceRestrictedExecutionSchema()
     {
         var workItem = CreateWorkItem(eligible: true);
         var plan = workItem.FindCurrentPlan()!;
         var runtime = new StubRuntime(approve: true);
         var executor = new RecordingExecutionService();
         var service = CreateService(workItem, runtime, executor,
-            includeRestrictedTool: true, approvalHasTools: true);
+            includeRestrictedTool: true, approvalHasTools: true,
+            restrictedSchema: "{\"type\":\"object\",\"required\":[\"newField\"]}");
 
         await service.AssessAsync(workItem.Id, plan.Id, workItem.Revision, CancellationToken.None);
 
         Assert.Equal(WorkItemStatus.AwaitingApproval, workItem.Status);
-        Assert.Contains("remove its tool grants", plan.AutomaticApproval?.Reason);
+        Assert.Contains("with its approved definition", plan.AutomaticApproval?.Reason);
         Assert.False(runtime.Called);
+        Assert.Null(executor.Request);
+    }
+
+    [Fact]
+    public async Task NewContextDuringAssessmentPreventsExecutionOfTheSupersededPlan()
+    {
+        var workItem = CreateWorkItem(eligible: true);
+        var plan = workItem.FindCurrentPlan()!;
+        var revision = workItem.Revision;
+        var runtime = new StubRuntime(approve: true,
+            beforeDecision: () => workItem.AddContext("I already handled this in Teams.", Now.AddMinutes(1)));
+        var executor = new RecordingExecutionService();
+        var service = CreateService(workItem, runtime, executor,
+            includeRestrictedTool: true, approvalHasTools: true);
+
+        await service.AssessAsync(workItem.Id, plan.Id, revision, CancellationToken.None);
+
+        Assert.True(runtime.Called);
+        Assert.Equal(WorkItemStatus.Planning, workItem.Status);
+        Assert.Equal(revision + 1, workItem.Revision);
+        Assert.Null(workItem.CurrentPlanId);
+        Assert.Null(plan.AutomaticApproval);
+        Assert.Null(plan.Review);
         Assert.Null(executor.Request);
     }
 
@@ -155,11 +186,12 @@ public sealed class WorkItemAutomaticApprovalServiceTests
         RecordingExecutionService executor,
         bool includeRestrictedTool,
         bool approvalHasTools = false,
-        ToolCapability? restrictedTool = null)
+        ToolCapability? restrictedTool = null,
+        string restrictedSchema = Schema)
     {
         var restricted = new ToolCatalogSnapshot("restricted-v1", "{}", includeRestrictedTool
             ? [new ToolServerCapability("todoist", "Todoist", "1", false, null, null, null,
-                [restrictedTool ?? new ToolCapability(ToolId, "create_task", null, Schema, true)])]
+                [restrictedTool ?? new ToolCapability(ToolId, "create_task", null, restrictedSchema, true)])]
             : []);
         return new WorkItemAutomaticApprovalService(
             new WorkItemRepository(workItem), runtime,
@@ -176,7 +208,7 @@ public sealed class WorkItemAutomaticApprovalServiceTests
         public override DateTimeOffset GetUtcNow() => Now.AddMinutes(1);
     }
 
-    private sealed class StubRuntime(bool approve) : IAgentRuntime
+    private sealed class StubRuntime(bool approve, Action? beforeDecision = null) : IAgentRuntime
     {
         public bool Called { get; private set; }
 
@@ -184,6 +216,7 @@ public sealed class WorkItemAutomaticApprovalServiceTests
             AutomaticApprovalRequest request, CancellationToken cancellationToken = default)
         {
             Called = true;
+            beforeDecision?.Invoke();
             return Task.FromResult(new AutomaticApprovalResult(
                 approve, approve ? "The task is specific and low risk." : "The user must confirm the details.",
                 new AgentReceipt("Test", "model", "completion", "{}")));

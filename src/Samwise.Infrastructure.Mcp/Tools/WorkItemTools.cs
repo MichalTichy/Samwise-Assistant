@@ -51,6 +51,7 @@ public sealed class WorkItemTools(IReadOnlyRepository<DomainWorkItem> repository
                 descriptionPreview = SamwiseMcpJson.Truncate(workItem.Description, 500),
                 workItem.CurrentPlanId,
                 pendingQuestion = workItem.PendingPlanningQuestion?.Prompt,
+                workItem.AgentTaskId,
                 planCount = workItem.Plans.Count,
                 workItem.CreatedAt,
                 workItem.UpdatedAt,

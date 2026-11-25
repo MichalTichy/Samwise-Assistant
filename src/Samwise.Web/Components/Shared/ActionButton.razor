@@ -1,0 +1,11 @@
+<LumexButton Type="@Type" Variant="@Variant" Color="@Color" Size="@Size"
+             FullWidth="@FullWidth" Disabled="@(Disabled || Busy)" Class="@Class"
+             aria-busy="@(Busy ? "true" : null)" OnClick="HandleClickAsync">
+    <StartContent>
+        @if (Busy)
+        {
+            <span class="action-spinner" aria-hidden="true"></span>
+        }
+    </StartContent>
+    <ChildContent>@ChildContent</ChildContent>
+</LumexButton>

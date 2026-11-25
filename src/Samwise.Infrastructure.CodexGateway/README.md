@@ -16,7 +16,7 @@ This project contains only Codex CLI API Gateway extensions that are unavailable
 
 ## Tool-catalog flow
 
-1. The client calls the selected profile's `GET /v1/tools` endpoint with that profile's credential, including the tool-free AutomaticApproval and restricted AutoApprovedExecution profiles when configured.
+1. The client calls the selected profile's `GET /v1/tools` endpoint with that profile's credential, including AutomaticApproval and restricted AutoApprovedExecution profiles when configured. The approval catalog is recorded for audit; tools exposed by that profile do not block assessment.
 2. The Gateway returns only tools enabled for that key/project and a deterministic catalog version.
 3. The transport preserves the raw JSON plus normalized server and tool metadata for the settings UI, prompt context, invocation history, and approval checks.
 

@@ -19,6 +19,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
     public int NextPlanNumber { get; set; }
     public string? CurrentPlanId { get; set; }
     public string? LatestPlanningFeedback { get; set; }
+    public string? AgentTaskId { get; set; }
     public PlanningQuestion? PendingPlanningQuestion { get; set; }
     public List<PlanningDecision> PlanningDecisions { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
@@ -307,7 +308,7 @@ public sealed class WorkItem : IItemWithId, IRevisioned
             or WorkItemStatus.NeedsAttention))
         {
             throw new InvalidOperationException(
-                "Only a work item awaiting user input, awaiting approval, or needing attention can be replanned.");
+                "Only a work item awaiting user input, approval, or needing attention can be replanned.");
         }
 
         CurrentPlanId = null;

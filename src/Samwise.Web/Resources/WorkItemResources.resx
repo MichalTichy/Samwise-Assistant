@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Discard" xml:space="preserve"><value>Discard</value></data>
+  <data name="DiscardWorkItem" xml:space="preserve"><value>Discard Work Item</value></data>
+  <data name="DiscardConfirmation" xml:space="preserve"><value>Discard this Work Item?</value></data>
+  <data name="DiscardReasonHelp" xml:space="preserve"><value>You can add a reason to help improve how Samwise handles similar inputs later.</value></data>
+  <data name="DiscardReasonPlaceholder" xml:space="preserve"><value>Reason (optional)…</value></data>
+  <data name="Discarding" xml:space="preserve"><value>Discarding…</value></data>
+  <data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
+</root>

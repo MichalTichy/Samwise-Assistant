@@ -18,6 +18,46 @@ public sealed class WorkItemPlanningServiceTests
     private static readonly DateTimeOffset Now =
         new(2026, 9, 14, 12, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData(ExecutionDisposition.Succeeded, WorkItemStatus.Completed)]
+    [InlineData(ExecutionDisposition.Failed, WorkItemStatus.NeedsAttention)]
+    [InlineData(ExecutionDisposition.OutcomeUnknown, WorkItemStatus.OutcomeUnknown)]
+    public async Task ExecutionPreservesWaitingFailureAndUncertaintyAsDistinctOutcomes(
+        ExecutionDisposition disposition, WorkItemStatus expectedStatus)
+    {
+        var workItem = DomainWorkItem.CreateFromInbound("Deliver invoice 2884.", null, Now);
+        var plan = new WorkItemPlan
+        {
+            Id = "plan-1", WorkItemId = workItem.Id, WorkItemRevision = workItem.Revision,
+            PlanNumber = 1, Summary = "Create invoice 2884.",
+            ExecutionTools = new PlanToolCatalogSnapshot { CatalogVersion = "empty" }, CreatedAt = Now
+        };
+        workItem.ApplyPlan(plan, Now);
+        workItem.Approve(plan.Id, workItem.Revision, Now);
+        var runtime = new StubAgentRuntime(null, new ExecutionResult(
+            disposition, "Invoice 2884: verified current result.", ["Exact invoice ID: 2884"], Receipt()));
+        var invocations = new StubInvocationService();
+        var events = new RecordingEventPublisher();
+        var service = new WorkItemExecutionService(new WorkItemRepository(workItem), runtime,
+            new StubPromptBuilder(), invocations, events, new FixedTimeProvider(Now),
+            NullLogger<WorkItemExecutionService>.Instance);
+        var request = new WorkItemExecutionRequest(workItem.Id, plan.Id, workItem.Revision);
+
+        await service.ExecuteAsync(request, CancellationToken.None);
+        await service.ExecuteAsync(request, CancellationToken.None);
+
+        Assert.Equal(expectedStatus, workItem.Status);
+        Assert.Equal(1, runtime.ExecutionCalls);
+        Assert.True(invocations.Completed);
+        if (disposition != ExecutionDisposition.Succeeded)
+        {
+            Assert.Null(workItem.Completion);
+            Assert.Null(workItem.CompletedAt);
+            Assert.DoesNotContain(events.Published, e => e is ExecutionCompleted);
+            Assert.Contains(workItem.Comments, c => c.Body.Contains("Exact invoice ID: 2884", StringComparison.Ordinal));
+        }
+    }
+
     [Fact]
     public async Task AlreadyResolvedCompletesWithoutCreatingAPlan()
     {
@@ -132,19 +172,24 @@ public sealed class WorkItemPlanningServiceTests
         public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
-    private sealed class StubAgentRuntime(PlannerResult result) : IAgentRuntime
+    private sealed class StubAgentRuntime(PlannerResult? result, ExecutionResult? executionResult = null) : IAgentRuntime
     {
+        public int ExecutionCalls { get; private set; }
         public Task<IntakeResult> ClassifyAsync(
             IntakeRequest request,
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<PlannerResult> PlanAsync(
             PlannerRequest request,
-            CancellationToken cancellationToken = default) => Task.FromResult(result);
+            CancellationToken cancellationToken = default) => Task.FromResult(result!);
 
         public Task<ExecutionResult> ExecuteAsync(
             ExecutionRequest request,
-            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+            CancellationToken cancellationToken = default)
+        {
+            ExecutionCalls++;
+            return Task.FromResult(executionResult ?? throw new NotSupportedException());
+        }
 
         public Task<AutomaticApprovalResult> AssessAutomaticApprovalAsync(
             AutomaticApprovalRequest request,
@@ -175,7 +220,8 @@ public sealed class WorkItemPlanningServiceTests
             int workItemRevision,
             string planId,
             CancellationToken cancellationToken,
-            AgentStage stage = AgentStage.Execution) => throw new NotSupportedException();
+            AgentStage stage = AgentStage.Execution) => Task.FromResult(new ExecutionAgentPrompt(
+                "Execute the exact plan.", new AgentRunConfiguration("test-model", "medium"), EmptyCatalog));
 
         public Task<AutomaticApprovalAgentPrompt> BuildAutomaticApprovalAsync(
             string workItemId,

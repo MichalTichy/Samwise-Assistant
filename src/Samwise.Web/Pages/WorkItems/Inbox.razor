@@ -1,0 +1,104 @@
+@inherits AppComponentBase
+@page "/inbox"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Input events · Samwise</PageTitle>
+
+@if (ActionError is not null)
+{
+    <div class="inline-alert" role="alert">@ActionError</div>
+}
+
+<div class="page-heading-row">
+    <div>
+        <span class="page-kicker">Audit trail</span>
+        <h1>Input events</h1>
+        <p>Every observed input remains visible together with Samwise’s handling decision.</p>
+    </div>
+    <ActionButton Variant="@Variant.Flat" Color="@ThemeColor.Default" OnClick="LoadAsync" Disabled="@(IsActionRunning || IsLoading)">Refresh</ActionButton>
+</div>
+
+@if (Submitted)
+{
+    <div class="inline-alert inline-success" role="status">Input saved. Samwise will process it in the background.</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(actionError))
+{
+    <div class="inline-alert detail-alert">@actionError</div>
+}
+
+<section class="event-list">
+    @if (IsLoading && events.Count == 0)
+    {
+        <LoadingSkeleton Label="Loading input events" Rows="5" />
+    }
+
+    @foreach (var item in events)
+    {
+        <details class="event-row">
+            <summary class="event-summary">
+                <div class="event-source">@item.Source</div>
+                <div class="event-body">
+                    <div class="event-meta">
+                        <LumexChip Size="@Size.Small" Variant="@ChipVariant.Flat" Color="@ThemeColor.Default" Class="@($"status-chip {StatusClass(item)}")">@FormatStatus(item)</LumexChip>
+                        <time>@item.ReceivedAt.ToLocalTime().ToString("g")</time>
+                    </div>
+                    <p class="event-preview">@PreviewText(item.Text)</p>
+                </div>
+                <span class="event-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="event-expanded">
+                <div class="event-body">
+                    <p>@item.Text</p>
+                    @if (!string.IsNullOrWhiteSpace(item.Explanation))
+                    {
+                        <small>@item.Explanation</small>
+                    }
+                    else
+                    {
+                        <small>Waiting for Samwise to classify this input.</small>
+                    }
+                </div>
+                <div class="event-actions">
+                    @if (item.Outcomes.Count > 0)
+                    {
+                        <ol class="event-outcomes">
+                            @foreach (var outcome in item.Outcomes)
+                            {
+                                <li>
+                                    <a class="event-link" href="@WorkItemRoutes.Detail(outcome.WorkItemId)">
+                                        @FormatOutcome(outcome.Kind): @PreviewText(outcome.RelevantText) →
+                                    </a>
+                                    @if (!string.IsNullOrWhiteSpace(outcome.Explanation))
+                                    {
+                                        <small>@outcome.Explanation</small>
+                                    }
+                                </li>
+                            }
+                        </ol>
+                    }
+                    @if (item.Status == InboundEventStatus.NeedsReview ||
+                         item is { Status: InboundEventStatus.Processed, Outcomes.Count: 0 })
+                    {
+                        <ActionButton Size="@Size.Small"
+                                     Variant="@Variant.Flat"
+                                     Color="@ThemeColor.Default"
+                                     Disabled="@(IsActionRunning || retryingEventId is not null)"
+                                     OnClick="() => RetryAsync(item.Id)">
+                            @(retryingEventId == item.Id
+                                ? "Processing…"
+                                : item.Status == InboundEventStatus.NeedsReview ? "Retry" : "Reprocess")
+                        </ActionButton>
+                    }
+                </div>
+            </div>
+        </details>
+    }
+
+    @if (!IsLoading && events.Count == 0)
+    {
+        <div class="empty-state">No input events yet. Submit a manual input to start the intake pipeline.</div>
+    }
+</section>

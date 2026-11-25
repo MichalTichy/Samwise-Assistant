@@ -214,7 +214,7 @@ public sealed class OpenAiAgentRuntimeTests
     [Theory]
     [InlineData("already_resolved", PlanningDisposition.AlreadyResolved)]
     [InlineData("no_longer_relevant", PlanningDisposition.NoLongerRelevant)]
-    public async Task PlanningParsesTerminalDisposition(
+    public async Task PlanningParsesNonExecutableDisposition(
         string wireDisposition,
         PlanningDisposition expectedDisposition)
     {
@@ -251,6 +251,31 @@ public sealed class OpenAiAgentRuntimeTests
         Assert.Equal(expectedDisposition, result.Disposition);
         Assert.Equal("The latest sent email resolved the objective.", result.ResolutionReason);
         Assert.Empty(result.Plan.Steps);
+    }
+
+    [Fact]
+    public async Task ExecutionSuccessSchemaDoesNotAdvertiseWaiting()
+    {
+        await using var server = new LoopbackServer();
+        var runtime = CreateRuntime(server.BaseAddress, "execution-test-key");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var captured = server.CaptureAndRespondAsync(CreateChatCompletion("execution-model", new
+        {
+            disposition = "succeeded",
+            summary = "Invoice 2884 created; awaiting approval before preparing the PDF draft.",
+            outputs = new[] { "Verified invoice 2884." }
+        }), timeout.Token);
+
+        var result = await runtime.ExecuteAsync(new ExecutionRequest(
+            "invoice-cycle", 1, "creation-plan", "Execute the approved creation stage.",
+            new ToolCatalogSnapshot("catalog", "{}", []),
+            new AgentRunConfiguration("execution-model", "medium")), timeout.Token);
+        var request = await captured;
+
+        Assert.Equal(ExecutionDisposition.Succeeded, result.Disposition);
+        Assert.Contains("2884", result.Summary);
+        Assert.DoesNotContain("awaiting_external_event", request.Body);
+        Assert.Contains("Verified invoice 2884.", result.Outputs);
     }
 
     [Fact]

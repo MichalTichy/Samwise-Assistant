@@ -6,12 +6,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Persistence\Shared.Infrastructure.Persistence.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.Initializer\Shared.Infrastructure.Initializer.csproj" />
     <ProjectReference Include="..\..\SharedInfrastructure\Shared.Infrastructure.IoC\Shared.Infrastructure.IoC.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.5.0" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.9" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" PrivateAssets="all" />

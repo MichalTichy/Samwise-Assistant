@@ -57,6 +57,10 @@ else
 
         <div class="work-item-detail-grid">
             <main class="work-item-detail-main">
+                @if (workItem.AgentTaskId is { } agentTaskId)
+                {
+                    <a href="/tasks?taskId=@Uri.EscapeDataString(agentTaskId)">@Samwise.Web.Resources.TaskResources.LinkedTask</a>
+                }
                 @if (workItem.Status == WorkItemStatus.OutcomeUnknown)
                 {
                     <section class="detail-card state-card outcome-warning">

@@ -119,8 +119,14 @@ There is no `can_invoke` property and no separate visible-only grant. Samwise co
 every returned tool as invocable in that profile. A plan is valid only when every referenced tool
 ID appears in the execution catalog.
 
-The plan stores the exact execution `catalog_version`. Immediately before execution, Samwise
-fetches the execution catalog again and fails closed if its version changed after approval.
+The plan stores the exact execution `catalog_version` and tool definitions for audit. Immediately
+before execution, Samwise fetches the approved profile's execution catalog again and compares
+every tool referenced by the plan with its saved definition. Each tool must be uniquely available
+and invocable with the same ID, name, description, and structurally equal JSON input schema.
+Missing or changed planned tools fail closed before execution starts. Unrelated tools, server
+metadata, catalog-version changes, and JSON formatting/property order do not invalidate approval.
+The same compatibility check applies during automatic approval against the restricted execution
+profile; automatic execution and retries remain on that profile.
 
 ## Failure and retry policy
 

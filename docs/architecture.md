@@ -67,7 +67,7 @@ A `WorkItemPlan` is Samwise’s own serializable plan snapshot, not an opaque Ag
 
 Each plan owns at most one `PlanReview`, either `Approved` or `Rejected`, with its feedback, source, and timestamp. A rejected plan retains its review after the work item advances to a new revision and receives a replacement plan. Discarding is a work-item lifecycle action rather than a plan review, so `DiscardedAt` and `DiscardedFrom` live directly on the work item and an abandoned current plan remains unreviewed.
 
-Approval is a compare-and-set operation against `(WorkItemId, PlanId, WorkItemRevision)`. Rejection feedback and added context increment the work item revision and make the prior plan non-approvable. Before execution, Samwise fetches the execution tool catalog again; a changed catalog fails closed rather than running a stale approval.
+Approval is a compare-and-set operation against `(WorkItemId, PlanId, WorkItemRevision)`. Rejection feedback and added context increment the work item revision and make the prior plan non-approvable. Before execution, Samwise fetches the execution tool catalog for the approved profile again and checks only the tools referenced by that plan. Each must remain uniquely available and invocable with the same name, description, and structurally equal JSON input schema. A changed or unavailable planned tool fails closed; unrelated catalog changes and JSON formatting/property order preserve the existing approval. Catalog versions and full snapshots are retained for audit. Automatic assessment and execution share this compatibility rule, and automatically approved execution always uses the restricted profile.
 
 ## AI boundary
 

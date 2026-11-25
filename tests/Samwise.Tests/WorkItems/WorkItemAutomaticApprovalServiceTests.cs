@@ -72,6 +72,37 @@ public sealed class WorkItemAutomaticApprovalServiceTests
         Assert.Null(executor.Request);
     }
 
+    [Theory]
+    [InlineData("disabled")]
+    [InlineData("schema")]
+    [InlineData("name")]
+    [InlineData("description")]
+    public async Task ChangedRestrictedToolDefinitionCannotBeAutomaticallyApproved(string change)
+    {
+        var workItem = CreateWorkItem(eligible: true);
+        var plan = workItem.FindCurrentPlan()!;
+        var runtime = new StubRuntime(approve: true);
+        var executor = new RecordingExecutionService();
+        var tool = new ToolCapability(ToolId, "create_task", null, Schema, true);
+        tool = change switch
+        {
+            "disabled" => tool with { CanInvoke = false },
+            "schema" => tool with { InputSchemaJson = "{\"type\":\"object\",\"required\":[\"newArgument\"]}" },
+            "name" => tool with { Name = "replace_task" },
+            "description" => tool with { Description = "Replace all tasks." },
+            _ => throw new ArgumentOutOfRangeException(nameof(change))
+        };
+        var service = CreateService(workItem, runtime, executor, includeRestrictedTool: true, restrictedTool: tool);
+
+        await service.AssessAsync(workItem.Id, plan.Id, workItem.Revision, CancellationToken.None);
+
+        Assert.Equal(WorkItemStatus.AwaitingApproval, workItem.Status);
+        Assert.Contains(ToolId, plan.AutomaticApproval?.Reason);
+        Assert.Null(plan.Review);
+        Assert.False(runtime.Called);
+        Assert.Null(executor.Request);
+    }
+
     [Fact]
     public async Task ApprovalProfileToolsDoNotReplaceRestrictedExecutionSchema()
     {
@@ -86,7 +117,7 @@ public sealed class WorkItemAutomaticApprovalServiceTests
         await service.AssessAsync(workItem.Id, plan.Id, workItem.Revision, CancellationToken.None);
 
         Assert.Equal(WorkItemStatus.AwaitingApproval, workItem.Status);
-        Assert.Contains("with the planned schema", plan.AutomaticApproval?.Reason);
+        Assert.Contains("with its approved definition", plan.AutomaticApproval?.Reason);
         Assert.False(runtime.Called);
         Assert.Null(executor.Request);
     }
@@ -142,7 +173,7 @@ public sealed class WorkItemAutomaticApprovalServiceTests
             ExecutionTools = new PlanToolCatalogSnapshot
             {
                 CatalogVersion = "regular-v1",
-                Tools = [new PlanToolCapability { Id = ToolId, InputSchemaJson = Schema, CanInvoke = true }]
+                Tools = [new PlanToolCapability { Id = ToolId, Name = "create_task", InputSchemaJson = Schema, CanInvoke = true }]
             }
         }, Now);
         workItem.DequeueEvents();
@@ -155,11 +186,12 @@ public sealed class WorkItemAutomaticApprovalServiceTests
         RecordingExecutionService executor,
         bool includeRestrictedTool,
         bool approvalHasTools = false,
+        ToolCapability? restrictedTool = null,
         string restrictedSchema = Schema)
     {
         var restricted = new ToolCatalogSnapshot("restricted-v1", "{}", includeRestrictedTool
             ? [new ToolServerCapability("todoist", "Todoist", "1", false, null, null, null,
-                [new ToolCapability(ToolId, "create_task", null, restrictedSchema, true)])]
+                [restrictedTool ?? new ToolCapability(ToolId, "create_task", null, restrictedSchema, true)])]
             : []);
         return new WorkItemAutomaticApprovalService(
             new WorkItemRepository(workItem), runtime,
